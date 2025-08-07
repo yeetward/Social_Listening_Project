@@ -1,4 +1,3 @@
-make this into one readme format neat:
 ✅ Steps for others to run your backend Django project:
 
 1. Clone your GitHub repo
