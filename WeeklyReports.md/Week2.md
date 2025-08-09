@@ -1,10 +1,7 @@
-# Thread Title: Group #22 Week 2
+# Thread Title: Group # 22 Week 2
 
 ## MEETINGS WITH CLIENT
-- **Date:** [Insert if applicable]  
-- **Time:** [Insert]  
-- **Location:** [Online / In-person / N/A]  
-- **Attendees:** [List names or "No meeting this week"]
+"No meeting this week with the sponsor"
 
 ## MEETING WITH TEAM
 
@@ -20,11 +17,16 @@
 - **Location:** University  
 - **Attendees:** Yousef, Edward, Khawaja, Eric, Anirudh, Amr
 
+### Meeting 3
+- **Date:** 08/08/25  
+- **Time:** 3:00 PM  
+- **Location:** Zoom online
+- **Attendees:** Yousef, Edward, Khawaja, Eric, Anirudh, Amr
 ---
 
 ## WHAT DID WE DO THIS WEEK?
 
-- Set up communication tools — WhatsApp group created and GitHub repository initialized.
+- Set up communication tools; WhatsApp group, Discord created and GitHub repository initialized.
 - Finalized team roles based on strengths:
   - Web Developer: Yousef  
   - Software Developers: Edward & Eric  
@@ -61,9 +63,9 @@
 
 ## INDIVIDUAL REFLECTIONS
 
-- **Khawaja:** I found some NLP documentation challenging but manageable. I plan to test various models next week.
-- **Anirudh:**
-- **Yousef:**
-- **Eric:**
-- **Amr:**
-- **Edward:**
+- **Khawaja:** I found some NLP models for this project like Tf-idf and Tokenizer. I plan to test various models next week. I set up the collaboration on Github to work effectively. 
+- **Anirudh:** This week,  I spent my time on gearing up for the PACE unit. I started working on a project to revise my Python and machine learning skills. Along with the technical work, I have also taken on some administrative work for the team, which includes maintaining contact with the sponsor and the convenor, setting up our Discord server, and managing events (like meetings, due dates, etc) to ensure accountability.
+- **Yousef:** This week was focused on assembling UI/UX reference materials to guide the frontend design and ensure that the application will have an intuitive user experience. Since I've just started, one challenge has been wireframing without knowing the final backend data structure. But I believe I can adapt fairly easily, given the kind of project this is, to whatever the eventual structure turns out to be. I plan to do the first wireframes for the main application page next week and to connect that to the Django backend whenever it's ready.
+- **Eric:** This week I attended the orientation and met with my team and our industry partner for the Robotic Marketer P2 project, which gave me a clearer picture of the work ahead. I also set up my development environment and started learning the necessary skills to get ready for the tasks to come.
+- **Amr:** Started to research NLP models. Planning to experiment with the models in more depth next week.
+- **Edward:** As the team member responsible for the backend development of our project, I took on the task of setting up the Django environment. This involved creating the initial Django project, configuring necessary settings, generating the requirements.txt, and ensuring the project could be easily run by others through proper documentation and setup instructions. While I had planned to implement more backend functionality, such as models, and APIs I was only able to complete the environment setup during this phase of the project.
