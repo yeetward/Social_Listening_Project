@@ -9,7 +9,7 @@
 ## MEETING WITH TEAM
 
 ### Meeting 1
-- **Date:** 12/08/25  
+- **Date:** 13/08/25  
 - **Time:** 3:00 PM  
 - **Location:** Zoom  
 - **Attendees:** Yousef, Edward, Eric, Anirudh, Khawaja
@@ -54,12 +54,12 @@ In parallel, I worked on Section 4 of the Team Manual (Communication Plan and Me
 Beyond documentation, I explored approaches for handling word ambiguity in NLP and ML systems, reviewing potential strategies such as word sense disambiguation, contextual embeddings, and semantic similarity scoring. While this was not a formal deliverable, it supports our technical direction and strengthens my understanding for future implementation work.
 Overall, this week allowed me to contribute meaningfully to both project documentation and technical exploration, maintaining a balance between meeting immediate deliverable deadlines and investing in knowledge that will benefit the later development stages.
 
-- **Anirudh:** xxxx
+- **Anirudh:** This week we had our first meeting with the Sponsor. The team then sat on a call on 13/08 (Wednesday) to complete the Deliverable 1. I worked on section 1 of the feasibility report and section 1 of Team Manual. After completing the submission, we had our weekly meeting on Friday. The meeting was an opportunity to setup deadlines and decide a game plan for the next week. I also contributed in refining the deliverable 1 by giving the manual and report a structure. Finally, I reviewed NLP approaches to tackle the project problem. 
 
-- **Yousef:** xxxx
+- **Yousef:** I participated in the sponsor meeting on Monday (11/08) and the team meeting on Friday (15/08). During the week, I worked on drafting the deliverable reports and finished my assigned parts before undertaking a proofreading task for the overall document. I also conducted some UI research and audited the front-end development approach being planned. Toward the end of the week, I started making wireframes for the web application to visualize potential layouts and user flows. A small challenge I faced was managing how much detail to include in the wireframes. Including too much detail risked locking in design choices too early, while too little detail made it tough for the team to give any useful feedback.
 
 - **Eric:** I attended a sponsor meeting on Monday (11/08) and 2 team meetings on Wednesday and Friday, 13/08 and 15/08 respectively. During the week, I took on the role of meeting minute taker to ensure our discussions and decisions were properly documented. I also worked on the sections of Deliverable 1 that were assigned to me and contributed to refining our draft. In addition, I began reviewing backend requirements and project planning resources to prepare for Deliverable 2. Though the workload has started to increase, I am ready to stay on top of my responsibilities and support my team.
 
-- **Amr:** xxxx
+- **Amr:** xThis week, I completed Section 2 of the Feasibility Report, and Section 5.2 of the Team Manual. Additionally, I proofread both reports prior to submission, making minor fixes for inconsistences and formatting where necessary, in order to ensure the professionalism of the reports.This week, I completed Section 2 of the Feasibility Report, and Section 5.2 of the Team Manual. Additionally, I proofread both reports prior to submission, making minor fixes for inconsistences and formatting where necessary, in order to ensure the professionalism of the reports.
 
 - **Edward:** For this week I did some of my parts in the team manual, feasibility report, and deliverable certificate. This involved drafting, structuring, and finalising each document to meet the required standards and submission guidelines. In addition, I reviewed certain aspects related to API design, ensuring that our planned approach aligns with the overall system architecture and project requirements. My focus for this phase was on completing these three deliverables in full while also contributing to the API planning process.
