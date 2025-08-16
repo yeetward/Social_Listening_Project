@@ -43,7 +43,7 @@
 
 ## ARE THERE ANY OBSTACLES / POTENTIAL OBSTACLES?
 
-- No potential obstacles seen
+- Data scraping from X can be challenging, considering the privacy regulations applied after Elon Musk acquired X. 
 
 ---
 
@@ -60,6 +60,6 @@ Overall, this week allowed me to contribute meaningfully to both project documen
 
 - **Eric:** I attended a sponsor meeting on Monday (11/08) and 2 team meetings on Wednesday and Friday, 13/08 and 15/08 respectively. During the week, I took on the role of meeting minute taker to ensure our discussions and decisions were properly documented. I also worked on the sections of Deliverable 1 that were assigned to me and contributed to refining our draft. In addition, I began reviewing backend requirements and project planning resources to prepare for Deliverable 2. Though the workload has started to increase, I am ready to stay on top of my responsibilities and support my team.
 
-- **Amr:** xThis week, I completed Section 2 of the Feasibility Report, and Section 5.2 of the Team Manual. Additionally, I proofread both reports prior to submission, making minor fixes for inconsistences and formatting where necessary, in order to ensure the professionalism of the reports.This week, I completed Section 2 of the Feasibility Report, and Section 5.2 of the Team Manual. Additionally, I proofread both reports prior to submission, making minor fixes for inconsistences and formatting where necessary, in order to ensure the professionalism of the reports.
+- **Amr:** This week, I completed Section 2 of the Feasibility Report, and Section 5.2 of the Team Manual. Additionally, I proofread both reports prior to submission, making minor fixes for inconsistences and formatting where necessary, in order to ensure the professionalism of the reports.This week, I completed Section 2 of the Feasibility Report, and Section 5.2 of the Team Manual. Additionally, I proofread both reports prior to submission, making minor fixes for inconsistences and formatting where necessary, in order to ensure the professionalism of the reports.
 
 - **Edward:** For this week I did some of my parts in the team manual, feasibility report, and deliverable certificate. This involved drafting, structuring, and finalising each document to meet the required standards and submission guidelines. In addition, I reviewed certain aspects related to API design, ensuring that our planned approach aligns with the overall system architecture and project requirements. My focus for this phase was on completing these three deliverables in full while also contributing to the API planning process.
