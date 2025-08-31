@@ -38,7 +38,7 @@
 ## ARE THERE ANY OBSTACLES / POTENTIAL OBSTACLES?
 
 - There is uncertainty about data sources. For example, external APIs like Reddit, LinkedIn, and X may prohibit or restrict access, which could slow down data collection.
-- •	NLP model constraints "no paid LLMs" requirement limits some techniques, which means more testing with open-source models is needed.
+- NLP model constraints "no paid LLMs" requirement limits some techniques, which means more testing with open-source models is needed.
 
 ---
 
