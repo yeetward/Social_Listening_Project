@@ -29,37 +29,38 @@ For logging into Django admin:
 
 ---
 
-# Steps to fetch data from data sources
+# Fetching data from data sources
 
 1. Open 2 terminals
 
-2. For each terminal:
+2. Run the following in each terminals:
 
-### Terminal 1: 
+Terminal 1: 
+- cd Backend (Backend directory)
+- source .venv/bin/activate (Activate virtual environment)
+- python manage.py runserver (Start server)
+
+
+ Terminal 2:
 - cd Backend (Backend directory)
 - source .venv/bin/activate (venv environment)
-- python manage.py runserver (run server)
+- Use cURL to test API endpoints (cURL examples below)
 
-### Terminal 2:
-- cd Backend (Backend directory)
-- source .venv/bin/activate (venv environment)
-- Send cURL (client url)
-
-http://127.0.0.1:8000/api/health in browser for sanity check
+3. To verify the server is running, open http://127.0.0.1:8000/api/health in your browser for sanity check.
 
 
 # Examples cURL:
 ### Subject only
 curl -X POST http://127.0.0.1:8000/api/search \
   -H "Content-Type: application/json" \
-  -d '{"subject":"AI","limit":8}' | jq .
+  -d '{"subject":"AI","day":30}' | jq .
 
-### With location filter (may reduce results!)
+### With location filter (may reduce results)
 curl -X POST http://127.0.0.1:8000/api/search \
   -H "Content-Type: application/json" \
-  -d '{"subject":"AI","location":"Sydney","limit":8}' | jq .
+  -d '{"subject":"AI","location":"Sydney","day":30}' | jq .
 
 ### With industry filter
 curl -X POST http://127.0.0.1:8000/api/search \
   -H "Content-Type: application/json" \
-  -d '{"subject":"solar","industry":"energy","limit":8}' | jq .
+  -d '{"subject":"solar","industry":"energy","day":30}' | jq .
