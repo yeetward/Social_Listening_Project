@@ -37,13 +37,13 @@ For logging into Django admin:
 
 Terminal 1: 
 - cd Backend (Backend directory)
-- source .venv/bin/activate (Activate virtual environment)
+- source venv/bin/activate  #on Mac/Linus     venv\Scripts\activate #on Windows.  (Activate virtual environment)
 - python manage.py runserver (Start server)
 
 
  Terminal 2:
 - cd Backend (Backend directory)
-- source .venv/bin/activate (venv environment)
+- source venv/bin/activate  #on Mac/Linus     venv\Scripts\activate #on Windows.  (Activate virtual environment)
 - Use cURL to test API endpoints (cURL examples below)
 
 3. To verify the server is running, open http://127.0.0.1:8000/api/health in your browser for sanity check.
