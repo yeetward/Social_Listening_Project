@@ -6,6 +6,9 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import os
+GUARDIAN_API_KEY = os.environ.get("GUARDIAN_API_KEY", "")
+
 SECRET_KEY = 'django-insecure-2jz1e)3*3c%-rxe58dagw)$kkjjft!^6(m#lt-+b56m+8r=)7f'
 DEBUG = True
 ALLOWED_HOSTS = []
