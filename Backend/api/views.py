@@ -8,6 +8,7 @@ from .models import FetchLog  # added FetchLog
 # from .serializers import ProjectSerializer
 from .fetchers import (
     fetch_reddit_rss,
+    fetch_reddit_official,
     fetch_google_news,
     fetch_bbc_rss,
     fetch_techcrunch_rss,
@@ -36,12 +37,14 @@ def health(request):
 
 # Map source keys -> fetcher callables
 FETCHERS = {
+    "reddit_official":  fetch_reddit_official, 
     "reddit_rss":       fetch_reddit_rss,
     "news_rss":         fetch_google_news,
     "bbc_rss":          fetch_bbc_rss,
     "techcrunch_rss":   fetch_techcrunch_rss,
     "guardian_api":     fetch_guardian_api,
     "hackernews_api":   fetch_hackernews_api,
+    
 }
 
 def _parse_sources_param(val):

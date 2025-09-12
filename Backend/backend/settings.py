@@ -9,6 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 import os
 GUARDIAN_API_KEY = os.environ.get("GUARDIAN_API_KEY", "")
 
+# Add Reddit API credentials here:
+REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "s3vW-RmhXYulBjKnMD1PMQ")
+REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "hsyiwZ1PnyZKn1wsUtBr5y6f0vDvCg")
+REDDIT_USER_AGENT = os.environ.get("REDDIT_USER_AGENT", "AI Bot Listening by /u/Apprehensive_Air3734")
+
 SECRET_KEY = 'django-insecure-2jz1e)3*3c%-rxe58dagw)$kkjjft!^6(m#lt-+b56m+8r=)7f'
 DEBUG = True
 ALLOWED_HOSTS = []
@@ -59,7 +64,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'db_project2.sqlite3',
     }
 }
 

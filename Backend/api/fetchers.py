@@ -4,6 +4,10 @@ import re
 import html as htmlmod
 from typing import List, Dict
 
+import base64
+import logging
+logger = logging.getLogger(__name__)
+
 import requests
 import feedparser
 from django.conf import settings
@@ -78,6 +82,213 @@ def map_gnews_entry(e) -> Dict:
     # keep the same behavior you had, but via the generic helper
     d = _map_generic_rss_entry(e, source_key="news_rss", post_prefix="gnews_rss")
     return d
+# --- Official reddit ----------------------------------------------------
+def _is_website_url(url: str) -> bool:
+    """
+    Check if URL points to a website (article, blog, news, etc.)
+    and not media (images, videos, Reddit galleries, etc.)
+    """
+    if not url:
+        return False
+    
+    # Common media file extensions to exclude
+    media_extensions = {
+        '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg',
+        '.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv',
+        '.mp3', '.wav', '.ogg', '.m4a', '.flac',
+    }
+    
+    # Check file extension first
+    if any(url.lower().endswith(ext) for ext in media_extensions):
+        return False
+    
+    # Common media hosting domains to exclude
+    media_domains = {
+        'i.redd.it',      # Reddit images
+        'v.redd.it',      # Reddit videos
+        'reddit.com/gallery/',  # Reddit galleries
+        'imgur.com',      # Imgur
+        'giphy.com',      # Giphy
+        'gfycat.com',     # Gfycat
+        'streamable.com', # Streamable
+    }
+    
+    from urllib.parse import urlparse
+    parsed = urlparse(url.lower())
+    domain = parsed.netloc
+    path = parsed.path
+    
+    # Check if domain is a media host
+    for media_domain in media_domains:
+        if media_domain in domain:
+            return False
+    
+    # SPECIAL CASE: Reddit URLs - we want to keep text posts but filter media
+    if domain in ['reddit.com', 'www.reddit.com']:
+        # Allow Reddit text posts (subreddit discussions)
+        if '/r/' in path and '/comments/' in path:
+            return True
+        # Filter out other Reddit media
+        return False
+    
+    # Allow common website domains
+    website_domains = {
+        'reddit.com', 'www.reddit.com',
+        'youtube.com', 'youtu.be',        # Allow YouTube (often has educational content)
+        'vimeo.com',                      # Allow Vimeo (educational/creative)
+        'medium.com', 'substack.com',     # Blog platforms
+        'github.com', 'gitlab.com',       # Code repositories
+        'twitter.com', 'x.com',           # Social media (often shares articles)
+        'linkedin.com',                   # Professional content
+        # News sites
+        'nytimes.com', 'washingtonpost.com', 'theguardian.com',
+        'bbc.com', 'reuters.com', 'apnews.com', 'bloomberg.com',
+        'techcrunch.com', 'wired.com', 'theverge.com', 'arstechnica.com',
+        # Blog platforms
+        'wordpress.com', 'blogspot.com', 'tumblr.com',
+    }
+    
+    # If it's a known website domain, allow it
+    for website_domain in website_domains:
+        if website_domain in domain:
+            return True
+    
+    # For unknown domains, use a more permissive approach
+    # Allow anything that doesn't look like media
+    if '.' not in domain:  # Probably not a real website
+        return False
+        
+    # If it has a common TLD and doesn't look like media, allow it
+    common_tlds = {'.com', '.org', '.net', '.edu', '.gov', '.io', '.co'}
+    if any(domain.endswith(tld) for tld in common_tlds):
+        return True
+    
+    return False
+
+def _is_reddit_self_post(url: str) -> bool:
+    """Check if URL is a Reddit self-post (text content)"""
+    if not url:
+        return False
+    
+    from urllib.parse import urlparse
+    parsed = urlparse(url.lower())
+    domain = parsed.netloc
+    
+    return domain in ['reddit.com', 'www.reddit.com'] and '/r/' in parsed.path and '/comments/' in parsed.path
+
+def fetch_reddit_official(subject: str, limit: int = 20) -> List[Dict]:
+    """Official Reddit API search for website content only"""
+    access_token = _get_reddit_access_token()
+    if not access_token:
+        return []
+
+    headers = {
+        "User-Agent": settings.REDDIT_USER_AGENT,
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    try:
+        url = f"https://oauth.reddit.com/search"
+        params = {
+            "q": subject,
+            "sort": "new",
+            "limit": min(limit * 3, 100),  # Get more to account for filtering
+            "type": "link",
+            "restrict_sr": "off"  # Search all subreddits
+        }
+        
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        
+        posts = []
+        for child in data.get("data", {}).get("children", []):
+            post_data = child.get("data", {})
+            if not post_data:
+                continue
+                
+            mapped = _map_reddit_official_post(post_data)
+            if mapped:  # Only add if it's website content
+                posts.append(mapped)
+                if len(posts) >= limit:
+                    break
+            
+        return posts
+        
+    except Exception as e:
+        logger.error(f"Reddit API error: {e}")
+        return []
+
+def _get_reddit_access_token() -> str | None:
+    """Get OAuth2 access token for Reddit API"""
+    try:
+        auth_str = f"{settings.REDDIT_CLIENT_ID}:{settings.REDDIT_CLIENT_SECRET}"
+        encoded_auth = base64.b64encode(auth_str.encode()).decode()
+        
+        headers = {
+            "User-Agent": settings.REDDIT_USER_AGENT,
+            "Authorization": f"Basic {encoded_auth}"
+        }
+        
+        data = {
+            "grant_type": "client_credentials"
+        }
+        
+        response = requests.post(
+            "https://www.reddit.com/api/v1/access_token",
+            headers=headers,
+            data=data,
+            timeout=10
+        )
+        response.raise_for_status()
+        
+        return response.json().get("access_token")
+        
+    except Exception as e:
+        logger.error(f"Reddit token error: {e}")
+        return None
+
+def _map_reddit_official_post(post_data: Dict) -> Dict | None:
+    """Map Reddit API response, be smarter about website detection"""
+    
+    url = post_data.get("url") or f"https://reddit.com{post_data.get('permalink', '')}"
+    domain = post_data.get("domain", "")
+    
+    # For Reddit self-posts (text content), always include them
+    if domain == "self." or domain == "reddit.com":
+        # This is a Reddit text post - good content
+        pass
+    else:
+        # For external links, check if it's website content
+        if not _is_website_url(url):
+            print(f"DEBUG: Filtered out non-website: {url} (domain: {domain})")
+            return None
+    
+    title = post_data.get("title", "")
+    text = post_data.get("selftext", "")
+    author = post_data.get("author", "")
+    created_utc = post_data.get("created_utc")
+    
+    engagement = {
+        "score": post_data.get("score"),
+        "num_comments": post_data.get("num_comments"),
+        "upvote_ratio": post_data.get("upvote_ratio"),
+        "total_awards": post_data.get("total_awards_received", 0)
+    }
+    
+    return {
+        "post_id": f"reddit_official:{post_data.get('id', '')}",
+        "source": "reddit_official",
+        "url": url,
+        "title": title,
+        "text": clean_html_to_text(text),
+        "text_html": text,
+        "published_ts": int(created_utc) if created_utc else None,
+        "author": author,
+        "domain": domain,
+        "engagement": engagement,
+        "is_self_post": domain in ["self.", "reddit.com"],
+    }
 
 # --- fetchers: existing ----------------------------------------------------
 
