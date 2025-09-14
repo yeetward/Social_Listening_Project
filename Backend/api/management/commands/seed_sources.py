@@ -3,10 +3,9 @@ from django.core.management.base import BaseCommand
 from api.models import Source
 
 SEEDS = [
-    {"key": "reddit_rss",      "name": "Reddit (RSS)",             "base_url": "https://www.reddit.com/"},
-    {"key": "reddit_official", "name": "Reddit (Official API)",    "base_url": "https://www.reddit.com/"},
-    {"key": "news_rss",        "name": "Google News (RSS)",        "base_url": "https://news.google.com/"},
     
+    {"key": "reddit_official", "name": "Reddit (Official API)",    "base_url": "https://www.reddit.com/"},
+
     {"key": "reddit_rss",      "name": "Reddit (RSS)",             "base_url": "https://www.reddit.com/"},
     {"key": "news_rss",        "name": "Google News (RSS)",        "base_url": "https://news.google.com/"},
     {"key": "bbc_rss",         "name": "BBC News (RSS)",           "base_url": "https://www.bbc.co.uk/news"},
