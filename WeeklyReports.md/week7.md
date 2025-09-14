@@ -1,14 +1,12 @@
-# Thread Title: Group # 22 Week 6
+# Thread Title: Group # 22 Week 7
 
 ## MEETINGS WITH CLIENT
-### Meeting 1
 - **Date:** 11/09/25
 - **Time:** 5:00 PM  
 - **Location:** Microsoft Teams
 - **Attendees:** Yousef, Edward, Eric, Anirudh, Amr, Khawaja, Mellissah Smith(CEO), Hamayan (ML expert)
 
 ## MEETING WITH TEAM
-### Meeting 1
 - **Date:** 12/09/25  
 - **Time:** 3:00 PM  
 - **Location:** Discord  
