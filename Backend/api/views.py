@@ -266,3 +266,18 @@ def search_posts(request):
     resp["X-Sources-Used"] = ",".join(selected)
     resp["X-Source-Counts"] = ";".join(f"{k}={per_source_counts.get(k,0)}" for k in selected)
     return resp
+
+#added for mongodb
+@api_view(["GET"])
+def mongo_status(request):
+    try:
+        from .persist import get_mongo_db
+        db = get_mongo_db()
+        names = sorted(db.list_collection_names())
+        counts = {}
+        for c in ["posts", "sources", "fetch_logs"]:
+            if c in names:
+                counts[c] = db[c].count_documents({})
+        return Response({"db": db.name, "collections": names, "counts": counts}, status=200)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
