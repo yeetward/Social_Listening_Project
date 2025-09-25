@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual envs
+.venv/
+venv/
+env/
+source/
+
+# Django / local data
+*.sqlite3
+db.sqlite3
+db_*.sqlite3
+staticfiles/
+media/
+
+# Env files
+.env
+.env.*.local
+
+# Builds / coverage
+dist/
+build/
+*.egg-info/
+htmlcov/
+.coverage*
