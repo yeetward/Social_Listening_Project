@@ -1,10 +1,12 @@
 To be done:
-1. Algorithm for TF-IDF
-2. Algorithm for Semantic search
-3. Algorithm for engagement metrics
-4. Neural network to compute final score
-5. Sorter
-6. Push to mongodb
+Neural network
 
 Done:
 1. Setup mongodb
+
+1. Algorithm for TF-IDF
+2. Algorithm for Semantic search
+3. Algorithm for engagement metrics
+4. Combiner to compute final score
+5. Sorter
+6. Push to mongodb

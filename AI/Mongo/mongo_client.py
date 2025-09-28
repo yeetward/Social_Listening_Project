@@ -1,7 +1,13 @@
+# AI/Mongo/mongo_client.py
+
+import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 from pymongo import MongoClient
-import os
+
+
+
 
 # Load the env file that is NEXT TO this script
 ENV_PATH = Path(__file__).resolve().parent / "mongo_credentials.env"
