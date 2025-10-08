@@ -1,0 +1,422 @@
+{% extends "base.html" %}{% load static %}
+{% block content %}
+<div id="rmtool">
+  <!-- Minimal header (empty to keep sticky space) -->
+  <header class="rm-header"><div class="rm-header-content"></div></header>
+
+  <!-- Results Page Layout -->
+  <div class="rm-results-page">
+    <!-- Topbar inside white center column -->
+    <div class="rm-results-topbar">
+      <a href="{% url 'listening_tool:search' %}" class="rm-header-logo">
+        <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer" class="rm-logo-img">
+      </a>
+      <div class="rm-topbar-right">
+        <form id="headerSearchForm" class="rm-header-search" method="get" action="{% url 'listening_tool:results' %}">
+          <input type="text" name="subject" id="headerSearchInput" placeholder="Search" class="rm-header-input">
+          <button type="submit" class="rm-header-btn-search">Search</button>
+        </form>
+        <a href="{% url 'listening_tool:history' %}" class="rm-header-btn-history">History</a>
+      </div>
+    </div>
+    <div class="rm-results-sep"></div>
+    <h1 class="rm-results-page-title">Industry Search Results</h1>
+
+    <!-- Top 4 Cards Row -->
+    <div class="rm-top-cards-row">
+      <!-- FILTER (now far left) -->
+      <div class="rm-top-card rm-filter-card">
+        <h3 class="rm-top-card-title">FILTER</h3>
+        <ul class="rm-top-card-list rm-checklist">
+          <li><label><input type="checkbox"> <span>Time</span></label></li>
+          <li><label><input type="checkbox"> <span>Platform</span></label></li>
+          <li><label><input type="checkbox"> <span>Sentiment</span></label></li>
+          <li><label><input type="checkbox"> <span>Top Influencers</span></label></li>
+        </ul>
+      </div>
+      <!-- Trending Topics -->
+      <div class="rm-top-card">
+        <h3 class="rm-top-card-title is-normal">Trending Topics</h3>
+        <div class="rm-topics-box">
+          <ul class="rm-top-card-list">
+            <li>Multi-Cancer Early Detection / Liquid Biopsies</li>
+            <li>Digital Mental Health Devices & Regulation</li>
+            <li>Home Health, Remote Monitoring & "Hospital at Home" Models</li>
+            <li>Interoperability & Health Data Flow</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Opportunities -->
+      <div class="rm-top-card">
+        <h3 class="rm-top-card-title is-normal">Opportunities</h3>
+        <ul class="rm-top-card-list rm-opportunities-list">
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in Healthcare</span></li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare Costs & Affordability Pressures</span></li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate healthcare plans</span></li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around clinical burnout</span></li>
+        </ul>
+        </div>
+
+      <!-- Action -->
+      <div class="rm-top-card">
+        <h3 class="rm-top-card-title is-normal">Action</h3>
+        <div class="rm-action-form">
+          <ul class="rm-top-card-list rm-checklist">
+            <li><label><input type="checkbox"> <span>Email</span></label></li>
+            <li><label><input type="checkbox"> <span>Blog</span></label></li>
+            <li><label><input type="checkbox"> <span>Article</span></label></li>
+            <li><label><input type="checkbox"> <span>Social Media</span></label></li>
+            <li><label><input type="checkbox"> <span>Press Release</span></label></li>
+          </ul>
+          <div class="rm-action-input-group" style="margin-top:10px;">
+            <label><input type="checkbox" class="rm-filter-checkbox"> <span>Other</span></label>
+            <input type="text" id="otherAction" class="rm-action-input" placeholder="Enter information">
+            </div>
+          <button class="rm-action-submit">Submit</button>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <!-- Main Content with Sidebar -->
+    <div class="rm-results-layout">
+      <!-- Left Sidebar -->
+      <aside class="rm-results-sidebar">
+        <!-- INSIGHTS Section -->
+        <div class="rm-filter-section">
+          <h4 class="rm-filter-title">INSIGHTS</h4>
+          <ul class="rm-filter-list rm-checklist">
+            <li><label><input type="checkbox" name="insightChk" value="spike"> <span>Spike</span></label></li>
+            <li><label><input type="checkbox" name="insightChk" value="positive"> <span>Positive</span></label></li>
+            <li><label><input type="checkbox" name="insightChk" value="negative"> <span>Negative</span></label></li>
+          </ul>
+        </div>
+
+        <!-- PRIORITY Section -->
+        <div class="rm-filter-section">
+          <h4 class="rm-filter-title">PRIORITY</h4>
+          <ul class="rm-filter-list rm-checklist">
+            <li><label><input type="checkbox" name="priorityChk" value="high"> <span>High</span></label></li>
+            <li><label><input type="checkbox" name="priorityChk" value="medium"> <span>Medium</span></label></li>
+            <li><label><input type="checkbox" name="priorityChk" value="low"> <span>Low</span></label></li>
+          </ul>
+      </div>
+    </aside>
+
+      <!-- Main Results Area -->
+      <main class="rm-results-main">
+        <div id="results-container">
+          <div style="text-align:center; padding:40px; color:#666;">
+            Loading...
+          </div>
+        </div>
+    </main>
+    </div>
+  </div>
+</div>
+
+<script>
+// Get search term from URL
+const urlParams = new URLSearchParams(window.location.search);
+const subject = urlParams.get('subject') || 'test';
+
+// State management
+let allResults = [];
+let currentPage = 1;
+const PAGE_SIZE = 3;
+const TOTAL_PAGES = 4; // force max 4 pages
+let currentFilters = {
+  insight: null,  // null means show all
+  priority: null  // null means show all
+};
+
+// Populate header search input with current search term
+const headerSearchInput = document.getElementById('headerSearchInput');
+if (headerSearchInput && subject) {
+  headerSearchInput.value = subject;
+}
+
+// Setup checkbox filters (single-select with toggle)
+function setupSingleSelect(name){
+  const cbs = Array.from(document.querySelectorAll(`input[name="${name}"]`));
+  cbs.forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked){
+        cbs.forEach(other => { if (other !== cb) other.checked = false; });
+      }
+      renderResults();
+    });
+  });
+}
+setupSingleSelect('insightChk');
+setupSingleSelect('priorityChk');
+
+// Immediately start loading
+loadData();
+
+async function loadData() {
+  const container = document.getElementById('results-container');
+  
+  try {
+    // Show loading with subject
+    container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">Searching for "${subject}"...</div>`;
+    
+    console.log('Making API call for:', subject);
+    
+    // Make API call
+    const response = await fetch('http://127.0.0.1:8001/api/search/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        subject: subject, 
+        days: 7, 
+        limit: 50,
+        priority: 'all'
+      })
+    });
+    
+    console.log('API response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+    
+    allResults = await response.json();
+    console.log('API returned data:', allResults);
+    
+    // Display results
+    if (!allResults || allResults.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
+      return;
+    }
+    
+    renderResults();
+    
+  } catch (error) {
+    console.error('Error:', error);
+    container.innerHTML = `
+      <div style="
+        text-align:center; 
+        padding:40px; 
+        color:#dc3545;
+        border: 1px solid #f5c6cb;
+        background: #f8d7da;
+        border-radius: 8px;
+      ">
+        ❌ Error loading results: ${error.message}
+        <br><br>
+        <button onclick="loadData()" style="
+          padding: 8px 16px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        ">Try Again</button>
+      </div>
+    `;
+  }
+}
+
+// Helper functions
+function formatEngagement(engagement) {
+  let num = 0;
+  if (engagement && typeof engagement === 'object') {
+    num = engagement.score || engagement.num_comments || 0;
+  } else if (engagement) {
+    num = engagement;
+  }
+  
+  if (num >= 1000) {
+    return Math.floor(num / 1000) + 'K';
+  }
+  return num.toString();
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return '';
+  try {
+    const ts = String(timestamp).length > 10 ? timestamp : timestamp * 1000;
+    const date = new Date(ts);
+    const month = date.toLocaleString('default', { month: 'long' });
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
+  } catch (e) {
+    return '';
+  }
+}
+
+function getRelevancePercent(score) {
+  if (!score) return 0;
+  const num = Number(score);
+  if (num <= 1) return Math.round(num * 100);
+  return Math.min(100, Math.max(0, Math.round(num)));
+}
+
+function getInsightBadge(item) {
+  const insight = item.insight || item.sentiment;
+  if (insight) {
+    const upper = insight.toUpperCase();
+    if (upper.includes('SPIKE')) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
+    if (upper.includes('POSITIVE')) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
+    if (upper.includes('NEGATIVE')) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+  }
+  
+  const score = getRelevancePercent(item.score);
+  if (score >= 80) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
+  if (score >= 50) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
+  return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+}
+
+function getPriority(item) {
+  const score = getRelevancePercent(item.score);
+  if (score >= 75) return 'high';
+  if (score >= 40) return 'medium';
+  return 'low';
+}
+
+function processContent(summary) {
+  if (!summary) return { text: 'No description available.', bullets: [] };
+  
+  const bulletMarkers = ['•', '- ', '* ', '\n-', '\n•', '\n*'];
+  const hasBullets = bulletMarkers.some(marker => summary.includes(marker));
+  
+  if (hasBullets) {
+    const parts = summary.split(/[•\-\*]\s+/);
+    const intro = parts[0].trim();
+    const bullets = parts.slice(1).map(b => b.trim()).filter(b => b.length > 0);
+    
+    return { text: intro, bullets: bullets.slice(0, 3) };
+  }
+  
+  return { text: summary, bullets: [] };
+}
+
+function renderResults() {
+  const container = document.getElementById('results-container');
+  
+  // Collect selected checkboxes
+  const selectedInsights = Array.from(document.querySelectorAll('input[name="insightChk"]:checked')).map(cb => cb.value);
+  const selectedPriorities = Array.from(document.querySelectorAll('input[name="priorityChk"]:checked')).map(cb => cb.value);
+
+  // Filter results based on current selections (multi-select; empty = show all)
+  let filtered = allResults.filter(item => {
+    const insight = getInsightBadge(item).type; // spike|positive|negative
+    const priority = getPriority(item); // high|medium|low
+
+    const insightMatch = selectedInsights.length === 0 || selectedInsights.includes(insight);
+    const priorityMatch = selectedPriorities.length === 0 || selectedPriorities.includes(priority);
+
+    return insightMatch && priorityMatch;
+  });
+  
+  // Cap to TOTAL_PAGES * PAGE_SIZE by slicing to show more results via pagination
+  filtered = filtered.slice(0, TOTAL_PAGES * PAGE_SIZE);
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results match the selected filters.</div>`;
+    return;
+  }
+  
+  // Paginate
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+  // Create HTML for results
+  const html = `
+    <div class="rm-result-items">
+      ${pageItems.map(item => {
+        const title = item.title || 'Untitled';
+        const content = processContent(item.summary || item.text);
+        const source = item.source || item.author || item.platform || 'Deloitte';
+        const date = formatDate(item.published_ts || item.published || item.date);
+        const url = item.url || '';
+        const engagement = formatEngagement(item.engagement);
+        const relevance = getRelevancePercent(item.score);
+        const insight = getInsightBadge(item);
+        
+        return `
+          <article class="rm-result-item">
+            <header class="rm-result-item-header">
+              <div class="rm-result-item-header-left">
+                <h3 class="rm-result-item-title"><a href="${url}" target="_blank" class="rm-result-title-link">${title}</a></h3>
+                <div class="rm-result-item-body">
+                  <p class="rm-result-item-text">${content.text}</p>
+                  ${content.bullets.length > 0 ? `
+                    <ul class="rm-result-item-bullets">
+                      ${content.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                    </ul>
+                  ` : ''}
+                </div>
+              </div>
+              <div class="rm-result-item-meta">
+                <div class="rm-result-meta-row">
+                  <span class="rm-result-meta-label">Insights:</span>
+                  <span class="rm-result-insight-badge">
+                    <span class="rm-result-insight-dot" style="background:${insight.type==='positive' ? '#16a34a' : insight.type==='spike' ? '#e11d2e' : '#111'}"></span>
+                    ${insight.text}
+                  </span>
+                </div>
+                <div class="rm-result-meta-row">
+                  <span class="rm-result-meta-label">Engagement:</span>
+                  <span class="rm-result-engagement">
+                    <span class="rm-result-engagement-icon">▲</span> ${engagement}
+                  </span>
+                </div>
+                <div class="rm-result-meta-row">
+                  <span class="rm-result-meta-label">Relevance:</span>
+                  <div class="rm-result-relevance-bar">
+                    <div class="rm-result-relevance-fill" style="width:${relevance}%;"></div>
+                  </div>
+                </div>
+              </div>
+            </header>
+            
+            <footer class="rm-result-item-footer">
+              <span class="rm-result-item-source">${source}</span>
+              ${date ? `<span class=\"rm-result-item-date\">${date}</span>` : ''}
+            </footer>
+          </article>
+        `;
+      }).join('')}
+    </div>
+    ${renderPager(Math.ceil(filtered.length / PAGE_SIZE))}
+  `;
+  
+  container.innerHTML = html;
+}
+
+function renderPager(totalPages){
+  const pages = Math.min(totalPages, TOTAL_PAGES);
+  let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹</button>';
+  for (let p = 1; p <= pages; p++){
+    btns += `<button class="${p===currentPage?'rm-page-active':''}" data-page="${p}">${p}</button>`;
+  }
+  btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>›</button>';
+  return `<div class="rm-results-pager">${btns}</div>`;
+}
+
+// Delegate click for pager
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.rm-results-pager button');
+  if (!btn) return;
+  const nav = btn.getAttribute('data-nav');
+  if (nav === 'prev' && currentPage > 1) {
+    currentPage--;
+    renderResults();
+  } else if (nav === 'next' && currentPage < TOTAL_PAGES) {
+    currentPage++;
+    renderResults();
+  } else {
+    const page = Number(btn.getAttribute('data-page'));
+    if (!Number.isNaN(page)){
+      currentPage = page;
+      renderResults();
+    }
+  }
+});
+</script>
+{% endblock %}

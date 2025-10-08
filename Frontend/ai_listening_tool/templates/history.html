@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div id="rmtool">
+  <!-- Minimal header (empty to keep sticky space) -->
+  <header class="rm-header"><div class="rm-header-content"></div></header>
+
+  <!-- History Content -->
+  <div class="rm-history-page">
+    <!-- Topbar inside white center column -->
+    <div class="rm-history-topbar">
+      <a href="{% url 'listening_tool:search' %}" class="rm-header-logo">
+        <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer" class="rm-logo-img">
+      </a>
+      <form id="headerSearchForm" class="rm-header-search" method="get" action="{% url 'listening_tool:results' %}">
+        <input type="text" name="subject" id="headerSearchInput" placeholder="Search" class="rm-header-input">
+        <button type="submit" class="rm-header-btn-search">Search</button>
+      </form>
+    </div>
+    <div class="rm-history-sep"></div>
+    <div class="rm-history-layout">
+      <!-- Left Sidebar Filter -->
+      <aside class="rm-history-sidebar">
+        <h3 class="rm-sidebar-title">Refine by Date</h3>
+        <ul class="rm-date-filter rm-checklist">
+          <li><label><input type="checkbox"> <span>Today</span></label></li>
+          <li><label><input type="checkbox"> <span>Yesterday</span></label></li>
+          <li><label><input type="checkbox"> <span>Last 7 days</span></label></li>
+          <li><label><input type="checkbox"> <span>Last 30 Days</span></label></li>
+        </ul>
+      </aside>
+
+      <!-- Main Table Area -->
+      <main class="rm-history-main">
+        <h1 class="rm-history-page-title">Search History</h1>
+        <div class="rm-history-table-wrapper">
+          <table class="rm-history-data-table">
+          <thead>
+            <tr>
+              <th>Date Searched</th>
+              <th>Topic</th>
+              <th>Engagement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>February 26, 2025</td>
+              <td>AI, Generative AI & Large Language Models in Healthcare</td>
+              <td><span class="rm-engagement-up">▲ 111K</span></td>
+            </tr>
+            <tr>
+              <td>February 26, 2025</td>
+              <td>Rising Healthcare Costs & Affordability Pressures</td>
+              <td><span class="rm-engagement-down">▼ 55K</span></td>
+            </tr>
+            <tr>
+              <td>February 26, 2025</td>
+              <td>Workforce Health, Clinician Burnout, Staffing Shortages</td>
+              <td><span class="rm-engagement-up">▲ 576K</span></td>
+            </tr>
+            <tr>
+              <td>February 26, 2025</td>
+              <td>Value-based Care, Digital Quality, and Consumer-Centered</td>
+              <td><span class="rm-engagement-up">▲ 176K</span></td>
+            </tr>
+            <tr>
+              <td>February 26, 2025</td>
+              <td>Health Data, Interoperability & Privacy/Security</td>
+              <td><span class="rm-engagement-up">▲ 876K</span></td>
+            </tr>
+          </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination (outside bordered table, below) -->
+        <div class="rm-history-pagination">
+          <button class="rm-page-arrow rm-page-prev" disabled>‹</button>
+          <button class="rm-page-btn rm-page-num rm-page-active">1</button>
+          <button class="rm-page-btn rm-page-num">2</button>
+          <button class="rm-page-btn rm-page-num">3</button>
+          <button class="rm-page-btn rm-page-num">4</button>
+          <button class="rm-page-arrow rm-page-next">›</button>
+        </div>
+      </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="rm-history-footer">
+      AI-Topics Powered by Robotic Marketer®
+    </footer>
+  </div>
+</div>
+{% endblock %}
+
+{% block pagescripts %}
+<script>
+// Optional: Add interactive features for filters and pagination
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("History page loaded");
+  
+  // Filter checkboxes - single select behavior
+  const filterCheckboxes = document.querySelectorAll('.rm-date-filter input[type="checkbox"]');
+  filterCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      if (this.checked) {
+        // Uncheck all other checkboxes
+        filterCheckboxes.forEach(cb => {
+          if (cb !== this) cb.checked = false;
+        });
+      }
+    });
+  });
+  
+  // Pagination buttons
+  const pageButtons = document.querySelectorAll('.rm-page-num');
+  pageButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      pageButtons.forEach(b => b.classList.remove('rm-page-active'));
+      btn.classList.add('rm-page-active');
+    });
+  });
+});
+</script>
+{% endblock %}

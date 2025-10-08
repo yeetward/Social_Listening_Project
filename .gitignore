@@ -29,4 +29,7 @@ dist/
 build/
 *.egg-info/
 htmlcov/
-.coverage*
+.coverage*Frontend/.venv/
+Frontend/__pycache__/
+Frontend/*.pyc
+Frontend/.env
