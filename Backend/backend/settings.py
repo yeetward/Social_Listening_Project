@@ -149,7 +149,7 @@ SECRET_KEY = "dev-only-secret-key-change-me"
 DEBUG = True
 ALLOWED_HOSTS = []
 
-GUARDIAN_API_KEY = os.environ.get("GUARDIAN_API_KEY", "")
+GUARDIAN_API_KEY = os.environ.get("GUARDIAN_API_KEY", "61c6baaf-f156-4fd7-8b94-005642818a11")
 
 # REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "")
 # REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "")
