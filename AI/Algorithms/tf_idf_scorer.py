@@ -40,3 +40,4 @@ def score_tfidf_simple(keyword: str, doc: Dict[str, Any]) -> float:
     )
 
 __all__ = ["score_tfidf_simple"]
+
