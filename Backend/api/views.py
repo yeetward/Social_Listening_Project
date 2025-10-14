@@ -6,15 +6,9 @@ from rest_framework.response import Response
 
 from .models import FetchLog  # added FetchLog
 # from .serializers import ProjectSerializer
-from .fetchers import (
-    fetch_reddit_rss,
-    fetch_reddit_official,
-    fetch_google_news,
-    fetch_bbc_rss,
-    fetch_techcrunch_rss,
-    fetch_guardian_api,
-    fetch_hackernews_api,
-)
+
+from .sources import REGISTRY as FETCHERS
+
 from .persist import persist_posts  # added persist helper
 
 import logging
@@ -23,29 +17,6 @@ logger = logging.getLogger(__name__)
 
 def health(request):
     return JsonResponse({"status": "ok", "version": "v1"})
-
-# Optional sample CRUD (kept commented to avoid missing model import)
-# class ProjectCreateView(generics.CreateAPIView):
-#     queryset = project.objects.all()
-#     serializer_class = ProjectSerializer
-# class ProjectListView(generics.ListAPIView):
-#     queryset = project.objects.order_by("-id")
-#     serializer_class = ProjectSerializer
-# class ProjectDetailView(generics.RetrieveAPIView):
-#     queryset = project.objects.all()
-#     serializer_class = ProjectSerializer
-
-# Map source keys -> fetcher callables
-FETCHERS = {
-    "reddit_official":  fetch_reddit_official, 
-    "reddit_rss":       fetch_reddit_rss,
-    "news_rss":         fetch_google_news,
-    "bbc_rss":          fetch_bbc_rss,
-    "techcrunch_rss":   fetch_techcrunch_rss,
-    "guardian_api":     fetch_guardian_api,
-    "hackernews_api":   fetch_hackernews_api,
-    
-}
 
 def _parse_sources_param(val):
     """
@@ -132,7 +103,8 @@ def search_posts(request):
     selected = _parse_sources_param(data.get("sources") or data.get("source"))
     if not selected:
         selected = list(FETCHERS.keys())  # default: all
-    # Fetch
+
+    # 2b) Fetch
     sources_data = []
     per_source_counts = {}  # before filtering/merge
 
@@ -184,7 +156,7 @@ def search_posts(request):
             return None
 
         score = 0
-       # subject: title hit > body hit
+        # subject: title hit > body hit
         if subj_l in title:
             score += 3
         elif subj_l in body:
@@ -213,7 +185,6 @@ def search_posts(request):
         resp["X-Fetch-Limit"] = str(fetch_limit)
         resp["X-Freshness-Days"] = str(days)
         resp["X-Sources-Used"] = ",".join(selected)
-        # simple counts header like: key=cnt;key=cnt
         resp["X-Source-Counts"] = ";".join(f"{k}={per_source_counts.get(k,0)}" for k in selected)
         if persist_flag:
             try:
@@ -259,9 +230,9 @@ def search_posts(request):
     # Helpful headers
     resp = Response(result, status=200)
     resp["X-Results-Requested"] = str(requested_limit)
-    resp["X-Results-Limit"] = str(limit)           # display cap
+    resp["X-Results-Limit"] = str(limit)
     resp["X-Results-Returned"] = str(len(result))
-    resp["X-Fetch-Limit"] = str(fetch_limit)       # pool size used
+    resp["X-Fetch-Limit"] = str(fetch_limit)
     resp["X-Freshness-Days"] = str(days)
     resp["X-Sources-Used"] = ",".join(selected)
     resp["X-Source-Counts"] = ";".join(f"{k}={per_source_counts.get(k,0)}" for k in selected)
