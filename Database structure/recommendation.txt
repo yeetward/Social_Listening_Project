@@ -1,0 +1,11 @@
+TBD
+{
+  _id: ObjectId,
+  category: "trending_topics",
+  updated_at: ISODate,
+  data: [
+    {
+      title: "iPhone 17",
+    },
+  ]
+}

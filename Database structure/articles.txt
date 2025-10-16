@@ -1,0 +1,35 @@
+{
+  _id: ObjectId,
+  url: "https://example.com/article",
+  title: "iPhone 17 Rumors",
+  content: "Apple is expected to...",
+  source: "reddit",
+  published_at: ISODate,
+  tags: ["iphone", "apple", "iphone 17"],
+  influencer_mentions: ["techguru123"], // optional, null by deafult?
+  backlinks: ["https://somebacklink.com"], // other webpages mentioning the article basically
+  AI_title: [null]
+  AI_Summary: [null]
+  created_at: ISODate
+  engagement: {
+    upvotes: 120,         // Reddit, HackerNews, etc.
+    comments: 35,
+    shares: 50,           // If available
+    views: 1000,          // From APIs or estimated
+    likes: 200,           // Twitter, YouTube, etc.
+    platform_specific: {
+        reddit: {
+            subreddit: "Apple",
+            score: 150,
+            num_comments: 22
+        },
+        twitter: {
+            retweets: 30,
+            likes: 70,
+            replies: 10
+        }
+    }
+    }  
+} 
+
+
