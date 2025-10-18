@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python Text_summariser.py)",
+      "Bash(python content_distribution_classifier.py)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
