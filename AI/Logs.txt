@@ -1,12 +1,10 @@
-To be done:
-Neural network
-
-Done:
-1. Setup mongodb
-
-1. Algorithm for TF-IDF
-2. Algorithm for Semantic search
-3. Algorithm for engagement metrics
-4. Combiner to compute final score
-5. Sorter
-6. Push to mongodb
+-> TfIDF algorithm = Gives a text a relevance score from 0-1
+-> SBERT algorithm = Gives a text a relevance score from 0-1
+-> engagement scorer = Scores the engagement of an article fro 0-1
+-> score combiner = Combines the score from the above algorithms to produce a relevancy scorer
+-> bm25_scorer = Algorithm that gives a text a relevancy score from 0-1
+-> Updated the weights of the algorithms after adding bm25 model
+-> Added a mongodb collection reader
+-> Added a mongodb score saver
+-> Added a main.py to run the pipeline
+-> Added a readme.md to explain how to run the code
