@@ -1,10 +1,15 @@
 # Backend/api/urls.py
+# Backend/api/urls.py
 from django.urls import path
-from .views import health, search_posts, mongo_status
-
+from .views import health, search_posts, mongo_status, list_history, get_search_status, get_results
 
 urlpatterns = [
-    path("health/", health),     # Add trailing slash
-    path("search/", search_posts),  # Add trailing slash
-     path("debug/mongo/", mongo_status)
+    path("health/", health),
+    path("search/", search_posts),
+    path("debug/mongo/", mongo_status),
+
+    # --- new endpoints ---
+    path("history/", list_history),                # GET list of past searches
+    path("search/status/", get_search_status),     # GET AI progress for a history_id
+    path("results/", get_results),                 # GET paginated AI results
 ]
