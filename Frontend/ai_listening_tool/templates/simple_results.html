@@ -1,10 +1,10 @@
 {% extends "base.html" %}{% load static %}
 {% block content %}
 <div style="padding:20px; max-width:1000px; margin:0 auto; font-family: Arial, sans-serif;">
-  
+
   <h1>🔍 Social Listening Results</h1>
   <p><a href="/tool/" style="color:#007bff;">← Back to Search</a></p>
-  
+
   <div id="results-container">
     <div style="text-align:center; padding:20px; color:#666;">
       Loading data...
@@ -13,58 +13,51 @@
 
 </div>
 
+{% endblock %}
+
+{% block pagescripts %}
 <script>
-// Get search term from URL
-const urlParams = new URLSearchParams(window.location.search);
-const subject = urlParams.get('subject') || 'test';
+  // Get search term from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const subject = (urlParams.get('subject') || sessionStorage.getItem('rm_subject') || '').trim() || 'test';
 
-// Show what we're searching for
-document.querySelector('h1').textContent = `🔍 Results for "${subject}"`;
+  // Show what we're searching for
+  document.querySelector('h1').textContent = `🔍 Results for "${subject}"`;
 
-// Immediately start loading
-loadData();
+  // Immediately start loading
+  loadData();
 
-async function loadData() {
-  const container = document.getElementById('results-container');
-  
-  try {
-    // Show loading with subject
-    container.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">Searching for "${subject}"...</div>`;
-    
-    console.log('Making API call for:', subject);
-    
-    // Make API call
-    const response = await fetch('http://127.0.0.1:8001/api/search/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        subject: subject, 
-        days: 7, 
+  async function loadData() {
+    const container = document.getElementById('results-container');
+
+    try {
+      // Show loading with subject
+      container.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">Searching for "${subject}"...</div>`;
+
+      console.log('Making API call for:', subject);
+
+      // Make API call via helper using configured API_BASE
+      const data = await window.apiPost('/search/', {
+        subject: subject,
+        days: 7,
         limit: 10,
         priority: 'all'
-      })
-    });
-    
-    console.log('API response status:', response.status);
-    
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('API returned data:', data);
-    
-    // Display results
-    if (!data || data.length === 0) {
-      container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
-      return;
-    }
-    
-    // Create HTML for results
-    const html = `
+      });
+      console.log('API returned data:', data);
+
+      // Display results
+      if (!data || data.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
+        return;
+      }
+
+      // Create HTML for results
+      const html = `
       <h2>Found ${data.length} results:</h2>
       <div style="display:grid; gap:20px;">
-        ${data.map(item => `
+        ${data.map(raw => {
+        const item = normalize(raw, subject);
+        return `
           <div style="
             border: 1px solid #ddd; 
             border-radius: 8px; 
@@ -76,7 +69,7 @@ async function loadData() {
               ${item.title || 'No title'}
             </h3>
             <p style="color: #666; line-height: 1.5; margin: 10px 0;">
-              ${item.summary || 'No summary available'}
+              ${item.text || item.summary || 'No summary available'}
             </p>
             <div style="
               margin-top: 15px; 
@@ -108,15 +101,15 @@ async function loadData() {
               </div>
             ` : ''}
           </div>
-        `).join('')}
+        `}).join('')}
       </div>
     `;
-    
-    container.innerHTML = html;
-    
-  } catch (error) {
-    console.error('Error:', error);
-    container.innerHTML = `
+
+      container.innerHTML = html;
+
+    } catch (error) {
+      console.error('Error:', error);
+      container.innerHTML = `
       <div style="
         text-align:center; 
         padding:20px; 
@@ -137,8 +130,26 @@ async function loadData() {
         ">Try Again</button>
       </div>
     `;
+    }
   }
-}
-</script>
 
+  function normalize(item, subj) {
+    const title = item.title || item.headline || item.name || '';
+    const text = item.summary || item.text || item.description || '';
+    let score = item.score;
+    if (score == null) {
+      const ai = item.ai_score;
+      if (typeof ai === 'number' && !Number.isNaN(ai)) {
+        score = Math.round(ai * 100);
+      } else {
+        const hay = (title + ' ' + text).toLowerCase();
+        const q = String(subj || '').toLowerCase();
+        if (q && title.toLowerCase().includes(q)) score = 80;
+        else if (q && hay.includes(q)) score = 55;
+        else score = 25;
+      }
+    }
+    return { ...item, title, text, score };
+  }
+</script>
 {% endblock %}
