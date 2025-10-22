@@ -2,13 +2,13 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Results page JavaScript loaded");
-  
+
   // Source of truth for API base
   const host = document.getElementById("rmtool") || document.body;
   const apiBase =
     (host.dataset.apiBase && host.dataset.apiBase.replace(/\/$/, "")) ||
     (window.RM_TOOL_CONFIG?.API_BASE && window.RM_TOOL_CONFIG.API_BASE.replace(/\/$/, "")) ||
-    "http://127.0.0.1:8001/api";
+    "http://127.0.0.1:8000/api";
 
   console.log("API Base URL:", apiBase);
 
@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const subject = (qs.get("subject") || sessionStorage.getItem("rm_subject") || "").trim();
   const timeRangeSel = document.getElementById("timeRange");
   const prioritySel = document.getElementById("priority");
-  
+
   // Populate header search input
   const headerSearchInput = document.getElementById("headerSearchInput");
   if (headerSearchInput && subject) {
@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (timeRangeSel) timeRangeSel.value = String(defaultDays);
 
   console.log("Search subject:", subject);
-  
+
   const defaultPriority = sessionStorage.getItem("rm_priority") || "all";
   if (prioritySel) prioritySel.value = defaultPriority;
 
@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to fetch data and render results
   async function fetchAndRenderResults(currentSubject, days, priority, page) {
     console.log(`Fetching results for "${currentSubject}" (Days: ${days}, Priority: ${priority}, Page: ${page})`);
-    
+
     if (loadingEl) loadingEl.style.display = "block";
     if (errEl) errEl.style.display = "none";
     if (listEl) listEl.innerHTML = "";
@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function card(p) {
     console.log("Creating card for:", p);
-    
+
     // Simplify data extraction
     const title = p.title || "Untitled";
     const summary = p.summary || p.text || "No description available.";
@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const score = Math.round(p.score || 0);
     const url = p.url || "";
     const tags = Array.isArray(p.tags) ? p.tags.slice(0, 3) : []; // Limit to 3 tags
-    
+
     // Format engagement
     let engagement = "0";
     if (p.engagement && typeof p.engagement === 'object') {
@@ -160,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (p.engagement) {
       engagement = p.engagement;
     }
-    
+
     // Format date
     let dateStr = "";
     if (p.published_ts) {
@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Date parsing error:", e);
       }
     }
-    
+
     const cardHTML = `
       <article class="rm-card">
         <header class="rm-card-h">
@@ -191,7 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </footer>
       </article>
     `;
-    
+
     console.log("Generated card HTML:", cardHTML);
     return cardHTML;
   }

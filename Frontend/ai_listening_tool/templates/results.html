@@ -2,14 +2,17 @@
 {% block content %}
 <div id="rmtool">
   <!-- Minimal header (empty to keep sticky space) -->
-  <header class="rm-header"><div class="rm-header-content"></div></header>
+  <header class="rm-header">
+    <div class="rm-header-content"></div>
+  </header>
 
   <!-- Results Page Layout -->
   <div class="rm-results-page">
     <!-- Topbar inside white center column -->
     <div class="rm-results-topbar">
       <a href="{% url 'listening_tool:search' %}" class="rm-header-logo">
-        <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer" class="rm-logo-img">
+        <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer"
+          class="rm-logo-img">
       </a>
       <div class="rm-topbar-right">
         <form id="headerSearchForm" class="rm-header-search" method="get" action="{% url 'listening_tool:results' %}">
@@ -25,13 +28,50 @@
     <!-- Top 4 Cards Row -->
     <div class="rm-top-cards-row">
       <!-- FILTER (now far left) -->
-      <div class="rm-top-card rm-filter-card">
-        <h3 class="rm-top-card-title">FILTER</h3>
+      <div class="rm-top-card rm-filter-card" style="position: relative;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h3 class="rm-top-card-title" style="margin: 0;">FILTER <span id="filterCount"
+              style="font-weight: 400; color: #6b7280;"></span></h3>
+          <button id="clearAllFiltersBtn" class="rm-filter-clear-btn" style="display: none;">Clear all</button>
+        </div>
         <ul class="rm-top-card-list rm-checklist">
-          <li><label><input type="checkbox"> <span>Time</span></label></li>
-          <li><label><input type="checkbox"> <span>Platform</span></label></li>
-          <li><label><input type="checkbox"> <span>Sentiment</span></label></li>
-          <li><label><input type="checkbox"> <span>Top Influencers</span></label></li>
+          <li style="position: relative;">
+            <label id="timeFilterLabel" style="cursor:pointer;"><input id="timeFilterBox" type="checkbox">
+              <span id="timeFilterText">Time</span></label>
+            <!-- Time Filter Dropdown -->
+            <div id="timeFilterDropdown" class="rm-filter-dropdown">
+              <div class="rm-dropdown-content" id="timeFilterOptions">
+                <!-- Will be populated dynamically based on data -->
+              </div>
+            </div>
+          </li>
+          <li style="position: relative;">
+            <label id="platformFilterLabel" style="cursor:pointer;"><input id="platformFilterBox" type="checkbox">
+              <span id="platformFilterText">Platform</span></label>
+            <!-- Platform Filter Dropdown -->
+            <div id="platformFilterDropdown" class="rm-filter-dropdown">
+              <div class="rm-dropdown-content">
+                <div id="platformOptions">
+                  <!-- Will be populated dynamically -->
+                </div>
+              </div>
+            </div>
+          </li>
+          <li style="position: relative;">
+            <label id="sentimentFilterLabel" style="cursor:pointer;"><input id="sentimentFilterBox" type="checkbox">
+              <span id="sentimentFilterText">Sentiment</span></label>
+            <!-- Sentiment Filter Dropdown -->
+            <div id="sentimentFilterDropdown" class="rm-filter-dropdown">
+              <div class="rm-dropdown-content">
+                <button type="button" class="rm-dropdown-option" data-sentiment="positive">Positive</button>
+                <button type="button" class="rm-dropdown-option" data-sentiment="negative">Negative</button>
+                <button type="button" class="rm-dropdown-option" data-sentiment="neutral">Neutral</button>
+                <div class="rm-dropdown-divider"></div>
+                <button type="button" class="rm-dropdown-option rm-option-clear" data-sentiment="">Clear</button>
+              </div>
+            </div>
+          </li>
+          <li><label><input id="influencersFilterBox" type="checkbox"> <span>Top Influencers</span></label></li>
         </ul>
       </div>
       <!-- Trending Topics -->
@@ -51,12 +91,16 @@
       <div class="rm-top-card">
         <h3 class="rm-top-card-title is-normal">Opportunities</h3>
         <ul class="rm-top-card-list rm-opportunities-list">
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in Healthcare</span></li>
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare Costs & Affordability Pressures</span></li>
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate healthcare plans</span></li>
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around clinical burnout</span></li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in Healthcare</span>
+          </li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare Costs
+              & Affordability Pressures</span></li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate
+              healthcare plans</span></li>
+          <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around clinical
+              burnout</span></li>
         </ul>
-        </div>
+      </div>
 
       <!-- Action -->
       <div class="rm-top-card">
@@ -65,35 +109,22 @@
           <ul class="rm-top-card-list rm-checklist">
             <li><label><input type="checkbox"> <span>Email</span></label></li>
             <li><label><input type="checkbox"> <span>Blog</span></label></li>
-            <li><label><input type="checkbox"> <span>Article</span></label></li>
+            <li><label><input type="checkbox"> <span>Website Content</span></label></li>
             <li><label><input type="checkbox"> <span>Social Media</span></label></li>
             <li><label><input type="checkbox"> <span>Press Release</span></label></li>
           </ul>
-          <div class="rm-action-input-group" style="margin-top:10px;">
-            <label><input type="checkbox" class="rm-filter-checkbox"> <span>Other</span></label>
-            <input type="text" id="otherAction" class="rm-action-input" placeholder="Enter information">
-            </div>
-          <button class="rm-action-submit">Submit</button>
+          <button class="rm-action-submit"
+            style="margin-top: 20px !important; margin-bottom: 20px !important;">Submit</button>
         </div>
       </div>
 
-      
+
     </div>
 
     <!-- Main Content with Sidebar -->
     <div class="rm-results-layout">
       <!-- Left Sidebar -->
       <aside class="rm-results-sidebar">
-        <!-- INSIGHTS Section -->
-        <div class="rm-filter-section">
-          <h4 class="rm-filter-title">INSIGHTS</h4>
-          <ul class="rm-filter-list rm-checklist">
-            <li><label><input type="checkbox" name="insightChk" value="spike"> <span>Spike</span></label></li>
-            <li><label><input type="checkbox" name="insightChk" value="positive"> <span>Positive</span></label></li>
-            <li><label><input type="checkbox" name="insightChk" value="negative"> <span>Negative</span></label></li>
-          </ul>
-        </div>
-
         <!-- PRIORITY Section -->
         <div class="rm-filter-section">
           <h4 class="rm-filter-title">PRIORITY</h4>
@@ -102,8 +133,8 @@
             <li><label><input type="checkbox" name="priorityChk" value="medium"> <span>Medium</span></label></li>
             <li><label><input type="checkbox" name="priorityChk" value="low"> <span>Low</span></label></li>
           </ul>
-      </div>
-    </aside>
+        </div>
+      </aside>
 
       <!-- Main Results Area -->
       <main class="rm-results-main">
@@ -112,91 +143,789 @@
             Loading...
           </div>
         </div>
-    </main>
+      </main>
     </div>
   </div>
-</div>
 
-<script>
-// Get search term from URL
-const urlParams = new URLSearchParams(window.location.search);
-const subject = urlParams.get('subject') || 'test';
+  <style>
+    /* Filter dropdown styling */
+    .rm-filter-dropdown {
+      position: absolute;
+      display: none;
+      z-index: 1000;
+      margin-top: 4px;
+    }
 
-// State management
-let allResults = [];
-let currentPage = 1;
-const PAGE_SIZE = 3;
-const TOTAL_PAGES = 4; // force max 4 pages
-let currentFilters = {
-  insight: null,  // null means show all
-  priority: null  // null means show all
-};
+    .rm-filter-dropdown.show {
+      display: block;
+    }
 
-// Populate header search input with current search term
-const headerSearchInput = document.getElementById('headerSearchInput');
-if (headerSearchInput && subject) {
-  headerSearchInput.value = subject;
-}
+    .rm-dropdown-content {
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px;
+      min-width: 160px;
+      max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 1px solid #e5e7eb;
+    }
 
-// Setup checkbox filters (single-select with toggle)
-function setupSingleSelect(name){
-  const cbs = Array.from(document.querySelectorAll(`input[name="${name}"]`));
-  cbs.forEach(cb => {
-    cb.addEventListener('change', () => {
-      if (cb.checked){
-        cbs.forEach(other => { if (other !== cb) other.checked = false; });
+    .rm-dropdown-option {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #374151;
+      transition: background 0.15s;
+    }
+
+    .rm-dropdown-option:hover {
+      background: #f3f4f6;
+    }
+
+    .rm-dropdown-option.selected {
+      /* Remove row highlight while keeping tick and red text */
+      background: transparent;
+      color: #dc2626;
+      font-weight: 600;
+      position: relative;
+      padding-left: 28px;
+    }
+
+    .rm-dropdown-option.selected::before {
+      content: '✓';
+      position: absolute;
+      left: 8px;
+      font-weight: bold;
+      color: #dc2626;
+    }
+
+    .rm-dropdown-option.rm-option-clear {
+      color: #e11d2e;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .rm-dropdown-divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 4px 0;
+    }
+
+    /* Clear all button styling */
+    .rm-filter-clear-btn {
+      padding: 4px 10px;
+      background: transparent;
+      color: #e11d2e;
+      border: 1px solid #e11d2e;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .rm-filter-clear-btn:hover {
+      background: #e11d2e;
+      color: #fff;
+    }
+
+    /* Loading skeleton styles */
+    .rm-loading-skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid #000;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .rm-skeleton-item {
+      padding: 20px;
+      border-bottom: 1px solid #000;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .rm-skeleton-item:last-child {
+      border-bottom: none;
+    }
+
+    .rm-skeleton-header {
+      display: grid;
+      grid-template-columns: 1fr 200px;
+      gap: 20px;
+      margin-bottom: 12px;
+    }
+
+    .rm-skeleton-title {
+      height: 24px;
+      background: #e5e7eb;
+      border-radius: 4px;
+    }
+
+    .rm-skeleton-meta {
+      height: 80px;
+      background: #e5e7eb;
+      border-radius: 4px;
+    }
+
+    .rm-skeleton-text {
+      height: 16px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .rm-skeleton-text:last-child {
+      width: 70%;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
       }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* Loading spinner (alternative) */
+    .rm-loading-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: #6b7280;
+    }
+
+    .rm-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #e11d2e;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</div>
+{% endblock %}
+
+{% block pagescripts %}
+<script>
+  // Get search term from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const subject = (urlParams.get('subject') || sessionStorage.getItem('rm_subject') || '').trim() || 'test';
+
+  // State management
+  let allResults = [];
+  let currentPage = 1;
+  const PAGE_SIZE = 3;
+  const TOTAL_PAGES = 4; // force max 4 pages
+  let isLoading = false;
+
+  // Populate header search input with current search term
+  const headerSearchInput = document.getElementById('headerSearchInput');
+  if (headerSearchInput && subject) {
+    headerSearchInput.value = subject;
+  }
+
+  // Setup checkbox filters (multi-select)
+  document.querySelectorAll('input[name="priorityChk"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      updateURL();
       renderResults();
     });
   });
-}
-setupSingleSelect('insightChk');
-setupSingleSelect('priorityChk');
 
-// Immediately start loading
-loadData();
+  // Initialize filters from URL
+  initializeFiltersFromURL();
 
-async function loadData() {
-  const container = document.getElementById('results-container');
-  
-  try {
-    // Show loading with subject
-    container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">Searching for "${subject}"...</div>`;
-    
-    console.log('Making API call for:', subject);
-    
-    // Make API call
-    const response = await fetch('http://127.0.0.1:8001/api/search/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        subject: subject, 
-        days: 7, 
+  // Immediately start loading
+  loadData();
+
+  // --- Filter dropdowns ---
+  const timeFilterLabel = document.getElementById('timeFilterLabel');
+  const timeFilterBox = document.getElementById('timeFilterBox');
+  const timeFilterDropdown = document.getElementById('timeFilterDropdown');
+  const timeFilterText = document.getElementById('timeFilterText');
+
+  const platformFilterLabel = document.getElementById('platformFilterLabel');
+  const platformFilterBox = document.getElementById('platformFilterBox');
+  const platformFilterDropdown = document.getElementById('platformFilterDropdown');
+  const platformFilterText = document.getElementById('platformFilterText');
+
+  const sentimentFilterLabel = document.getElementById('sentimentFilterLabel');
+  const sentimentFilterBox = document.getElementById('sentimentFilterBox');
+  const sentimentFilterDropdown = document.getElementById('sentimentFilterDropdown');
+  const sentimentFilterText = document.getElementById('sentimentFilterText');
+
+  // Initialize filters from URL
+  function initializeFiltersFromURL() {
+    const params = new URLSearchParams(window.location.search);
+
+    // Time filter
+    const days = params.get('days');
+    if (days) {
+      sessionStorage.setItem('rm_days', days);
+      if (timeFilterBox) {
+        timeFilterBox.checked = true;
+        timeFilterBox.style.accentColor = '#e11d2e';
+      }
+    }
+
+    // Platform filter
+    const platforms = params.get('platforms');
+    if (platforms) {
+      sessionStorage.setItem('rm_platforms', platforms);
+      if (platformFilterBox) {
+        platformFilterBox.checked = true;
+        platformFilterBox.style.accentColor = '#e11d2e';
+      }
+    }
+
+    // Sentiment filter
+    const sentiments = params.get('sentiments');
+    if (sentiments) {
+      sessionStorage.setItem('rm_sentiments', sentiments);
+      if (sentimentFilterBox) {
+        sentimentFilterBox.checked = true;
+        sentimentFilterBox.style.accentColor = '#e11d2e';
+      }
+    }
+
+    // Priority filter
+    const priorities = params.get('priorities');
+    if (priorities) {
+      const priorityList = priorities.split(',');
+      priorityList.forEach(p => {
+        const checkbox = document.querySelector(`input[name="priorityChk"][value="${p}"]`);
+        if (checkbox) checkbox.checked = true;
+      });
+    }
+  }
+
+  // Update URL with current filter state
+  function updateURL() {
+    const params = new URLSearchParams(window.location.search);
+
+    // Update subject
+    params.set('subject', subject);
+
+    // Update days
+    const days = sessionStorage.getItem('rm_days');
+    if (days) {
+      params.set('days', days);
+    } else {
+      params.delete('days');
+    }
+
+    // Update platforms
+    const platforms = sessionStorage.getItem('rm_platforms');
+    if (platforms && platforms !== '[]') {
+      params.set('platforms', platforms);
+    } else {
+      params.delete('platforms');
+    }
+
+    // Update sentiments
+    const sentiments = sessionStorage.getItem('rm_sentiments');
+    if (sentiments && sentiments !== '[]') {
+      params.set('sentiments', sentiments);
+    } else {
+      params.delete('sentiments');
+    }
+
+    // Update priorities
+    const selectedPriorities = Array.from(document.querySelectorAll('input[name="priorityChk"]:checked')).map(cb => cb.value);
+    if (selectedPriorities.length > 0) {
+      params.set('priorities', selectedPriorities.join(','));
+    } else {
+      params.delete('priorities');
+    }
+
+    // Update URL without reload
+    const newURL = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newURL);
+  }
+
+  // Update filter count and clear button
+  function updateFilterCount() {
+    const filterCountEl = document.getElementById('filterCount');
+    const clearAllBtn = document.getElementById('clearAllFiltersBtn');
+
+    let count = 0;
+    if (timeFilterBox && timeFilterBox.checked) count++;
+    if (platformFilterBox && platformFilterBox.checked) count++;
+    if (sentimentFilterBox && sentimentFilterBox.checked) count++;
+
+    const selectedPriorities = document.querySelectorAll('input[name="priorityChk"]:checked').length;
+    count += selectedPriorities;
+
+    if (count > 0) {
+      filterCountEl.textContent = `(${count})`;
+      clearAllBtn.style.display = 'inline-block';
+    } else {
+      filterCountEl.textContent = '';
+      clearAllBtn.style.display = 'none';
+    }
+  }
+
+  // Update filter label text to show current selection
+  function updateFilterLabels() {
+    // Time filter label
+    const days = sessionStorage.getItem('rm_days');
+    if (days && timeFilterText) {
+      const labels = {
+        '1': 'Today',
+        '7': '7 days',
+        '30': '30 days',
+        '90': '90 days',
+        '365': 'This year'
+      };
+      timeFilterText.textContent = `Time: ${labels[days] || days + ' days'}`;
+    } else if (timeFilterText) {
+      timeFilterText.textContent = 'Time';
+    }
+
+    // Platform filter label
+    const platforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
+    if (platforms.length > 0 && platformFilterText) {
+      platformFilterText.textContent = platforms.length === 1 ? `Platform: ${platforms[0]}` : `Platform (${platforms.length})`;
+    } else if (platformFilterText) {
+      platformFilterText.textContent = 'Platform';
+    }
+
+    // Sentiment filter label
+    const sentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
+    if (sentiments.length > 0 && sentimentFilterText) {
+      sentimentFilterText.textContent = sentiments.length === 1 ? `Sentiment: ${sentiments[0]}` : `Sentiment (${sentiments.length})`;
+    } else if (sentimentFilterText) {
+      sentimentFilterText.textContent = 'Sentiment';
+    }
+  }
+
+  // Generic dropdown functions
+  function openDropdown(dropdown, label) {
+    if (!label || !dropdown) return;
+
+    // Close all other dropdowns
+    closeAllDropdowns();
+
+    // Position dropdown relative to its parent <li>
+    dropdown.style.left = '0';
+    dropdown.style.top = '100%';
+
+    // Highlight selected option
+    highlightSelectedOption(dropdown);
+
+    // Show dropdown
+    dropdown.classList.add('show');
+  }
+
+  function closeAllDropdowns() {
+    [timeFilterDropdown, platformFilterDropdown, sentimentFilterDropdown].forEach(d => {
+      if (d) d.classList.remove('show');
+    });
+  }
+
+  function highlightSelectedOption(dropdown) {
+    const options = dropdown.querySelectorAll('.rm-dropdown-option:not(.rm-option-clear)');
+    options.forEach(opt => opt.classList.remove('selected'));
+
+    // Highlight based on dropdown type
+    if (dropdown === timeFilterDropdown) {
+      const currentDays = sessionStorage.getItem('rm_days');
+      options.forEach(opt => {
+        if (opt.getAttribute('data-days') === currentDays) {
+          opt.classList.add('selected');
+        }
+      });
+    } else if (dropdown === platformFilterDropdown) {
+      const currentPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
+      options.forEach(opt => {
+        if (currentPlatforms.includes(opt.getAttribute('data-platform'))) {
+          opt.classList.add('selected');
+        }
+      });
+    } else if (dropdown === sentimentFilterDropdown) {
+      const currentSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
+      options.forEach(opt => {
+        if (currentSentiments.includes(opt.getAttribute('data-sentiment'))) {
+          opt.classList.add('selected');
+        }
+      });
+    }
+  }
+
+  // Populate time filter dropdown based on available data
+  function populateTimeFilterDropdown() {
+    if (!allResults || allResults.length === 0) return;
+
+    const timeOptions = document.getElementById('timeFilterOptions');
+    if (!timeOptions) return;
+
+    const now = Date.now() / 1000; // current time in seconds
+    const buckets = [
+      { label: 'Today', days: 1, seconds: 86400 },
+      { label: '7 days', days: 7, seconds: 86400 * 7 },
+      { label: '30 days', days: 30, seconds: 86400 * 30 },
+      { label: '90 days', days: 90, seconds: 86400 * 90 },
+      { label: 'This year', days: 365, seconds: 86400 * 365 }
+    ];
+
+    // Check which buckets have data
+    const availableBuckets = buckets.filter(bucket => {
+      return allResults.some(item => {
+        const timestamp = item.published_ts || item.published || item.date;
+        if (!timestamp) return false;
+        const itemTime = String(timestamp).length > 10 ? timestamp / 1000 : timestamp;
+        return (now - itemTime) <= bucket.seconds;
+      });
+    });
+
+    let html = '';
+    availableBuckets.forEach(bucket => {
+      html += `<button type="button" class="rm-dropdown-option" data-days="${bucket.days}">${bucket.label}</button>`;
+    });
+
+    if (availableBuckets.length > 0) {
+      html += '<div class="rm-dropdown-divider"></div>';
+      html += '<button type="button" class="rm-dropdown-option rm-option-clear" data-days="">Clear</button>';
+    }
+
+    timeOptions.innerHTML = html;
+  }
+
+  // Populate platform dropdown with unique platforms from results
+  function populatePlatformDropdown() {
+    if (!allResults || !platformFilterDropdown) return;
+
+    const platforms = new Set();
+    allResults.forEach(item => {
+      const platform = item.source || item.platform || 'Unknown';
+      if (platform) platforms.add(platform);
+    });
+
+    const platformOptions = document.getElementById('platformOptions');
+    if (!platformOptions) return;
+
+    let html = '';
+    Array.from(platforms).sort().forEach(platform => {
+      html += `<button type="button" class="rm-dropdown-option" data-platform="${platform}">${platform}</button>`;
+    });
+
+    if (platforms.size > 0) {
+      html += '<div class="rm-dropdown-divider"></div>';
+      html += '<button type="button" class="rm-dropdown-option rm-option-clear" data-platform="">Clear</button>';
+    }
+
+    platformOptions.innerHTML = html;
+  }
+
+  // Open dropdown when clicking labels
+  if (timeFilterLabel) {
+    timeFilterLabel.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      populateTimeFilterDropdown();
+      openDropdown(timeFilterDropdown, timeFilterLabel);
+    });
+  }
+
+  if (platformFilterLabel) {
+    platformFilterLabel.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      populatePlatformDropdown();
+      openDropdown(platformFilterDropdown, platformFilterLabel);
+    });
+  }
+
+  if (sentimentFilterLabel) {
+    sentimentFilterLabel.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openDropdown(sentimentFilterDropdown, sentimentFilterLabel);
+    });
+  }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', (e) => {
+    const clickedDropdown = e.target.closest('.rm-filter-dropdown');
+    const clickedLabel = e.target.closest('#timeFilterLabel, #platformFilterLabel, #sentimentFilterLabel');
+
+    if (!clickedDropdown && !clickedLabel) {
+      closeAllDropdowns();
+    }
+  });
+
+  // Clear all filters button
+  const clearAllBtn = document.getElementById('clearAllFiltersBtn');
+  const influencersFilterBox = document.getElementById('influencersFilterBox');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', () => {
+      // Clear all filter selections
+      sessionStorage.removeItem('rm_days');
+      sessionStorage.removeItem('rm_platforms');
+      sessionStorage.removeItem('rm_sentiments');
+
+      // Uncheck all checkboxes and reset colors
+      [timeFilterBox, platformFilterBox, sentimentFilterBox, influencersFilterBox].forEach(box => {
+        if (box) {
+          box.checked = false;
+          box.style.accentColor = '';
+        }
+      });
+
+      // Uncheck priority filters
+      document.querySelectorAll('input[name="priorityChk"]').forEach(cb => cb.checked = false);
+
+      // Update UI
+      updateFilterLabels();
+      updateFilterCount();
+      updateURL();
+
+      // Re-render with all data
+      renderResults();
+    });
+  }
+
+  // Handle time filter selection (instant apply)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#timeFilterDropdown .rm-dropdown-option');
+    if (!btn) return;
+
+    e.stopPropagation();
+
+    const daysStr = btn.getAttribute('data-days');
+
+    if (daysStr === '') {
+      // Clear selection
+      sessionStorage.removeItem('rm_days');
+      if (timeFilterBox) {
+        timeFilterBox.checked = false;
+        timeFilterBox.style.accentColor = '';
+      }
+    } else {
+      // Apply selection instantly
+      sessionStorage.setItem('rm_days', daysStr);
+      if (timeFilterBox) {
+        timeFilterBox.checked = true;
+        timeFilterBox.style.accentColor = '#e11d2e';
+      }
+    }
+
+    // Update UI and re-render
+    updateFilterLabels();
+    updateFilterCount();
+    updateURL();
+    closeAllDropdowns();
+    renderResults();
+  });
+
+  // Handle platform filter selection (instant apply)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#platformFilterDropdown .rm-dropdown-option');
+    if (!btn) return;
+
+    e.stopPropagation(); // Keep dropdown open for multi-select
+
+    const platformStr = btn.getAttribute('data-platform');
+    let currentPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
+
+    if (platformStr === '') {
+      // Clear all selections
+      sessionStorage.removeItem('rm_platforms');
+      if (platformFilterBox) {
+        platformFilterBox.checked = false;
+        platformFilterBox.style.accentColor = '';
+      }
+
+      // Update UI and close dropdown
+      updateFilterLabels();
+      updateFilterCount();
+      updateURL();
+      closeAllDropdowns();
+      renderResults();
+    } else {
+      // Toggle platform in array
+      const idx = currentPlatforms.indexOf(platformStr);
+      if (idx > -1) {
+        currentPlatforms.splice(idx, 1); // Remove
+      } else {
+        currentPlatforms.push(platformStr); // Add
+      }
+
+      if (currentPlatforms.length > 0) {
+        sessionStorage.setItem('rm_platforms', JSON.stringify(currentPlatforms));
+        if (platformFilterBox) {
+          platformFilterBox.checked = true;
+          platformFilterBox.style.accentColor = '#e11d2e';
+        }
+      } else {
+        sessionStorage.removeItem('rm_platforms');
+        if (platformFilterBox) {
+          platformFilterBox.checked = false;
+          platformFilterBox.style.accentColor = '';
+        }
+      }
+
+      // Update visual highlighting and UI (keep dropdown open)
+      highlightSelectedOption(platformFilterDropdown);
+      updateFilterLabels();
+      updateFilterCount();
+      updateURL();
+      renderResults();
+    }
+  });
+
+  // Handle sentiment filter selection (instant apply)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#sentimentFilterDropdown .rm-dropdown-option');
+    if (!btn) return;
+
+    e.stopPropagation(); // Keep dropdown open for multi-select
+
+    const sentimentStr = btn.getAttribute('data-sentiment');
+    let currentSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
+
+    if (sentimentStr === '') {
+      // Clear all selections
+      sessionStorage.removeItem('rm_sentiments');
+      if (sentimentFilterBox) {
+        sentimentFilterBox.checked = false;
+        sentimentFilterBox.style.accentColor = '';
+      }
+
+      // Update UI and close dropdown
+      updateFilterLabels();
+      updateFilterCount();
+      updateURL();
+      closeAllDropdowns();
+      renderResults();
+    } else {
+      // Toggle sentiment in array
+      const idx = currentSentiments.indexOf(sentimentStr);
+      if (idx > -1) {
+        currentSentiments.splice(idx, 1); // Remove
+      } else {
+        currentSentiments.push(sentimentStr); // Add
+      }
+
+      if (currentSentiments.length > 0) {
+        sessionStorage.setItem('rm_sentiments', JSON.stringify(currentSentiments));
+        if (sentimentFilterBox) {
+          sentimentFilterBox.checked = true;
+          sentimentFilterBox.style.accentColor = '#e11d2e';
+        }
+      } else {
+        sessionStorage.removeItem('rm_sentiments');
+        if (sentimentFilterBox) {
+          sentimentFilterBox.checked = false;
+          sentimentFilterBox.style.accentColor = '';
+        }
+      }
+
+      // Update visual highlighting and UI (keep dropdown open)
+      highlightSelectedOption(sentimentFilterDropdown);
+      updateFilterLabels();
+      updateFilterCount();
+      updateURL();
+      renderResults();
+    }
+  });
+
+  async function loadData() {
+    const container = document.getElementById('results-container');
+    isLoading = true;
+
+    try {
+      // Show loading skeleton
+      container.innerHTML = `
+        <div class="rm-loading-skeleton">
+          <div class="rm-skeleton-item">
+            <div class="rm-skeleton-header">
+              <div class="rm-skeleton-title"></div>
+              <div class="rm-skeleton-meta"></div>
+            </div>
+            <div class="rm-skeleton-text"></div>
+            <div class="rm-skeleton-text"></div>
+          </div>
+          <div class="rm-skeleton-item">
+            <div class="rm-skeleton-header">
+              <div class="rm-skeleton-title"></div>
+              <div class="rm-skeleton-meta"></div>
+            </div>
+            <div class="rm-skeleton-text"></div>
+            <div class="rm-skeleton-text"></div>
+          </div>
+          <div class="rm-skeleton-item">
+            <div class="rm-skeleton-header">
+              <div class="rm-skeleton-title"></div>
+              <div class="rm-skeleton-meta"></div>
+            </div>
+            <div class="rm-skeleton-text"></div>
+            <div class="rm-skeleton-text"></div>
+          </div>
+        </div>
+      `;
+
+      console.log('Making API call for:', subject);
+
+      // Get time filter from sessionStorage (fetch all data, filter client-side)
+      const days = 365; // Fetch 1 year of data to enable all filters
+
+      // Make API call via global helper (uses RM_TOOL_CONFIG.API_BASE)
+      const data = await window.apiPost('/search/', {
+        subject: subject,
+        days: days,
         limit: 50,
         priority: 'all'
-      })
-    });
-    
-    console.log('API response status:', response.status);
-    
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
-    
-    allResults = await response.json();
-    console.log('API returned data:', allResults);
-    
-    // Display results
-    if (!allResults || allResults.length === 0) {
-      container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
-      return;
-    }
-    
-    renderResults();
-    
-  } catch (error) {
-    console.error('Error:', error);
-    container.innerHTML = `
+      });
+
+      console.log('API returned data:', data);
+
+      // Normalize items for rendering and derive score if missing
+      allResults = Array.isArray(data) ? data.map(d => normalizeItem(d, subject)) : [];
+
+      // Display results
+      if (!allResults || allResults.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
+        isLoading = false;
+        return;
+      }
+
+      // Populate dropdowns with available options
+      populateTimeFilterDropdown();
+      populatePlatformDropdown();
+
+      // Update UI
+      updateFilterLabels();
+      updateFilterCount();
+
+      renderResults();
+      isLoading = false;
+
+    } catch (error) {
+      console.error('Error:', error);
+      container.innerHTML = `
       <div style="
         text-align:center; 
         padding:40px; 
@@ -217,128 +946,179 @@ async function loadData() {
         ">Try Again</button>
       </div>
     `;
+      isLoading = false;
+    }
   }
-}
 
-// Helper functions
-function formatEngagement(engagement) {
-  let num = 0;
-  if (engagement && typeof engagement === 'object') {
-    num = engagement.score || engagement.num_comments || 0;
-  } else if (engagement) {
-    num = engagement;
+  // Helper functions
+  function normalizeItem(item, subj) {
+    const title = item.title || item.headline || item.name || '';
+    const text = item.summary || item.text || item.description || '';
+    let score = item.score;
+    if (score == null) {
+      const ai = item.ai_score;
+      if (typeof ai === 'number' && !Number.isNaN(ai)) {
+        score = Math.round(ai * 100);
+      } else {
+        const hay = (title + ' ' + text).toLowerCase();
+        const q = String(subj || '').toLowerCase();
+        if (q && title.toLowerCase().includes(q)) score = 80;
+        else if (q && hay.includes(q)) score = 55;
+        else score = 25;
+      }
+    }
+    // keep original fields + normalized fallbacks
+    return {
+      ...item,
+      title,
+      text,
+      score
+    };
   }
-  
-  if (num >= 1000) {
-    return Math.floor(num / 1000) + 'K';
+  function formatEngagement(engagement) {
+    let num = 0;
+    if (engagement && typeof engagement === 'object') {
+      num = engagement.score || engagement.num_comments || 0;
+    } else if (engagement) {
+      num = engagement;
+    }
+
+    if (num >= 1000) {
+      return Math.floor(num / 1000) + 'K';
+    }
+    return num.toString();
   }
-  return num.toString();
-}
 
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  try {
-    const ts = String(timestamp).length > 10 ? timestamp : timestamp * 1000;
-    const date = new Date(ts);
-    const month = date.toLocaleString('default', { month: 'long' });
-    const day = date.getDate();
-    const year = date.getFullYear();
-    return `${month} ${day}, ${year}`;
-  } catch (e) {
-    return '';
+  function formatDate(timestamp) {
+    if (!timestamp) return '';
+    try {
+      const ts = String(timestamp).length > 10 ? timestamp : timestamp * 1000;
+      const date = new Date(ts);
+      const month = date.toLocaleString('default', { month: 'long' });
+      const day = date.getDate();
+      const year = date.getFullYear();
+      return `${month} ${day}, ${year}`;
+    } catch (e) {
+      return '';
+    }
   }
-}
 
-function getRelevancePercent(score) {
-  if (!score) return 0;
-  const num = Number(score);
-  if (num <= 1) return Math.round(num * 100);
-  return Math.min(100, Math.max(0, Math.round(num)));
-}
-
-function getInsightBadge(item) {
-  const insight = item.insight || item.sentiment;
-  if (insight) {
-    const upper = insight.toUpperCase();
-    if (upper.includes('SPIKE')) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
-    if (upper.includes('POSITIVE')) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
-    if (upper.includes('NEGATIVE')) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+  function getRelevancePercent(score) {
+    if (score == null) return 0;
+    const num = Number(score);
+    if (!Number.isFinite(num)) return 0;
+    if (num <= 1) return Math.round(num * 100);
+    return Math.min(100, Math.max(0, Math.round(num)));
   }
-  
-  const score = getRelevancePercent(item.score);
-  if (score >= 80) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
-  if (score >= 50) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
-  return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
-}
 
-function getPriority(item) {
-  const score = getRelevancePercent(item.score);
-  if (score >= 75) return 'high';
-  if (score >= 40) return 'medium';
-  return 'low';
-}
+  function getInsightBadge(item) {
+    const insight = item.insight || item.sentiment;
+    if (insight) {
+      const upper = insight.toUpperCase();
+      if (upper.includes('SPIKE')) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
+      if (upper.includes('POSITIVE')) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
+      if (upper.includes('NEGATIVE')) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+    }
 
-function processContent(summary) {
-  if (!summary) return { text: 'No description available.', bullets: [] };
-  
-  const bulletMarkers = ['•', '- ', '* ', '\n-', '\n•', '\n*'];
-  const hasBullets = bulletMarkers.some(marker => summary.includes(marker));
-  
-  if (hasBullets) {
-    const parts = summary.split(/[•\-\*]\s+/);
-    const intro = parts[0].trim();
-    const bullets = parts.slice(1).map(b => b.trim()).filter(b => b.length > 0);
-    
-    return { text: intro, bullets: bullets.slice(0, 3) };
+    const score = getRelevancePercent(item.score);
+    if (score >= 80) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
+    if (score >= 50) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
+    return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
   }
-  
-  return { text: summary, bullets: [] };
-}
 
-function renderResults() {
-  const container = document.getElementById('results-container');
-  
-  // Collect selected checkboxes
-  const selectedInsights = Array.from(document.querySelectorAll('input[name="insightChk"]:checked')).map(cb => cb.value);
-  const selectedPriorities = Array.from(document.querySelectorAll('input[name="priorityChk"]:checked')).map(cb => cb.value);
-
-  // Filter results based on current selections (multi-select; empty = show all)
-  let filtered = allResults.filter(item => {
-    const insight = getInsightBadge(item).type; // spike|positive|negative
-    const priority = getPriority(item); // high|medium|low
-
-    const insightMatch = selectedInsights.length === 0 || selectedInsights.includes(insight);
-    const priorityMatch = selectedPriorities.length === 0 || selectedPriorities.includes(priority);
-
-    return insightMatch && priorityMatch;
-  });
-  
-  // Cap to TOTAL_PAGES * PAGE_SIZE by slicing to show more results via pagination
-  filtered = filtered.slice(0, TOTAL_PAGES * PAGE_SIZE);
-
-  if (filtered.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results match the selected filters.</div>`;
-    return;
+  function getPriority(item) {
+    const score = getRelevancePercent(item.score);
+    if (score >= 75) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
   }
-  
-  // Paginate
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
-  // Create HTML for results
-  const html = `
+  function processContent(summary) {
+    if (!summary) return { text: 'No description available.', bullets: [] };
+
+    const bulletMarkers = ['•', '- ', '* ', '\n-', '\n•', '\n*'];
+    const hasBullets = bulletMarkers.some(marker => summary.includes(marker));
+
+    if (hasBullets) {
+      const parts = summary.split(/[•\-\*]\s+/);
+      const intro = parts[0].trim();
+      const bullets = parts.slice(1).map(b => b.trim()).filter(b => b.length > 0);
+
+      return { text: intro, bullets: bullets.slice(0, 3) };
+    }
+
+    return { text: summary, bullets: [] };
+  }
+
+  function renderResults() {
+    const container = document.getElementById('results-container');
+
+    // Show loading indicator briefly
+    if (isLoading) {
+      return;
+    }
+
+    // Collect selected checkboxes
+    const selectedPriorities = Array.from(document.querySelectorAll('input[name="priorityChk"]:checked')).map(cb => cb.value);
+
+    // Get filter dropdown selections
+    const selectedDays = sessionStorage.getItem('rm_days');
+    const selectedPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
+    const selectedSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
+
+    // Filter results based on current selections (multi-select; empty = show all)
+    let filtered = allResults.filter(item => {
+      const priority = getPriority(item); // high|medium|low
+      const platform = item.source || item.platform || 'Unknown';
+      const sentiment = (item.sentiment || '').toLowerCase();
+
+      // Time filter
+      let timeMatch = true;
+      if (selectedDays) {
+        const now = Date.now() / 1000;
+        const timestamp = item.published_ts || item.published || item.date;
+        if (timestamp) {
+          const itemTime = String(timestamp).length > 10 ? timestamp / 1000 : timestamp;
+          const secondsInPeriod = Number(selectedDays) * 86400;
+          timeMatch = (now - itemTime) <= secondsInPeriod;
+        } else {
+          timeMatch = false; // No timestamp means we can't include it in time filter
+        }
+      }
+
+      const priorityMatch = selectedPriorities.length === 0 || selectedPriorities.includes(priority);
+      const platformMatch = selectedPlatforms.length === 0 || selectedPlatforms.includes(platform);
+      const sentimentMatch = selectedSentiments.length === 0 || selectedSentiments.includes(sentiment);
+
+      return timeMatch && priorityMatch && platformMatch && sentimentMatch;
+    });
+
+    // Cap to TOTAL_PAGES * PAGE_SIZE by slicing to show more results via pagination
+    filtered = filtered.slice(0, TOTAL_PAGES * PAGE_SIZE);
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results match the selected filters.</div>`;
+      return;
+    }
+
+    // Paginate
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+    // Create HTML for results
+    const html = `
     <div class="rm-result-items">
       ${pageItems.map(item => {
-        const title = item.title || 'Untitled';
-        const content = processContent(item.summary || item.text);
-        const source = item.source || item.author || item.platform || 'Deloitte';
-        const date = formatDate(item.published_ts || item.published || item.date);
-        const url = item.url || '';
-        const engagement = formatEngagement(item.engagement);
-        const relevance = getRelevancePercent(item.score);
-        const insight = getInsightBadge(item);
-        
-        return `
+      const title = item.title || 'Untitled';
+      const content = processContent(item.summary || item.text);
+      const source = item.source || item.author || item.platform || 'Deloitte';
+      const date = formatDate(item.published_ts || item.published || item.date);
+      const url = item.url || '';
+      const engagement = formatEngagement(item.engagement);
+      const relevance = getRelevancePercent(item.score);
+      const insight = getInsightBadge(item);
+
+      return `
           <article class="rm-result-item">
             <header class="rm-result-item-header">
               <div class="rm-result-item-header-left">
@@ -356,7 +1136,7 @@ function renderResults() {
                 <div class="rm-result-meta-row">
                   <span class="rm-result-meta-label">Insights:</span>
                   <span class="rm-result-insight-badge">
-                    <span class="rm-result-insight-dot" style="background:${insight.type==='positive' ? '#16a34a' : insight.type==='spike' ? '#e11d2e' : '#111'}"></span>
+                    <span class="rm-result-insight-dot" style="background:${insight.type === 'positive' ? '#16a34a' : insight.type === 'spike' ? '#e11d2e' : '#111'}"></span>
                     ${insight.text}
                   </span>
                 </div>
@@ -381,42 +1161,57 @@ function renderResults() {
             </footer>
           </article>
         `;
-      }).join('')}
+    }).join('')}
     </div>
     ${renderPager(Math.ceil(filtered.length / PAGE_SIZE))}
   `;
-  
-  container.innerHTML = html;
-}
 
-function renderPager(totalPages){
-  const pages = Math.min(totalPages, TOTAL_PAGES);
-  let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹</button>';
-  for (let p = 1; p <= pages; p++){
-    btns += `<button class="${p===currentPage?'rm-page-active':''}" data-page="${p}">${p}</button>`;
+    container.innerHTML = html;
   }
-  btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>›</button>';
-  return `<div class="rm-results-pager">${btns}</div>`;
-}
 
-// Delegate click for pager
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.rm-results-pager button');
-  if (!btn) return;
-  const nav = btn.getAttribute('data-nav');
-  if (nav === 'prev' && currentPage > 1) {
-    currentPage--;
-    renderResults();
-  } else if (nav === 'next' && currentPage < TOTAL_PAGES) {
-    currentPage++;
-    renderResults();
-  } else {
-    const page = Number(btn.getAttribute('data-page'));
-    if (!Number.isNaN(page)){
-      currentPage = page;
-      renderResults();
+  function renderPager(totalPages) {
+    const pages = Math.min(totalPages, TOTAL_PAGES);
+    let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹</button>';
+    for (let p = 1; p <= pages; p++) {
+      btns += `<button class="${p === currentPage ? 'rm-page-active' : ''}" data-page="${p}">${p}</button>`;
     }
+    btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>›</button>';
+    return `<div class="rm-results-pager">${btns}</div>`;
   }
-});
+
+  // Delegate click for pager
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.rm-results-pager button');
+    if (!btn) return;
+    const nav = btn.getAttribute('data-nav');
+    if (nav === 'prev' && currentPage > 1) {
+      currentPage--;
+      renderResults();
+    } else if (nav === 'next' && currentPage < TOTAL_PAGES) {
+      currentPage++;
+      renderResults();
+    } else {
+      const page = Number(btn.getAttribute('data-page'));
+      if (!Number.isNaN(page)) {
+        currentPage = page;
+        renderResults();
+      }
+    }
+  });
+
+  // Don't clear filters on page load (preserve from URL)
+
+  // Action card checkbox functionality - turn red when checked
+  document.querySelectorAll('.rm-action-form input[type="checkbox"]').forEach(checkbox => {
+    checkbox.addEventListener('change', function () {
+      if (this.checked) {
+        this.style.accentColor = '#e11d2e';
+      } else {
+        this.style.accentColor = '';
+      }
+    });
+  });
+
+  // end page script
 </script>
 {% endblock %}

@@ -4,19 +4,22 @@
 {% block content %}
 <div id="rmtool">
   <!-- Header (empty to keep sticky space) -->
-  <header class="rm-header"><div class="rm-header-content"></div></header>
+  <header class="rm-header">
+    <div class="rm-header-content"></div>
+  </header>
 
   <section class="rm-hero-wrap">
     <div class="rm-hero-card">
       <!-- Topbar inside white card -->
       <div class="rm-home-topbar">
         <a href="{% url 'listening_tool:search' %}" class="rm-header-logo">
-          <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer" class="rm-logo-img">
+          <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer"
+            class="rm-logo-img">
         </a>
         <a class="rm-privacy" href="#">Privacy</a>
       </div>
       <div class="rm-home-sep"></div>
-      
+
       <h1 class="rm-hero-title">Discover what conversations are<br>trending in your industry</h1>
 
       <form id="searchForm" method="get" action="{% url 'listening_tool:results' %}" class="rm-searchbar">
@@ -28,7 +31,7 @@
       <div class="rm-topics">
         <div class="rm-topics-title">Top Topics</div>
         <div class="rm-pills">
-          <button class="rm-pill rm-pill--active" data-topic="AI in Healthcare">AI in Healthcare</button>
+          <button class="rm-pill" data-topic="AI in Healthcare">AI in Healthcare</button>
           <button class="rm-pill" data-topic="Healthcare Cost">Healthcare Cost</button>
           <button class="rm-pill" data-topic="Workplace Health">Workplace Health</button>
           <button class="rm-pill" data-topic="Value Care">Value Care</button>
@@ -57,13 +60,20 @@
     <article class="rm-card">
       <h3 class="rm-card-title">Competitors</h3>
       <ul class="rm-list rm-cols-2">
-        <li>UnitedHealth Group</li><li>CVS Health</li>
-        <li>Centene</li><li>Humana</li>
-        <li>Medtronic</li><li>HCA Healthcare</li>
-        <li>Cerner</li><li>DaVita</li>
-        <li>Cardinal Health</li><li>Cigna</li>
-        <li>Roche International</li><li>Omnicell</li>
-        <li>Elevance Health</li><li>Kaiser Permanente</li>
+        <li>UnitedHealth Group</li>
+        <li>CVS Health</li>
+        <li>Centene</li>
+        <li>Humana</li>
+        <li>Medtronic</li>
+        <li>HCA Healthcare</li>
+        <li>Cerner</li>
+        <li>DaVita</li>
+        <li>Cardinal Health</li>
+        <li>Cigna</li>
+        <li>Roche International</li>
+        <li>Omnicell</li>
+        <li>Elevance Health</li>
+        <li>Kaiser Permanente</li>
       </ul>
     </article>
 
@@ -89,11 +99,13 @@
       <ul class="rm-news">
         <li>
           <strong>Apple Watch gets FDA clearance for hypertension detection</strong>
-          A new FDA-approved feature that assesses how blood vessels respond to heart beats, helping detect early signs of cardiovascular risk.
+          A new FDA-approved feature that assesses how blood vessels respond to heart beats, helping detect early signs
+          of cardiovascular risk.
         </li>
         <li>
           <strong>Climate & Health Initiatives — Regional heat policy</strong>
-          Hospitals and healthcare systems are launching heat management initiatives aimed at protecting patients from extreme weather.
+          Hospitals and healthcare systems are launching heat management initiatives aimed at protecting patients from
+          extreme weather.
         </li>
       </ul>
     </article>
@@ -101,9 +113,12 @@
     <article class="rm-card">
       <h3 class="rm-card-title">Ideas</h3>
       <ul class="rm-news">
-        <li><strong>Community Health Data Hubs</strong> — open dashboards tracking local health metrics, setting benchmark data, allowing policy and practice decisions....</li>
-        <li><strong>Climate & Health Initiatives</strong> — hospital heat index programs and air quality monitoring with alerts focused on vulnerable patient populations....</li>
-        <li><strong>Health Literacy Campaigns</strong> — workshops and digital resources helping patients understand treatment options, insurance terms, and preventive care measures....</li>
+        <li><strong>Community Health Data Hubs</strong> — open dashboards tracking local health metrics, setting
+          benchmark data, allowing policy and practice decisions....</li>
+        <li><strong>Climate & Health Initiatives</strong> — hospital heat index programs and air quality monitoring with
+          alerts focused on vulnerable patient populations....</li>
+        <li><strong>Health Literacy Campaigns</strong> — workshops and digital resources helping patients understand
+          treatment options, insurance terms, and preventive care measures....</li>
       </ul>
     </article>
   </section>
