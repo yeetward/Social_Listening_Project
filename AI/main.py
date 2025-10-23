@@ -20,11 +20,13 @@ import json
 from AI.Mongo.mongo_client import get_db
 from AI.Mongo.save_scores import upsert_scores
 from AI.Algorithms.tf_idf_scorer import score_tfidf_simple
-from AI.Algorithms.bm25_scorer import BM25Scorer
+from AI.Algorithms.bm25_scorer import BM25Scorer, minmax_normalize
 from AI.Algorithms.sbert_scorer import sbert_score_one
 from AI.Algorithms.engagement_scorer import engagement_score
 from AI.Algorithms.combiner import weighted_combine
+from AI.config import Weights
 
+TOPK = 200  # rerank budget
 
 # Algorithm registry 
 AlgorithmFn = Callable[[str, Dict[str, Any]], float]
@@ -60,6 +62,16 @@ def fetch_docs(limit: int = 0) -> List[Dict[str, Any]]:
         cursor = cursor.limit(limit)
     return list(cursor)
 
+def _minmax(scores: Dict[Any, float]) -> Dict[Any, float]:
+    """Normalize scores between 0–1 for easier fusion with other algorithms."""
+    if not scores:
+        return {}
+    vals = list(scores.values())
+    vmin, vmax = min(vals), max(vals)
+    rng = (vmax - vmin) or 1.0
+    return {k: (v - vmin) / rng for k, v in scores.items()}
+
+
 # runner
 def run(keyword: str, *, limit: int = 0, algos: List[str] | None = None, weights: Dict[str, float] | None = None, persist: bool = True,) -> List[Tuple[float, Dict[str, Any], Dict[str, float]]]:
     docs = fetch_docs(limit)
@@ -78,22 +90,23 @@ def run(keyword: str, *, limit: int = 0, algos: List[str] | None = None, weights
     # Weights
     use_weights = weights or {k: DEFAULT_WEIGHTS.get(k, 0.0) for k in use_algos}
 
-    # Precompute BM25 scores once if requested
+   
     bm25_scores: Dict[Any, float] = {}
     if "bm25" in use_algos:
-        bm25 = BM25Scorer.from_docs(docs)
+        bm25 = BM25Scorer.from_docs(docs, k1=1.5, b=0.75)
         bm25_scores = bm25.score_all_for_query(keyword)
-
-        # Optional: normalise BM25 to [0,1] for easier fusion
-        # (BM25 is unbounded; a simple min-max over current batch is OK for MVP.)
-        if bm25_scores:
-            vals = list(bm25_scores.values())
-            vmin, vmax = min(vals), max(vals)
-            rng = (vmax - vmin) or 1.0
-            for k in bm25_scores.keys():
-                bm25_scores[k] = (bm25_scores[k] - vmin) / rng
+        bm25_scores = _minmax(bm25_scores)
 
     rows: List[Tuple[float, Dict[str, Any], Dict[str, float]]] = []
+
+    # after bm25_scores normalization
+    if "bm25" in use_algos:
+        top_ids = set(sorted(bm25_scores, key=bm25_scores.get, reverse=True)[:TOPK])
+    else:
+        # No BM25 selected: SBERT should score ALL docs
+        top_ids = {d["_id"] for d in docs}
+
+
 
     for d in docs:
         per_algo: Dict[str, float] = {}
@@ -107,9 +120,18 @@ def run(keyword: str, *, limit: int = 0, algos: List[str] | None = None, weights
             if a == "bm25":
                 continue
             try:
-                per_algo[a] = float(ALGORITHMS[a](keyword, d))
+                if a == "sbert":
+                    score = float(ALGORITHMS[a](keyword, d)) if d["_id"] in top_ids else 0.0
+                else:
+                    score = float(ALGORITHMS[a](keyword, d))
+                # Optional: clamp non-BM25 to [0,1] for stable fusion
+                if a != "bm25":
+                    score = max(0.0, min(1.0, score))
+                per_algo[a] = score
             except Exception:
                 per_algo[a] = 0.0  # fail-safe per-algo
+
+
 
         # Weighted fusion (manual weights for MVP)
         final_score = sum(per_algo.get(a, 0.0) * use_weights.get(a, 0.0) for a in use_algos)
