@@ -887,12 +887,8 @@
         </div>
       `;
 
-      console.log('Making API call for:', subject);
+      const days = 365;
 
-      // Get time filter from sessionStorage (fetch all data, filter client-side)
-      const days = 365; // Fetch 1 year of data to enable all filters
-
-      // Make API call via global helper (uses RM_TOOL_CONFIG.API_BASE)
       const data = await window.apiPost('/search/', {
         subject: subject,
         days: days,
@@ -900,52 +896,35 @@
         priority: 'all'
       });
 
-      console.log('API returned data:', data);
+      // Extract results array - API returns {history_id, preview, counts} structure
+      const resultsArray = Array.isArray(data) ? data : (data.preview || []);
+      allResults = resultsArray.map(d => normalizeItem(d, subject));
 
-      // Normalize items for rendering and derive score if missing
-      allResults = Array.isArray(data) ? data.map(d => normalizeItem(d, subject)) : [];
-
-      // Display results
       if (!allResults || allResults.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
         isLoading = false;
         return;
       }
 
-      // Populate dropdowns with available options
       populateTimeFilterDropdown();
       populatePlatformDropdown();
-
-      // Update UI
       updateFilterLabels();
       updateFilterCount();
 
-      renderResults();
       isLoading = false;
+      renderResults();
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error loading results:', error);
       container.innerHTML = `
-      <div style="
-        text-align:center; 
-        padding:40px; 
-        color:#dc3545;
-        border: 1px solid #f5c6cb;
-        background: #f8d7da;
-        border-radius: 8px;
-      ">
-        ❌ Error loading results: ${error.message}
-        <br><br>
-        <button onclick="loadData()" style="
-          padding: 8px 16px;
-          background: #007bff;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        ">Try Again</button>
-      </div>
-    `;
+        <div style="text-align:center; padding:40px; color:#dc3545; border: 1px solid #f5c6cb; background: #f8d7da; border-radius: 8px;">
+          ❌ Error loading results: ${error.message}
+          <br><br>
+          <button onclick="loadData()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Try Again
+          </button>
+        </div>
+      `;
       isLoading = false;
     }
   }
@@ -1053,26 +1032,21 @@
   function renderResults() {
     const container = document.getElementById('results-container');
 
-    // Show loading indicator briefly
     if (isLoading) {
       return;
     }
 
-    // Collect selected checkboxes
     const selectedPriorities = Array.from(document.querySelectorAll('input[name="priorityChk"]:checked')).map(cb => cb.value);
 
-    // Get filter dropdown selections
     const selectedDays = sessionStorage.getItem('rm_days');
     const selectedPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
     const selectedSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
 
-    // Filter results based on current selections (multi-select; empty = show all)
     let filtered = allResults.filter(item => {
-      const priority = getPriority(item); // high|medium|low
+      const priority = getPriority(item);
       const platform = item.source || item.platform || 'Unknown';
       const sentiment = (item.sentiment || '').toLowerCase();
 
-      // Time filter
       let timeMatch = true;
       if (selectedDays) {
         const now = Date.now() / 1000;
@@ -1082,7 +1056,7 @@
           const secondsInPeriod = Number(selectedDays) * 86400;
           timeMatch = (now - itemTime) <= secondsInPeriod;
         } else {
-          timeMatch = false; // No timestamp means we can't include it in time filter
+          timeMatch = false;
         }
       }
 
@@ -1093,7 +1067,6 @@
       return timeMatch && priorityMatch && platformMatch && sentimentMatch;
     });
 
-    // Cap to TOTAL_PAGES * PAGE_SIZE by slicing to show more results via pagination
     filtered = filtered.slice(0, TOTAL_PAGES * PAGE_SIZE);
 
     if (filtered.length === 0) {
@@ -1101,7 +1074,6 @@
       return;
     }
 
-    // Paginate
     const start = (currentPage - 1) * PAGE_SIZE;
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 

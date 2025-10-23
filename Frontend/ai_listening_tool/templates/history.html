@@ -4,14 +4,17 @@
 {% block content %}
 <div id="rmtool">
   <!-- Minimal header (empty to keep sticky space) -->
-  <header class="rm-header"><div class="rm-header-content"></div></header>
+  <header class="rm-header">
+    <div class="rm-header-content"></div>
+  </header>
 
   <!-- History Content -->
   <div class="rm-history-page">
     <!-- Topbar inside white center column -->
     <div class="rm-history-topbar">
       <a href="{% url 'listening_tool:search' %}" class="rm-header-logo">
-        <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer" class="rm-logo-img">
+        <img src="{% static 'ai_listening_tool/img/robotic_marketer_logo.jpg' %}" alt="Robotic Marketer"
+          class="rm-logo-img">
       </a>
       <form id="headerSearchForm" class="rm-header-search" method="get" action="{% url 'listening_tool:results' %}">
         <input type="text" name="subject" id="headerSearchInput" placeholder="Search" class="rm-header-input">
@@ -36,51 +39,28 @@
         <h1 class="rm-history-page-title">Search History</h1>
         <div class="rm-history-table-wrapper">
           <table class="rm-history-data-table">
-          <thead>
-            <tr>
-              <th>Date Searched</th>
-              <th>Topic</th>
-              <th>Engagement</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>February 26, 2025</td>
-              <td>AI, Generative AI & Large Language Models in Healthcare</td>
-              <td><span class="rm-engagement-up">▲ 111K</span></td>
-            </tr>
-            <tr>
-              <td>February 26, 2025</td>
-              <td>Rising Healthcare Costs & Affordability Pressures</td>
-              <td><span class="rm-engagement-down">▼ 55K</span></td>
-            </tr>
-            <tr>
-              <td>February 26, 2025</td>
-              <td>Workforce Health, Clinician Burnout, Staffing Shortages</td>
-              <td><span class="rm-engagement-up">▲ 576K</span></td>
-            </tr>
-            <tr>
-              <td>February 26, 2025</td>
-              <td>Value-based Care, Digital Quality, and Consumer-Centered</td>
-              <td><span class="rm-engagement-up">▲ 176K</span></td>
-            </tr>
-            <tr>
-              <td>February 26, 2025</td>
-              <td>Health Data, Interoperability & Privacy/Security</td>
-              <td><span class="rm-engagement-up">▲ 876K</span></td>
-            </tr>
-          </tbody>
+            <thead>
+              <tr>
+                <th>Date Searched</th>
+                <th>Topic</th>
+                <th>Engagement</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="3" style="text-align: center; padding: 40px; color: #666;">
+                  Loading history...
+                </td>
+              </tr>
+            </tbody>
           </table>
         </div>
 
         <!-- Pagination (outside bordered table, below) -->
-        <div class="rm-history-pagination">
+        <div class="rm-history-pagination" id="historyPagination">
           <button class="rm-page-arrow rm-page-prev" disabled>‹</button>
           <button class="rm-page-btn rm-page-num rm-page-active">1</button>
-          <button class="rm-page-btn rm-page-num">2</button>
-          <button class="rm-page-btn rm-page-num">3</button>
-          <button class="rm-page-btn rm-page-num">4</button>
-          <button class="rm-page-arrow rm-page-next">›</button>
+          <button class="rm-page-arrow rm-page-next" disabled>›</button>
         </div>
       </main>
     </div>
@@ -95,31 +75,346 @@
 
 {% block pagescripts %}
 <script>
-// Optional: Add interactive features for filters and pagination
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("History page loaded");
-  
-  // Filter checkboxes - single select behavior
-  const filterCheckboxes = document.querySelectorAll('.rm-date-filter input[type="checkbox"]');
-  filterCheckboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', function() {
-      if (this.checked) {
-        // Uncheck all other checkboxes
-        filterCheckboxes.forEach(cb => {
-          if (cb !== this) cb.checked = false;
-        });
+  // State management
+  let allHistory = [];
+  let filteredHistory = [];
+  let currentPage = 1;
+  const PAGE_SIZE = 5;
+
+  // Date filter helpers
+  function getDateRange(filter) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (filter) {
+      case 'today':
+        return { start: today, end: null };
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayEnd = new Date(today);
+        return { start: yesterday, end: yesterdayEnd };
+      case 'last7':
+        const last7 = new Date(today);
+        last7.setDate(last7.getDate() - 7);
+        return { start: last7, end: null };
+      case 'last30':
+        const last30 = new Date(today);
+        last30.setDate(last30.getDate() - 30);
+        return { start: last30, end: null };
+      default:
+        return null;
+    }
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return 'Unknown';
+
+    try {
+      const date = new Date(dateStr);
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  function formatEngagement(count) {
+    if (!count || count === 0) return '0';
+    if (count >= 1000000) return Math.floor(count / 1000000) + 'M';
+    if (count >= 1000) return Math.floor(count / 1000) + 'K';
+    return count.toString();
+  }
+
+  // Fetch history data from API
+  async function loadHistory() {
+    const tbody = document.getElementById('historyTableBody');
+
+    try {
+      // Fetch with larger limit, optionally filter by ai_ready
+      const showOnlyFinished = false; // Set to true to only show completed searches
+      const queryParams = { limit: 100 };
+      if (showOnlyFinished) {
+        queryParams.ai_ready = 'true';
       }
+
+      allHistory = await window.apiGet('/history/', queryParams);
+      filteredHistory = [...allHistory];
+
+      if (allHistory.length === 0) {
+        tbody.innerHTML = `
+        <tr>
+          <td colspan="3" style="text-align: center; padding: 40px; color: #666;">
+            No search history found. Try searching for a topic!
+          </td>
+        </tr>
+      `;
+        return;
+      }
+
+      renderTable();
+
+    } catch (error) {
+      console.error('Error loading history:', error);
+      tbody.innerHTML = `
+      <tr>
+        <td colspan="3" style="text-align: center; padding: 40px; color: #dc3545;">
+          ❌ Error loading history: ${error.message}
+          <br><br>
+          <button onclick="loadHistory()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Try Again
+          </button>
+        </td>
+      </tr>
+    `;
+    }
+  }
+
+  // Apply date filter
+  function applyDateFilter(filter) {
+    if (!filter) {
+      filteredHistory = [...allHistory];
+    } else {
+      const range = getDateRange(filter);
+      if (range) {
+        filteredHistory = allHistory.filter(item => {
+          if (!item.created_at) return false;
+          const itemDate = new Date(item.created_at);
+
+          if (range.end) {
+            // Between start and end (yesterday)
+            return itemDate >= range.start && itemDate < range.end;
+          } else {
+            // After start date
+            return itemDate >= range.start;
+          }
+        });
+      } else {
+        filteredHistory = [...allHistory];
+      }
+    }
+
+    currentPage = 1;
+    renderTable();
+  }
+
+  // Render table with current filtered data
+  function renderTable() {
+    const tbody = document.getElementById('historyTableBody');
+    const totalPages = Math.ceil(filteredHistory.length / PAGE_SIZE);
+
+    if (filteredHistory.length === 0) {
+      tbody.innerHTML = `
+      <tr>
+        <td colspan="3" style="text-align: center; padding: 40px; color: #666;">
+          No results match the selected filter.
+        </td>
+      </tr>
+    `;
+      renderPagination(0);
+      return;
+    }
+
+    // Calculate pagination
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    const pageItems = filteredHistory.slice(start, end);
+
+    // Render table rows
+    tbody.innerHTML = pageItems.map(item => {
+      const dateSearched = formatDate(item.created_at);
+      const topic = item.subject || 'Untitled';
+      // Use results_count (actual AI results) or fall back to ai_count
+      const engagement = formatEngagement(item.results_count || item.ai_count || 0);
+      const historyId = item.history_id;
+
+      return `
+      <tr class="rm-history-row" data-history-id="${historyId}" style="cursor: pointer;">
+        <td>${dateSearched}</td>
+        <td><strong>${topic}</strong></td>
+        <td><span class="rm-engagement-up">▲ ${engagement}</span></td>
+      </tr>
+    `;
+    }).join('');
+
+    // Add click handlers to rows
+    document.querySelectorAll('.rm-history-row').forEach(row => {
+      row.addEventListener('click', function () {
+        const historyId = this.getAttribute('data-history-id');
+        if (historyId) {
+          // Navigate to results page with history_id
+          window.location.href = `{% url 'listening_tool:results' %}?history_id=${historyId}`;
+        }
+      });
+
+      // Add hover effect
+      row.addEventListener('mouseenter', function () {
+        this.style.backgroundColor = '#f9fafb';
+      });
+      row.addEventListener('mouseleave', function () {
+        this.style.backgroundColor = '';
+      });
     });
-  });
-  
-  // Pagination buttons
-  const pageButtons = document.querySelectorAll('.rm-page-num');
-  pageButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      pageButtons.forEach(b => b.classList.remove('rm-page-active'));
-      btn.classList.add('rm-page-active');
+
+    renderPagination(totalPages);
+  }
+
+  // Render pagination controls
+  function renderPagination(totalPages) {
+    const container = document.getElementById('historyPagination');
+
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let html = `
+    <button class="rm-page-arrow rm-page-prev" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">‹</button>
+  `;
+
+    // Show page numbers (max 5 visible)
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      html += `
+      <button class="rm-page-btn rm-page-num ${i === currentPage ? 'rm-page-active' : ''}" 
+              onclick="changePage(${i})">${i}</button>
+    `;
+    }
+
+    html += `
+    <button class="rm-page-arrow rm-page-next" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">›</button>
+  `;
+
+    container.innerHTML = html;
+  }
+
+  // Change page
+  function changePage(page) {
+    const totalPages = Math.ceil(filteredHistory.length / PAGE_SIZE);
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderTable();
+  }
+
+  // Initialize on page load
+  document.addEventListener("DOMContentLoaded", () => {
+    console.log("History page loaded");
+
+    // Filter checkboxes - single select behavior with date filtering
+    const filterCheckboxes = document.querySelectorAll('.rm-date-filter input[type="checkbox"]');
+    const filterMap = {
+      0: 'today',
+      1: 'yesterday',
+      2: 'last7',
+      3: 'last30'
+    };
+
+    filterCheckboxes.forEach((checkbox, index) => {
+      checkbox.addEventListener('change', function () {
+        if (this.checked) {
+          // Uncheck all other checkboxes
+          filterCheckboxes.forEach(cb => {
+            if (cb !== this) cb.checked = false;
+          });
+          // Apply filter
+          applyDateFilter(filterMap[index]);
+        } else {
+          // No filter selected, show all
+          applyDateFilter(null);
+        }
+      });
     });
+
+    // Load history data
+    loadHistory();
   });
-});
 </script>
+
+<style>
+  /* Fix table column widths to prevent resizing between pages */
+  .rm-history-data-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .rm-history-data-table th:nth-child(1),
+  .rm-history-data-table td:nth-child(1) {
+    width: 20%;
+    /* Date Searched */
+  }
+
+  .rm-history-data-table th:nth-child(2),
+  .rm-history-data-table td:nth-child(2) {
+    width: 60%;
+    /* Topic */
+  }
+
+  .rm-history-data-table th:nth-child(3),
+  .rm-history-data-table td:nth-child(3) {
+    width: 20%;
+    /* Engagement */
+  }
+
+  .rm-history-data-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rm-history-row {
+    transition: background-color 0.15s ease;
+  }
+
+  .rm-history-row:hover {
+    background-color: #f9fafb;
+  }
+
+  .rm-page-btn {
+    padding: 6px 12px;
+    margin: 0 2px;
+    border: 1px solid #d1d5db;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  .rm-page-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+
+  .rm-page-btn.rm-page-active {
+    background: #e11d2e;
+    color: white;
+    border-color: #e11d2e;
+  }
+
+  .rm-page-arrow {
+    padding: 6px 12px;
+    margin: 0 4px;
+    border: 1px solid #d1d5db;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  .rm-page-arrow:hover:not(:disabled) {
+    background: #f3f4f6;
+  }
+
+  .rm-page-arrow:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+</style>
 {% endblock %}
