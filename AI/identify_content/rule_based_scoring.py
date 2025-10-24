@@ -1,13 +1,10 @@
-def rule_based_scores(features: Dict[str, Any]) -> Dict[str, float]:
-    """
-    Calculate rule-based scores for each distribution channel.
+from typing import Dict, Tuple, List, Any, Optional
 
-    Args:
-        features: Dictionary of extracted features
+# Distribution channels we support
+CHANNELS = ["email", "newsletter", "blog", "instagram", "social_media"]
 
-    Returns:
-        Dictionary mapping channel names to scores (0-1)
-    """
+
+def rule_based_scores(features: Dict[str, any]) -> Dict[str, float]:
     scores = {channel: 0.0 for channel in CHANNELS}
 
     # EMAIL: Long-form, personalized, high-value content with CTA
