@@ -656,7 +656,7 @@
         '7': '7 days',
         '30': '30 days',
         '90': '90 days',
-        '365': 'This year'
+        '365': 'Last year'
       };
       timeFilterText.textContent = `Time: ${labels[days] || days + ' days'}`;
     } else if (timeFilterText) {
@@ -761,25 +761,84 @@
     const timeOptions = document.getElementById('timeFilterOptions');
     if (!timeOptions) return;
 
-    const now = Date.now() / 1000; // current time in seconds
-    const buckets = [
-      { label: 'Today', days: 1, seconds: 86400 },
-      { label: '7 days', days: 7, seconds: 86400 * 7 },
-      { label: '30 days', days: 30, seconds: 86400 * 30 },
-      { label: '90 days', days: 90, seconds: 86400 * 90 },
-      { label: 'This year', days: 365, seconds: 86400 * 365 }
-    ];
+    const now = Date.now() / 1000; // current time in seconds (epoch)
 
-    // Check which buckets have data
-    const availableBuckets = buckets.filter(bucket => {
-      return allResults.some(item => {
-        const timestamp = item.published_ts || item.published || item.date;
-        if (!timestamp) return false;
+    // Get start of today in epoch seconds
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartSeconds = todayStart.getTime() / 1000;
+
+    // Find the oldest result to determine which buckets are useful
+    let oldestResultAge = 0;
+    allResults.forEach(item => {
+      const timestamp = item.published_ts || item.published || item.date;
+      if (timestamp) {
         const itemTime = String(timestamp).length > 10 ? timestamp / 1000 : timestamp;
-        return (now - itemTime) <= bucket.seconds;
-      });
+        const ageSeconds = now - itemTime;
+        if (ageSeconds > oldestResultAge) {
+          oldestResultAge = ageSeconds;
+        }
+      }
     });
 
+    // Define buckets with exclusive ranges (only show if data exists in that specific range)
+    const buckets = [
+      {
+        label: 'Today',
+        days: 1,
+        minAge: 0,
+        maxAge: now - todayStartSeconds, // From now back to start of today
+        check: (itemTime) => itemTime >= todayStartSeconds
+      },
+      {
+        label: '7 days',
+        days: 7,
+        minAge: 0,
+        maxAge: 86400 * 7, // 0-7 days
+        check: (itemTime) => (now - itemTime) <= (86400 * 7)
+      },
+      {
+        label: '30 days',
+        days: 30,
+        minAge: 86400 * 7, // older than 7 days
+        maxAge: 86400 * 30, // up to 30 days
+        check: (itemTime) => (now - itemTime) <= (86400 * 30)
+      },
+      {
+        label: '90 days',
+        days: 90,
+        minAge: 86400 * 30, // older than 30 days
+        maxAge: 86400 * 90, // up to 90 days
+        check: (itemTime) => (now - itemTime) <= (86400 * 90)
+      },
+      {
+        label: 'Last year',
+        days: 365,
+        minAge: 86400 * 90, // older than 90 days
+        maxAge: Infinity,
+        check: (itemTime) => (now - itemTime) > (86400 * 90)
+      }
+    ];
+
+    // Only show buckets where the oldest result is old enough to make that bucket useful
+    const availableBuckets = buckets.filter(bucket => {
+      // Check if any results exist in or beyond this bucket's minimum range
+      return oldestResultAge >= bucket.minAge;
+    });
+
+    // Check if currently selected value is still available
+    const currentDays = sessionStorage.getItem('rm_days');
+    const currentStillAvailable = availableBuckets.some(b => String(b.days) === currentDays);
+
+    // If current selection is no longer available, default to first available bucket
+    if (currentDays && !currentStillAvailable && availableBuckets.length > 0) {
+      sessionStorage.setItem('rm_days', String(availableBuckets[0].days));
+      updateFilterLabels();
+      updateFilterCount();
+      updateURL();
+    }
+
+    // Render available buckets
     let html = '';
     availableBuckets.forEach(bucket => {
       html += `<button type="button" class="rm-dropdown-option" data-days="${bucket.days}">${bucket.label}</button>`;
@@ -1183,11 +1242,77 @@
     return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
   }
 
+  // Extract raw engagement number
+  function getEngagementRaw(item) {
+    if (!item.engagement) return 0;
+    if (typeof item.engagement === 'number') return item.engagement;
+    if (typeof item.engagement === 'object') {
+      return item.engagement.score || item.engagement.num_comments || 0;
+    }
+    return 0;
+  }
+
+  // Calculate age in days from timestamp
+  function getAgeDays(item) {
+    const timestamp = item.published_ts || item.published || item.date;
+    if (!timestamp) return 999; // Very old if no date
+
+    try {
+      const ts = String(timestamp).length > 10 ? timestamp : timestamp * 1000;
+      const itemDate = new Date(ts);
+      const now = new Date();
+      const ageMs = now - itemDate;
+      return Math.max(0, ageMs / (1000 * 60 * 60 * 24)); // Convert to days
+    } catch (e) {
+      return 999;
+    }
+  }
+
+  // Map insight/sentiment to score
+  function getSentimentScore(item) {
+    const insight = item.insight || item.sentiment || '';
+    const upper = insight.toUpperCase();
+    if (upper.includes('SPIKE')) return 1.0;
+    if (upper.includes('POSITIVE')) return 0.7;
+    if (upper.includes('NEGATIVE')) return 0.5;
+    return 0.6; // Neutral default
+  }
+
+  // Compute composite priority score and label
   function getPriority(item) {
-    const score = getRelevancePercent(item.score);
-    if (score >= 75) return 'high';
-    if (score >= 40) return 'medium';
-    return 'low';
+    // Return cached result if available
+    if (item.__priorityLabel) return item.__priorityLabel;
+
+    // Normalize relevance (0..1)
+    const R = Math.max(0, Math.min(1, getRelevancePercent(item.score) / 100));
+
+    // Normalize engagement (log scale, 100k ≈ 1.0)
+    const engagementRaw = getEngagementRaw(item);
+    const E = Math.max(0, Math.min(1, Math.log10(engagementRaw + 1) / 5));
+
+    // Normalize recency (14-day half-life)
+    const ageDays = getAgeDays(item);
+    const T = Math.pow(0.5, ageDays / 14);
+
+    // Sentiment score
+    const S = getSentimentScore(item);
+
+    // Composite score: 45% relevance, 30% engagement, 15% recency, 10% sentiment
+    const P = 0.45 * R + 0.30 * E + 0.15 * T + 0.10 * S;
+
+    // Cache the score
+    item.__priorityScore = P;
+
+    // Bucket into labels
+    let label;
+    if (P >= 0.70) label = 'high';
+    else if (P >= 0.45) label = 'medium';
+    else label = 'low';
+
+    // Cache the label
+    item.__priorityLabel = label;
+
+    return label;
   }
 
   function processContent(summary) {
@@ -1231,8 +1356,33 @@
         const timestamp = item.published_ts || item.published || item.date;
         if (timestamp) {
           const itemTime = String(timestamp).length > 10 ? timestamp / 1000 : timestamp;
-          const secondsInPeriod = Number(selectedDays) * 86400;
-          timeMatch = (now - itemTime) <= secondsInPeriod;
+
+          // Get start of today in epoch seconds
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayStartSeconds = todayStart.getTime() / 1000;
+
+          // Use the same check logic as populateTimeFilterDropdown
+          if (selectedDays === '1') {
+            // Today: >= start of today
+            timeMatch = itemTime >= todayStartSeconds;
+          } else if (selectedDays === '7') {
+            // 7 days: within last 7 days
+            timeMatch = (now - itemTime) <= (86400 * 7);
+          } else if (selectedDays === '30') {
+            // 30 days: within last 30 days
+            timeMatch = (now - itemTime) <= (86400 * 30);
+          } else if (selectedDays === '90') {
+            // 90 days: within last 90 days
+            timeMatch = (now - itemTime) <= (86400 * 90);
+          } else if (selectedDays === '365') {
+            // Last year: older than 90 days
+            timeMatch = (now - itemTime) > (86400 * 90);
+          } else {
+            // Fallback for any other value
+            const secondsInPeriod = Number(selectedDays) * 86400;
+            timeMatch = (now - itemTime) <= secondsInPeriod;
+          }
         } else {
           timeMatch = false;
         }
@@ -1267,9 +1417,10 @@
       const engagement = formatEngagement(item.engagement);
       const relevance = getRelevancePercent(item.score);
       const insight = getInsightBadge(item);
+      const priority = getPriority(item); // Compute and cache priority for filtering
 
       return `
-          <article class="rm-result-item">
+          <article class="rm-result-item" data-priority="${priority}">
             <header class="rm-result-item-header">
               <div class="rm-result-item-header-left">
                 <h3 class="rm-result-item-title"><a href="${url}" target="_blank" class="rm-result-title-link">${title}</a></h3>
