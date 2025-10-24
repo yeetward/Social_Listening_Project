@@ -201,8 +201,9 @@
 
 # Backend/api/persist.py
 # Backend/api/persist.py
+
 from typing import Iterable, Tuple, List, Dict, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from django.conf import settings
 from pymongo import MongoClient, UpdateOne
@@ -218,7 +219,7 @@ def get_mongo_db():
     Return a cached MongoDB database handle using settings.MONGODB_URI/DBNAME.
     """
     global _mongo_client, _mongo_db
-    if _mongo_db is not None:            # IMPORTANT: compare with None (pymongo objects are not truthy)
+    if _mongo_db is not None:  # IMPORTANT: compare with None (pymongo objects are not truthy)
         return _mongo_db
 
     uri = settings.MONGODB_URI
@@ -238,19 +239,21 @@ def create_history(
     industry: str,
     sources_used: List[str],
     params: Dict,
-    ai_target: int = 100
+    ai_target: int = 100,
+    ttl_days: Optional[int] = None,
 ) -> ObjectId:
     """
     Inserts a new history document and returns its _id.
     """
     db = get_mongo_db()
+    now = datetime.now(timezone.utc)
     doc = {
         "subject": subject,
         "location": location,
         "industry": industry,
         "sources_used": sources_used,
         "params": params or {},
-        "created_at": datetime.now(timezone.utc),
+        "created_at": now,
         # AI status
         "ai_ready": False,
         "ai_count": 0,
@@ -259,6 +262,9 @@ def create_history(
         "last_updated": None,
         "finished_at": None,
     }
+    if ttl_days:
+        doc["expires_at"] = now + timedelta(days=ttl_days)
+
     res = db["history"].insert_one(doc)
     return res.inserted_id
 
@@ -298,28 +304,37 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
 
     created = 0
     updated = 0
+    now = datetime.now(timezone.utc)
+
     for p in rows:
         url = (p.get("url") or "").strip()
         if not url:
             continue
 
-        doc = {
-            "url": url,
-            "source": (p.get("source") or "").strip(),
-            "title": p.get("title") or "",
-            "text": p.get("text") or "",
-            "text_html": p.get("text_html") or "",
-            "author": p.get("author") or None,
-            "published_ts": p.get("published_ts"),
-            "engagement": p.get("engagement") or None,
-            # enrichment candidates (may be None at ingest time)
-            "tags": p.get("tags") if "tags" in p else None,
-            "influencer_mentions": p.get("influencer_mentions") if "influencer_mentions" in p else None,
-            "backlinks": p.get("backlinks") if "backlinks" in p else None,
-            "created_at": datetime.now(timezone.utc),
-        }
-
-        res = col.update_one({"url": url}, {"$set": doc}, upsert=True)
+        # Keep created_at only on first insert
+        res = col.update_one(
+            {"url": url},
+            {
+                "$set": {
+                    "url": url,
+                    "source": (p.get("source") or "").strip(),
+                    "title": p.get("title") or "",
+                    "text": p.get("text") or "",          # keep this lean (cleaned text)
+                    "text_html": p.get("text_html") or "", # optional; consider omitting if large
+                    "author": p.get("author") or None,
+                    "published_ts": p.get("published_ts"),
+                    "engagement": p.get("engagement") or None,
+                    # enrichment candidates (may be None at ingest time)
+                    "tags": p.get("tags") if "tags" in p else None,
+                    "influencer_mentions": p.get("influencer_mentions") if "influencer_mentions" in p else None,
+                    "backlinks": p.get("backlinks") if "backlinks" in p else None,
+                },
+                "$setOnInsert": {
+                    "created_at": now,
+                }
+            },
+            upsert=True
+        )
         if res.upserted_id is not None:
             created += 1
         elif res.matched_count:
@@ -327,7 +342,51 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
 
     return created, updated
 
-# -------------------- AI RESULTS --------------------
+# -------------------- AI RESULTS (queue + output) --------------------
+
+def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
+    """
+    Create 'queued' ai_results stubs for this run, one per URL.
+    Idempotent upserts keyed by (history_id, url).
+    Returns number of upserts attempted.
+    """
+    db = get_mongo_db()
+    now = datetime.now(timezone.utc)
+
+    # Build URL -> raw_id map once
+    urls = [ (p.get("url") or "").strip() for p in rows if p.get("url") ]
+    urls = [u for u in urls if u]
+    if not urls:
+        return 0
+
+    raw_map = {
+        r["url"]: r["_id"]
+        for r in db["raw_insights"].find({"url": {"$in": urls}}, {"_id": 1, "url": 1})
+    }
+
+    ops = []
+    for p in rows:
+        url = (p.get("url") or "").strip()
+        if not url:
+            continue
+
+        selector = {"history_id": ObjectId(history_id), "url": url}
+        set_on_insert = {
+            "history_id": ObjectId(history_id),
+            "url": url,
+            "raw_id": raw_map.get(url),                    # pointer to raw_insights
+            # small passthroughs so list views don’t need a join
+            "source": (p.get("source") or "").strip(),
+            "published_ts": p.get("published_ts"),
+            # queue state
+            "status": "queued",
+            "created_at": now,
+        }
+        ops.append(UpdateOne(selector, {"$setOnInsert": set_on_insert}, upsert=True))
+
+    if ops:
+        db["ai_results"].bulk_write(ops)
+    return len(ops)
 
 def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
     """
@@ -342,7 +401,7 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
     ops = []
     now = datetime.now(timezone.utc)
     for it in items:
-        url = it.get("url")
+        url = (it.get("url") or "").strip()
         if not url:
             continue
 
@@ -350,6 +409,9 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
         docset = {
             "history_id": ObjectId(history_id),
             "url": url,
+            # (optional) keep raw_id in sync if provided by caller
+            "raw_id": it.get("raw_id"),
+            # AI outputs
             "rank": it.get("rank"),
             "relevance_score": it.get("relevance_score"),
             "ai_title": it.get("ai_title"),
@@ -357,11 +419,14 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
             "tags": it.get("tags"),
             "influencer_mentions": it.get("influencer_mentions"),
             "backlinks": it.get("backlinks"),
+            # small passthroughs copied from raw
             "source": it.get("source"),
             "published_ts": it.get("published_ts"),
-            "created_at": now,
+            # status → done unless caller overrides
+            "status": it.get("status") or "done",
+            "finished_at": now,
         }
-        ops.append(UpdateOne(selector, {"$set": docset}, upsert=True))
+        ops.append(UpdateOne(selector, {"$set": docset, "$setOnInsert": {"created_at": now}}, upsert=True))
 
     result = col.bulk_write(ops) if ops else None
     upserts = getattr(result, "upserted_count", 0) if result else 0

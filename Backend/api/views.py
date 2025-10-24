@@ -1,4 +1,3 @@
-# Backend/api/views.py
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -6,12 +5,24 @@ from rest_framework.response import Response
 
 import logging, time
 from bson import ObjectId
+from .analytics import trend_timeseries_by_day, trend_top_tags, trend_by_source
+from .analytics import global_top_topics
+
+from threading import Thread
+from .persist import (
+    get_mongo_db,
+    mark_history_ai_started,
+    mark_history_ai_progress,
+    mark_history_ai_done,
+    write_ai_results_batch,
+)
 
 from .sources import REGISTRY as FETCHERS
 from .persist import (
     get_mongo_db,
     create_history,
     persist_raw_insights,
+    seed_ai_result_stubs,      # NEW
 )
 
 logger = logging.getLogger(__name__)
@@ -36,14 +47,92 @@ def _parse_sources_param(val):
             out.append(k)
     return out
 
+# for clling the ai based on the history id
+def _process_history_async(history_id: ObjectId, subject: str, batch_size: int = 50):
+    db = get_mongo_db()
+    mark_history_ai_started(history_id)
+    processed = 0
+
+    try:
+        while True:
+            # Pull a batch of queued items for THIS history only
+            queued = list(
+                db["ai_results"]
+                .find({"history_id": ObjectId(history_id), "status": "queued"})
+                .limit(batch_size)
+            )
+            if not queued:
+                break
+
+            # Load raw docs
+            raw_ids = [q.get("raw_id") for q in queued if q.get("raw_id")]
+            raw_map = {
+                r["_id"]: r
+                for r in db["raw_insights"].find(
+                    {"_id": {"$in": raw_ids}},
+                    {"title": 1, "text": 1, "published_ts": 1, "source": 1, "url": 1}
+                )
+            }
+
+            # Run your AI for this batch
+            items = []
+            for q in queued:
+                raw = raw_map.get(q.get("raw_id"))
+                if not raw:
+                    # fallback by URL if needed
+                    if q.get("url"):
+                        raw = db["raw_insights"].find_one(
+                            {"url": q["url"]},
+                            {"title": 1, "text": 1, "published_ts": 1, "source": 1, "url": 1}
+                        )
+                if not raw:
+                    continue
+
+                # --- Replace the following with your real AI calls ---
+                title = raw.get("title") or ""
+                text  = raw.get("text") or ""
+
+                # Example toy logic; plug in Pace_Unit/AI/main.py funcs instead
+                ai_title   = title[:140] or f"{subject} — result"
+                ai_summary = (text[:700] + "…") if len(text) > 700 else text
+                relevance  = 1.0  # compute using your bm25/sbert/etc.
+                # -----------------------------------------------
+
+                items.append({
+                    "url": q["url"],
+                    "raw_id": q.get("raw_id"),
+                    "source": raw.get("source"),
+                    "published_ts": raw.get("published_ts"),
+                    "rank": None,  # or compute a rank later
+                    "relevance_score": relevance,
+                    "ai_title": ai_title,
+                    "ai_summary": ai_summary,
+                    # if you added a single 'summary' field too:
+                    # "summary": ai_summary,
+                    "status": "done",
+                })
+
+            if items:
+                write_ai_results_batch(history_id, items)
+                processed += len(items)
+                mark_history_ai_progress(history_id, processed)
+
+        mark_history_ai_done(history_id, total_count=processed)
+
+    except Exception as e:
+        logger.exception("AI worker failed for history=%s: %s", history_id, e)
+        # (optional) you could mark the history as failed here
+
+
 @api_view(["POST"])
 def search_posts(request):
     """
-    New pipeline:
+    Pipeline:
       - Create a history record.
       - For each selected source, fetch (default 120).
       - Interleave, dedupe by URL, apply freshness window.
-      - Persist up to 500 into raw_insights.
+      - Persist up to persist_pool_limit into raw_insights (global cache).
+      - Seed ai_results stubs (status='queued') for this history_id.
       - Return preview (first 10) + history_id for FE.
     """
     data = request.data or {}
@@ -142,10 +231,19 @@ def search_posts(request):
     cutoff = now - days * 86400
     fresh = [p for p in deduped if (p.get("published_ts") or 0) >= cutoff] or deduped
 
-    # Take first persist_pool_limit to save
+    # Take first persist_pool_limit to save to raw_insights
     to_persist = fresh[:persist_pool_limit]
     created, updated = persist_raw_insights(to_persist)
     logger.info("raw_insights persisted: created=%d updated=%d (pool=%d)", created, updated, len(to_persist))
+
+    # NEW: seed per-run ai_results stubs so the AI knows what to process
+    seeded = seed_ai_result_stubs(history_id, to_persist)
+
+    Thread(
+        target=_process_history_async,
+        args=(history_id, subject),
+        daemon=True
+    ).start()
 
     # Simple relevance gate for preview: must contain subject in title/body
     subj_l = subject.lower()
@@ -175,6 +273,7 @@ def search_posts(request):
             "deduped": len(deduped),
             "fresh": len(fresh),
             "persisted": len(to_persist),
+            "seeded_ai_results": seeded,   # NEW: number of stubs created
         }
     }, status=200)
     resp["X-Sources-Used"] = ",".join(selected)
@@ -237,23 +336,52 @@ def get_search_status(request):
     except Exception as e:
         logger.exception("get_search_status error: %s", e)
         return Response({"error": str(e)}, status=500)
+        
+@api_view(["GET"])
+def get_trends(request):
+    hid = request.GET.get("history_id")
+    if not hid:
+        return Response({"error": "history_id is required"}, status=400)
+    try:
+        days = int(request.GET.get("days", 30))
+    except Exception:
+        days = 30
 
+    try:
+        oid = ObjectId(hid)  # convert ONCE here
+        return Response({
+            "history_id": hid,
+            "window_days": days,
+            "timeseries": trend_timeseries_by_day(oid, days),
+            "top_tags": trend_top_tags(oid, days, top_k=20),
+            "by_source": trend_by_source(oid, days),
+        }, status=200)
+    except Exception as e:
+        logger.exception("get_trends error: %s", e)
+        return Response({"error": str(e)}, status=500)
+    
 @api_view(["GET"])
 def get_results(request):
     hid = request.GET.get("history_id")
     if not hid:
         return Response({"error": "history_id is required"}, status=400)
     try:
+        # allow optional status filter; default to 'done'
+        status_filter = (request.GET.get("status") or "done").strip().lower()
         page = int(request.GET.get("page", 1))
         page_size = int(request.GET.get("page_size", 10))
         page = max(1, page)
         page_size = max(1, min(page_size, 50))
     except Exception:
+        status_filter = "done"
         page, page_size = 1, 10
 
     try:
         db = get_mongo_db()
         q = {"history_id": ObjectId(hid)}
+        if status_filter:
+            q["status"] = status_filter
+
         cursor = db["ai_results"].find(q).sort("rank", 1).skip((page - 1) * page_size).limit(page_size)
         docs = list(cursor)
         total = db["ai_results"].count_documents(q)
@@ -268,6 +396,7 @@ def get_results(request):
                 "relevance_score": d.get("relevance_score"),
                 "published_ts": d.get("published_ts"),
                 "source": d.get("source"),
+                "status": d.get("status"),
             })
         return Response({
             "history_id": hid,
@@ -294,8 +423,23 @@ def mongo_status(request):
         return Response({"db": db.name, "collections": names, "counts": counts}, status=200)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
-    
 
+    
+@api_view(["GET"])
+def get_top_topics(request):
+    """
+    GET /api/topics/top?days=30&limit=15
+    Returns a simple list of trending topic tags.
+    """
+    days = int(request.GET.get("days", 30))
+    limit = int(request.GET.get("limit", 15))
+    try:
+        data = global_top_topics(days=days, limit=limit)
+        return Response({"window_days": days, "topics": data}, status=200)
+    except Exception as e:
+        logger.exception("get_top_topics error: %s", e)
+        return Response({"error": str(e)}, status=500)
+    
 # Backend/api/views.py
 
 
@@ -315,7 +459,7 @@ def mongo_status(request):
 # import logging
 # import time
 
-# logger = logging.getLogger(__name__)
+# logger = logging.getLogger(_name_)
 
 # def health(request):
 #     return JsonResponse({"status": "ok", "version": "v2"})
