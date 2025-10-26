@@ -1,6 +1,6 @@
-# AI/Algorithms/bm25_scorer.py
+# AI/ranking_algorithm/bm25_scorer.py
 from __future__ import annotations
-from typing import List, Dict, Any, Iterable, Optional
+from typing import List, Dict, Any
 from rank_bm25 import BM25Okapi
 import numpy as np
 import re
@@ -16,6 +16,7 @@ class BM25Scorer:
     Fit once on the current batch of docs, then score a query against all docs.
     Keep an index: doc_id -> position, so we can fetch per-doc scores quickly.
     """
+
     def __init__(self, bm25: BM25Okapi, id_at_idx: List[Any], idx_of_id: Dict[Any, int]):
         self._bm25 = bm25
         self._id_at_idx = id_at_idx
@@ -24,16 +25,24 @@ class BM25Scorer:
     @classmethod
     def from_docs(cls, docs: List[Dict[str, Any]], *, k1: float = 1.5, b: float = 0.75) -> "BM25Scorer":
         """
-        Build a BM25 index over docs (title + body). k1/b are tunable.
+        Build a BM25 index over docs.
+        We prefer doc["text"] (your current pipeline),
+        but fall back to (title + body) for older data.
         """
         id_at_idx: List[Any] = []
         corpus_tokens: List[List[str]] = []
 
         for d in docs:
             did = d.get("_id")
-            title = (d.get("title") or "").strip()
-            body = (d.get("body") or "").strip()
-            text = f"{title}\n{body}".strip()
+
+            # prefer full text field
+            if "text" in d and d["text"]:
+                text = str(d["text"]).strip()
+            else:
+                title = (d.get("title") or "").strip()
+                body = (d.get("body") or "").strip()
+                text = f"{title}\n{body}".strip()
+
             tokens = _tok(text)
             id_at_idx.append(did)
             corpus_tokens.append(tokens)
@@ -58,18 +67,20 @@ class BM25Scorer:
         qtok = _tok(query or "")
         if not qtok:
             return 0.0
-        # get_scores returns all; this is still fast for our batch sizes
         scores = self._bm25.get_scores(qtok)
         return float(scores[idx])
 
 
 def minmax_normalize(score_map: Dict[Any, float]) -> Dict[Any, float]:
-    """Scale raw BM25 to 0..1 per batch for easier fusion with SBERT/others."""
+    """
+    Scale raw BM25 to 0..1 per batch for easier fusion with SBERT/others.
+    Safe for empty / constant maps.
+    """
     if not score_map:
         return {}
     vals = np.array(list(score_map.values()), dtype=float)
-    lo, hi = float(vals.min()), float(vals.max())
+    lo = float(vals.min())
+    hi = float(vals.max())
     if hi <= lo:
-        # all equal; return zeros
         return {k: 0.0 for k in score_map}
     return {k: (v - lo) / (hi - lo) for k, v in score_map.items()}

@@ -10,44 +10,73 @@ db = client["pace_database"]
 def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
     """
     Upsert a batch of ai_results for a given history_id.
-    Each item should include at least: url, rank, ai_title, ai_summary.
+
+    Each item should include:
+      url, rank, relevance_score, ai_title, ai_summary, tags, source, published_ts
+    Optional:
+      per_algo_scores -> dict of {"bm25":..., "sbert":..., ...}
+
     We upsert on (history_id, url).
-    Returns (upserted_count, matched_updates)
+
+    Returns:
+        (upserted_count, modified_count)
     """
     col = db["ai_results"]
-
     ops = []
     now = datetime.now(timezone.utc)
+
     for it in items:
         url = (it.get("url") or "").strip()
         if not url:
             continue
 
-        selector = {"history_id": ObjectId(history_id), "url": url}
+        selector = {
+            "history_id": ObjectId(history_id),
+            "url": url,
+        }
+
         docset = {
             "history_id": ObjectId(history_id),
             "url": url,
-            # (optional) keep raw_id in sync if provided by caller
             "raw_id": it.get("raw_id"),
-            # AI outputs
+
+            # AI ranking outputs
             "rank": it.get("rank"),
             "relevance_score": it.get("relevance_score"),
+            "per_algo_scores": it.get("per_algo_scores"),  # <-- NEW (optional)
+
+            # AI-generated enrichment
             "ai_title": it.get("ai_title"),
             "ai_summary": it.get("ai_summary"),
             "tags": it.get("tags"),
             "influencer_mentions": it.get("influencer_mentions"),
             "backlinks": it.get("backlinks"),
-            # small passthroughs copied from raw
+
+            # passthrough metadata
             "source": it.get("source"),
             "published_ts": it.get("published_ts"),
-            # status → done unless caller overrides
+
+            # pipeline status
             "status": it.get("status") or "done",
             "finished_at": now,
         }
-        ops.append(UpdateOne(selector, {"$set": docset, "$setOnInsert": {"created_at": now}}, upsert=True))
 
-    result = col.bulk_write(ops) if ops else None
-    upserts = getattr(result, "upserted_count", 0) if result else 0
-    updates = getattr(result, "modified_count", 0) if result else 0
+        ops.append(
+            UpdateOne(
+                selector,
+                {
+                    "$set": docset,
+                    "$setOnInsert": {"created_at": now},
+                },
+                upsert=True,
+            )
+        )
+
+    if not ops:
+        return (0, 0)
+
+    result = col.bulk_write(ops)
+    upserts = getattr(result, "upserted_count", 0)
+    updates = getattr(result, "modified_count", 0)
 
     return upserts, updates

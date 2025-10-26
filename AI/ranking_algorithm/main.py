@@ -11,7 +11,7 @@ db = client["pace_database"]
 
 # --- Scoring Algorithms ---
 from AI.ranking_algorithm.tf_idf_scorer import score_tfidf_simple
-from AI.ranking_algorithm.bm25_scorer import BM25Scorer
+from AI.ranking_algorithm.bm25_scorer import BM25Scorer, minmax_normalize
 from AI.ranking_algorithm.sbert_scorer import sbert_score_one
 from AI.ranking_algorithm.engagement_scorer import engagement_score
 
@@ -36,14 +36,6 @@ DEFAULT_WEIGHTS = {
     "engagement": 0.15,
     "tfidf": 0.05,
 }
-
-def _minmax(scores):
-    if not scores:
-        return {}
-    vals = list(scores.values())
-    vmin, vmax = min(vals), max(vals)
-    rng = (vmax - vmin) or 1
-    return {k: (v - vmin) / rng for k, v in scores.items()}
 
 
 # -----------------------------------------------------------------------------
@@ -86,26 +78,50 @@ def run(history_id: str, keyword: str):
 
     # BM25 first-pass
     bm25 = BM25Scorer.from_docs(docs, k1=1.5, b=0.75)
-    bm25_scores = _minmax(bm25.score_all_for_query(keyword))
+    bm25_raw = bm25.score_all_for_query(keyword)
+    bm25_scores = minmax_normalize(bm25_raw)
     top_ids = set(sorted(bm25_scores, key=bm25_scores.get, reverse=True)[:TOPK])
+
+
 
     rows = []
 
     for d in docs:
         per_algo = {}
-        per_algo["bm25"] = bm25_scores.get(d["_id"], 0.0)
 
+        # BM25 (already normalized 0..1)
+        per_algo["bm25"] = float(bm25_scores.get(d["_id"], 0.0))
+
+        # TF-IDF / SBERT / engagement
         for a in ["tfidf", "sbert", "engagement"]:
             try:
-                if a == "sbert" and d["_id"] not in top_ids:
-                    per_algo[a] = 0.0
+                if a == "sbert":
+                    if d["_id"] in top_ids:
+                        raw_score = ALGORITHMS["sbert"](keyword, d["text"])
+                    else:
+                        raw_score = 0.0
+                elif a == "tfidf":
+                    raw_score = ALGORITHMS["tfidf"](keyword, d["text"])
+                elif a == "engagement":
+                    raw_score = ALGORITHMS["engagement"](d)
                 else:
-                    per_algo[a] = max(0.0, min(1.0, ALGORITHMS[a](keyword, d)))
-            except:
-                per_algo[a] = 0.0
+                    raw_score = 0.0
 
-        final_score = sum(per_algo[a] * weights.get(a, 0.0) for a in use_algos)
+            except Exception:
+                # SBERT model missing, etc.
+                raw_score = 0.0
+
+            # Clamp 0..1
+            per_algo[a] = max(0.0, min(1.0, float(raw_score)))
+
+        # Weighted linear fusion
+        final_score = sum(
+            per_algo.get(name, 0.0) * weights.get(name, 0.0)
+            for name in use_algos
+        )
+
         rows.append((final_score, d, per_algo))
+
 
     rows.sort(key=lambda x: x[0], reverse=True)
 
@@ -123,13 +139,15 @@ def run(history_id: str, keyword: str):
             "raw_id": d["_id"],
             "rank": rank,
             "relevance_score": score,
-            "ai_title": topic,        # clean usable title
-            "ai_summary": summary,    # readable summary
-            "tags": [topic],          # tags list
+            "per_algo_scores": per_algo,  # <-- new
+            "ai_title": topic,
+            "ai_summary": summary,
+            "tags": [topic],
             "source": d["source"],
             "published_ts": d["published_ts"],
-            "status": "done"
+            "status": "done",
         })
+
 
     write_ai_results_batch(history_id, items)
     print(f"[SUCCESS] Processed & saved {len(items)} AI-ranked articles.")
