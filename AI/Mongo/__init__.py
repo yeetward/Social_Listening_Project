@@ -1,1 +1,1 @@
-# AI MongoDB integration module
+# Mongo Package

@@ -1,9 +1,9 @@
-from typing import Any, Dict
+from typing import Any
 
 
-def feature_extraction(article: Dict[str,Any]) -> Dict[str,Any]:
-
-   # Extract title, body, engagement
+def feature_extraction(article: dict[str,Any]) -> dict[str,Any]:
+    
+   # Extract title, body, engagement from the actual article
    '''
    Extract everything from mongoDB and then assign variables to each feature
    '''

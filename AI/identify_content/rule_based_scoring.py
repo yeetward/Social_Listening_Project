@@ -4,7 +4,7 @@ from typing import Dict, Tuple, List, Any, Optional
 CHANNELS = ["email", "newsletter", "blog", "instagram", "social_media"]
 
 
-def rule_based_scores(features: Dict[str, any]) -> Dict[str, float]:
+def rule_based_scores(features: Dict[str, Any]) -> Dict[str, float]:
     scores = {channel: 0.0 for channel in CHANNELS}
 
     # EMAIL: Long-form, personalized, high-value content with CTA

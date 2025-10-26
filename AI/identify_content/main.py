@@ -9,11 +9,11 @@ def runner(article : Dict[str, any], use_llm: bool):
     if use_llm:
         llm_prediction = recommend_distribution_channels(features, article)
         print(llm_prediction)
-        # return llm_prediction
+        return llm_prediction
     else:
         score = rule_based_scores(features)
         print(score)
-        # return score
+        return score
     
 
 def main():
@@ -26,7 +26,7 @@ def main():
             "shares": 80
         }
     }
-    runner(article, use_llm=True)
+    runner(article, use_llm=False)
     
 if __name__ == "__main__":
     main()
