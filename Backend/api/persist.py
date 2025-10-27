@@ -319,8 +319,8 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
                     "url": url,
                     "source": (p.get("source") or "").strip(),
                     "title": p.get("title") or "",
-                    "text": p.get("text") or "",          # keep this lean (cleaned text)
-                    "text_html": p.get("text_html") or "", # optional; consider omitting if large
+                    "text": p.get("text") or "",           # keep this lean (cleaned text)
+                    "text_html": p.get("text_html") or "",  # optional; consider omitting if large
                     "author": p.get("author") or None,
                     "published_ts": p.get("published_ts"),
                     "engagement": p.get("engagement") or None,
@@ -441,3 +441,38 @@ def persist_posts(rows: Iterable[dict]) -> Tuple[int, int]:
     (Older code called persist_posts; we now store to raw_insights.)
     """
     return persist_raw_insights(rows)
+
+# ---------------------- Company profile helpers ---------------------------------------
+
+def upsert_company_profile(profile: dict):
+    """
+    Insert or update a fake company profile by name.
+    Expected keys: { name: str, description: str }
+    """
+    db = get_mongo_db()
+    now = datetime.now(timezone.utc)
+
+    name = (profile.get("name") or "").strip()
+    desc = (profile.get("description") or "").strip()
+    if not name:
+        raise ValueError("company profile name is required")
+
+    db["company_profiles"].update_one(
+        {"name": name},
+        {
+            "$set": {"name": name, "description": desc},
+            "$setOnInsert": {"created_at": now},
+        },
+        upsert=True
+    )
+
+def get_company_profile(name: Optional[str] = None) -> Optional[dict]:
+    """
+    Return one company profile.
+    - If `name` is provided, return that specific profile.
+    - Else, return the most recently created one.
+    """
+    db = get_mongo_db()
+    if name:
+        return db["company_profiles"].find_one({"name": name})
+    return db["company_profiles"].find_one(sort=[("created_at", -1)])

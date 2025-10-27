@@ -96,16 +96,14 @@ Stores raw articles/posts before AI processing.
 
 ```bash
 {
-  "_id": ObjectId,
-  "url": "https://example.com/article",
-  "source": "reddit_official",
-  "title": "AI Revolution",
-  "text": "Artificial Intelligence continues to transform marketing...",
-  "author": "techguru",
-  "published_ts": 1730100000,
-  "engagement": { "score": 230, "num_comments": 34 },
-  "tags": ["AI", "Marketing"],
-  "created_at": ISODate
+  "_id": ObjectId("671970009af52b4e9b0e0c9d"),
+  "url": "https://techcrunch.com/ai-startups/",
+  "title": "AI Startups Are Transforming Healthcare",
+  "text": "This article discusses how new AI-driven startups are improving diagnostics and treatment speeds.",
+  "source": "TechCrunch",
+  "published_ts": 1730000000,
+  "fetched_at": ISODate("2025-10-22T04:25:00Z"),
+  "summary": "AI startups driving innovation in healthcare diagnostics."   
 }
 ```
 
@@ -113,18 +111,30 @@ Stores raw articles/posts before AI processing.
 Stores AI ranked results and summaries for each history entry.
 
 ```bash
+
 {
-  "_id": ObjectId,
-  "history_id": ObjectId("..."),
-  "url": "https://example.com/article",
+  "_id": ObjectId("671972159af52b4e9b0e0da2"),
+  "history_id": ObjectId("67196fd69af52b4e9b0e0c1c"),
+  "raw_id": ObjectId("671970009af52b4e9b0e0c9d"),  
+  "url": "https://techcrunch.com/ai-startups/",
+  "source": "TechCrunch",
+  "published_ts": 1730000000,
+
+  // AI-generated fields:
+  "ai_title": "AI Startups Are Transforming Healthcare",
+  "ai_summary": "This article explores how AI-driven startups are revolutionizing healthcare innovation.",
+  "relevance_score": 0.92,
   "rank": 1,
-  "relevance_score": 0.93,
-  "ai_title": "AI Reshapes Marketing",
-  "ai_summary": "AI is transforming marketing workflows through automation.",
-  "tags": ["AI", "Automation"],
-  "source": "news_rss",
-  "published_ts": 1730100000,
-  "created_at": ISODate
+
+  // Optional analytics fields:
+  "tags": ["AI", "Healthcare", "Startups"],
+  "influencer_mentions": ["John Doe"],
+  "backlinks": ["https://anotherblog.com/post/123"],
+
+  // Queue state
+  "status": "done",                 
+  "created_at": ISODate("2025-10-22T04:26:00Z"),
+  "finished_at": ISODate("2025-10-22T04:30:00Z")
 }
 ```
 
@@ -133,19 +143,25 @@ Tracks user searches and AI progress.
 
 ```bash
 {
-  "_id": ObjectId,
-  "subject": "Artificial Intelligence",
-  "location": "US",
-  "industry": "Technology",
-  "sources_used": ["reddit_official", "news_rss"],
-  "params": { "days": 7, "fetch_limit": 120, "persist_pool_limit": 500 },
-  "created_at": ISODate,
-  "ai_ready": false,
-  "ai_count": 0,
-  "ai_target": 100,
-  "started_at": null,
-  "last_updated": null,
-  "finished_at": null
+ {
+  "_id": ObjectId("67196fd69af52b4e9b0e0c1c"),
+  "subject": "AI in Healthcare",
+  "location": "",
+  "industry": "",
+  "sources_used": ["reddit_rss", "techcrunch_rss", "news_rss"],
+
+  "params": {
+    "days": 7,
+    "fetch_limit": 120,
+    "persist_pool_limit": 500
+  },
+
+  // AI tracking
+  "ai_target": 100,           // expected total
+  "ai_count": 87,             // number processed so far
+  "ai_ready": true,
+  "created_at": ISODate("2025-10-22T04:20:00Z"),
+  "finished_at": ISODate("2025-10-22T04:35:00Z")
 }
 ```
 
@@ -166,6 +182,9 @@ db.history.createIndex({ created_at: -1 })
 | `/api/history/`       | GET    | List previous searches      |
 | `/api/search/status/` | GET    | Check AI progress           |
 | `/api/results/`       | GET    | Paginated AI results        |
+| `/api/trends/`        | GET    | Trends analytics            |
+| `/api/topics/top/`    | GET    | Provides trending topics    |
 | `/api/debug/mongo/`   | GET    | Debug collection counts     |
+
 
 

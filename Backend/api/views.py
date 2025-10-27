@@ -23,6 +23,7 @@ from .persist import (
     create_history,
     persist_raw_insights,
     seed_ai_result_stubs,      # NEW
+    get_company_profile, 
 )
 
 logger = logging.getLogger(__name__)
@@ -438,6 +439,28 @@ def get_top_topics(request):
         return Response({"window_days": days, "topics": data}, status=200)
     except Exception as e:
         logger.exception("get_top_topics error: %s", e)
+        return Response({"error": str(e)}, status=500)
+    
+
+@api_view(["GET"])
+def get_company(request):
+    """
+    GET /api/company/?name=EcoDrive%20Motors   (optional name)
+    Returns the latest (or named) company profile: { name, description, created_at }.
+    """
+    name = (request.GET.get("name") or "").strip() or None
+    try:
+        doc = get_company_profile(name=name)
+        if not doc:
+            return Response({"error": "company profile not found"}, status=404)
+        return Response({
+            "id": str(doc.get("_id")),
+            "name": doc.get("name"),
+            "description": doc.get("description"),
+            "created_at": doc.get("created_at"),
+        }, status=200)
+    except Exception as e:
+        logger.exception("get_company error: %s", e)
         return Response({"error": str(e)}, status=500)
     
 # Backend/api/views.py

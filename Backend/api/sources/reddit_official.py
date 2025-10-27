@@ -62,3 +62,5 @@ def fetch(query: str, limit: int = 20) -> List[Dict]:
             if len(out) >= limit:
                 break
     return out
+
+

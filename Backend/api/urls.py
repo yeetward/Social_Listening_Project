@@ -4,6 +4,7 @@ from django.urls import path
 from .views import health, search_posts, mongo_status, list_history, get_search_status, get_results
 from .views import get_trends
 from .views import get_top_topics
+from .views import get_company
 
 urlpatterns = [
     path("health/", health),
@@ -20,4 +21,7 @@ urlpatterns = [
 
     # for top topic
     path("topics/top/", get_top_topics),
+
+    # for fake company profile
+    path("company/", get_company),
 ]
