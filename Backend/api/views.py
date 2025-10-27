@@ -487,6 +487,7 @@ def get_company(request):
             "id": str(doc.get("_id")),
             "name": doc.get("name"),
             "description": doc.get("description"),
+            "competitors": doc.get("competitors", []),
             "created_at": doc.get("created_at"),
         }, status=200)
     except Exception as e:
