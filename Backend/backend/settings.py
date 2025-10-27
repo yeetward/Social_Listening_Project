@@ -137,10 +137,13 @@
 # # ]
 
 
+import sys, os
 from pathlib import Path
-import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BASE_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 # -------------------------------------------------------------------
 # Secrets & API keys
