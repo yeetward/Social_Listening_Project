@@ -56,73 +56,87 @@ def _parse_sources_param(val):
 
 # -------------------- Built-in fallback AI worker (your existing summariser) --------------------
 
+# def _process_history_async(history_id: ObjectId, subject: str, batch_size: int = 50):
+#     db = get_mongo_db()
+#     mark_history_ai_started(history_id)
+#     processed = 0
+
+#     try:
+#         while True:
+#             # Pull a batch of queued items for THIS history only
+#             queued = list(
+#                 db["ai_results"]
+#                 .find({"history_id": ObjectId(history_id), "status": "queued"})
+#                 .limit(batch_size)
+#             )
+#             if not queued:
+#                 break
+
+#             # Load raw docs
+#             raw_ids = [q.get("raw_id") for q in queued if q.get("raw_id")]
+#             raw_map = {
+#                 r["_id"]: r
+#                 for r in db["raw_insights"].find(
+#                     {"_id": {"$in": raw_ids}},
+#                     {"title": 1, "text": 1, "published_ts": 1, "source": 1, "url": 1}
+#                 )
+#             }
+
+#             # Run your AI for this batch (toy logic)
+#             items = []
+#             for q in queued:
+#                 raw = raw_map.get(q.get("raw_id"))
+#                 if not raw and q.get("url"):
+#                     raw = db["raw_insights"].find_one(
+#                         {"url": q["url"]},
+#                         {"title": 1, "text": 1, "published_ts": 1, "source": 1, "url": 1}
+#                     )
+#                 if not raw:
+#                     continue
+
+#                 title = raw.get("title") or ""
+#                 text  = raw.get("text") or ""
+
+#                 ai_title   = title[:140] or f"{subject} — result"
+#                 ai_summary = (text[:700] + "…") if len(text) > 700 else text
+#                 relevance  = 1.0
+
+#                 items.append({
+#                     "url": q["url"],
+#                     "raw_id": q.get("raw_id"),
+#                     "source": raw.get("source"),
+#                     "published_ts": raw.get("published_ts"),
+#                     "rank": None,
+#                     "relevance_score": relevance,
+#                     "ai_title": ai_title,
+#                     "ai_summary": ai_summary,
+#                     "status": "done",
+#                 })
+
+#             if items:
+#                 write_ai_results_batch(history_id, items)
+#                 processed += len(items)
+#                 mark_history_ai_progress(history_id, processed)
+
+#         mark_history_ai_done(history_id, total_count=processed)
+
+#     except Exception as e:
+#         logger.exception("AI worker failed for history=%s: %s", history_id, e)
+#         # You could mark as failed here if you add such a field
+
 def _process_history_async(history_id: ObjectId, subject: str, batch_size: int = 50):
-    db = get_mongo_db()
+    db = get_mongo_db()  # so we can fallback-count if needed
     mark_history_ai_started(history_id)
-    processed = 0
-
     try:
-        while True:
-            # Pull a batch of queued items for THIS history only
-            queued = list(
-                db["ai_results"]
-                .find({"history_id": ObjectId(history_id), "status": "queued"})
-                .limit(batch_size)
-            )
-            if not queued:
-                break
-
-            # Load raw docs
-            raw_ids = [q.get("raw_id") for q in queued if q.get("raw_id")]
-            raw_map = {
-                r["_id"]: r
-                for r in db["raw_insights"].find(
-                    {"_id": {"$in": raw_ids}},
-                    {"title": 1, "text": 1, "published_ts": 1, "source": 1, "url": 1}
-                )
-            }
-
-            # Run your AI for this batch (toy logic)
-            items = []
-            for q in queued:
-                raw = raw_map.get(q.get("raw_id"))
-                if not raw and q.get("url"):
-                    raw = db["raw_insights"].find_one(
-                        {"url": q["url"]},
-                        {"title": 1, "text": 1, "published_ts": 1, "source": 1, "url": 1}
-                    )
-                if not raw:
-                    continue
-
-                title = raw.get("title") or ""
-                text  = raw.get("text") or ""
-
-                ai_title   = title[:140] or f"{subject} — result"
-                ai_summary = (text[:700] + "…") if len(text) > 700 else text
-                relevance  = 1.0
-
-                items.append({
-                    "url": q["url"],
-                    "raw_id": q.get("raw_id"),
-                    "source": raw.get("source"),
-                    "published_ts": raw.get("published_ts"),
-                    "rank": None,
-                    "relevance_score": relevance,
-                    "ai_title": ai_title,
-                    "ai_summary": ai_summary,
-                    "status": "done",
-                })
-
-            if items:
-                write_ai_results_batch(history_id, items)
-                processed += len(items)
-                mark_history_ai_progress(history_id, processed)
-
-        mark_history_ai_done(history_id, total_count=processed)
-
+        rows = external_ai_run(str(history_id), subject)  # subject is the keyword
+        total = len(rows) if rows is not None else db["ai_results"].count_documents(
+            {"history_id": ObjectId(history_id), "status": "done"}
+        )
+        mark_history_ai_done(history_id, total_count=total)
     except Exception as e:
         logger.exception("AI worker failed for history=%s: %s", history_id, e)
-        # You could mark as failed here if you add such a field
+        # (optional) set a failure flag on the history doc here
+
 
 # -------------------- External AI kicker (prefers AI.main.run) --------------------
 
