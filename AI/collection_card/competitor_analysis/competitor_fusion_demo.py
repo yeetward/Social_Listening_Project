@@ -1,5 +1,5 @@
 # AI/ML/competitor_fusion_demo.py
-from AI.ML.competitor_fusion import rank_competitors_fused
+from competitor_fusion import rank_competitors_fused
 
 sample = """
 Apple Inc. is facing increasing competition from Samsung and Google in the smartphone market.
