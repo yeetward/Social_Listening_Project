@@ -2,6 +2,28 @@
 
 from groq import Groq
 import os
+import time
+import random
+from openai import RateLimitError
+
+def safe_api_call(fn, *args, **kwargs):
+    """
+    Wraps any Groq/OpenAI API call and retries automatically
+    when a rate-limit (HTTP 429) occurs.
+    """
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            return fn(*args, **kwargs)
+        except RateLimitError as e:
+            wait = 2 * (attempt + 1) + random.random()
+            print(f"[RateLimit] {e}. Waiting {wait:.1f}s...")
+            time.sleep(wait)
+        except Exception as e:
+            print(f"[API Error] {e}")
+            raise
+    raise RuntimeError("Exceeded maximum retries (rate limits).")
+
 
 def load_model(prompt, max_tokens=256, temperature=1.0, stream=True):
     """
@@ -21,15 +43,19 @@ def load_model(prompt, max_tokens=256, temperature=1.0, stream=True):
     model_id = "openai/gpt-oss-20b"  # Closest to 120B, or use "llama3-8b-8192" for faster
     
     # Create completion
-    completion = client.chat.completions.create(
-        model=model_id,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
-        stream=stream,
+    try:
+        completion = safe_api_call(
+            client.chat.completions.create,
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=stream,
     )
+    except Exception as e:
+        print(f"[Groq API Error] {e}")
+        return "Summary unavailable due to rate limit or API error."
+
     
     if stream:
         # Stream output token by token (just like your TextIteratorStreamer)
