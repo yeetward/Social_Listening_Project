@@ -34,7 +34,6 @@ def load_model(prompt, max_tokens=256, temperature=1.0, stream=True):
         generated_text = ""
         for chunk in completion:
             content = chunk.choices[0].delta.content or ""
-            print(content, end="", flush=True)
             generated_text += content
         
         print()  # New line at end
@@ -42,5 +41,4 @@ def load_model(prompt, max_tokens=256, temperature=1.0, stream=True):
     else:
         # Non-streaming output
         generated_text = completion.choices[0].message.content
-        print(generated_text)
         return generated_text
