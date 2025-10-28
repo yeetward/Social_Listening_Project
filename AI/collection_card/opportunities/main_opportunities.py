@@ -1,0 +1,107 @@
+# AI/collection_card/main_opportunities.py
+
+from pymongo import MongoClient
+import argparse
+import json
+import os
+import sys
+
+from fetch_industry_articles import get_industry_articles
+from generate_opportunities import generate_opportunities
+
+
+# --- Mongo bootstrap (same style you're already using)
+MONGO_URI = os.getenv(
+    "MONGO_URI",
+    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+)
+client = MongoClient(MONGO_URI)
+db = client["pace_database"]
+
+
+def get_company_context(company_name: str) -> dict:
+    """
+    Fetch company description + competitors for context.
+    Assumes collection: company_profiles
+    {
+      name: "Robotic Marketer",
+      description: "...",
+      competitors: ["Company A", "Company B", ...]
+    }
+    """
+    company = db.company_profiles.find_one({"name": company_name})
+    if not company:
+        raise ValueError(f"No company_profile found for '{company_name}'")
+
+    return {
+        "company": company["name"],
+        "description": company["description"],
+        "competitors": company.get("competitors", []),
+    }
+
+
+def log(msg: str, verbose: bool):
+    if verbose:
+        print(msg, file=sys.stderr)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Generate growth/partnership/expansion opportunities for a given industry view."
+    )
+    parser.add_argument(
+        "company_name",
+        type=str,
+        help="Company name as stored in company_profiles"
+    )
+    parser.add_argument(
+        "industry_name",
+        type=str,
+        help="Industry/topic/sector currently being viewed (e.g. 'AI in retail', 'renewable energy')"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="How many recent industry articles to consider"
+    )
+    parser.add_argument(
+        "--min-relevance",
+        type=float,
+        default=0.4,
+        help="Minimum relevance_score threshold in ai_results"
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show debug/info logs on stderr"
+    )
+
+    args = parser.parse_args()
+
+    try:
+        log(f"🏢 Loading company context for {args.company_name}...", args.verbose)
+        company_ctx = get_company_context(args.company_name)
+
+        log(f"📰 Fetching {args.limit} recent '{args.industry_name}' articles...", args.verbose)
+        articles = get_industry_articles(
+            industry_name=args.industry_name,
+            limit=args.limit,
+            min_relevance=args.min_relevance,
+        )
+        log(f"✓ Found {len(articles)} industry-matching articles", args.verbose)
+
+        log("🤖 Generating opportunities...", args.verbose)
+        opps = generate_opportunities(
+            company_context=company_ctx,
+            industry_name=args.industry_name,
+            industry_articles=articles,
+        )
+        log(f"✓ Generated {len(opps)} opportunities", args.verbose)
+
+        # Send clean JSON to stdout (frontend/BE reads this)
+        print(json.dumps(opps, indent=2))
+
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
