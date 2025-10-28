@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//c/Users/aniru/Documents/GitHub/Pace-Unit/AI/collection_card/**)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}
