@@ -40,3 +40,4 @@ def generate_summary(text, max_length=130, min_length=30, model_name="facebook/b
     return summary[0]["summary_text"]
 
 
+
