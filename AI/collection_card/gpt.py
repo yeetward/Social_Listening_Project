@@ -1,3 +1,5 @@
+# Pace-Unit\AI\collection_card\gpt.py
+
 from groq import Groq
 import os
 
