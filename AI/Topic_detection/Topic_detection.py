@@ -8,7 +8,7 @@ sys.path.insert(0, ai_dir)
 
 from collection_card.gpt import load_model
 
-def detect_topic(text:str) -> str:
+def detect_topic_simple(text:str) -> str:
     prompt = f"Generate the topic of this text \n\n{text}"
     topic = load_model(prompt, max_tokens=1500, temperature=0.7, stream=False)
     return topic

@@ -1,0 +1,26 @@
+# Requirements inferred from the AI/ folder
+# Install with: python -m pip install -r AI/requirements.txt
+
+# Core ML / NLP libraries
+transformers
+sentence-transformers
+torch
+spacy
+
+# Vector/embedding / similarity / ML
+numpy
+scikit-learn
+rank-bm25
+
+# HTTP / DB / API
+requests
+pymongo
+groq
+
+# Notes:
+# - The file purposefully does not pin versions. Pin versions after testing in your environment.
+# - After installing `spacy`, download the English model used in the code:
+#     python -m spacy download en_core_web_sm
+# - `sentence-transformers` requires a working `torch` installation; if your machine supports CUDA, install a CUDA-enabled torch build.
+# - If you prefer TensorFlow backend for transformers, include `tensorflow` instead of `torch` (or both).
+# - Some packages (transformers / sentence-transformers) will download large models on first run.
