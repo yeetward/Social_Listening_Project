@@ -10,5 +10,5 @@ from collection_card.gpt import load_model
 
 def detect_topic(text:str) -> str:
     prompt = f"Generate the topic of this text \n\n{text}"
-    topic = load_model(prompt, max_tokens=150, temperature=0.7, stream=False)
+    topic = load_model(prompt, max_tokens=1500, temperature=0.7, stream=False)
     return topic

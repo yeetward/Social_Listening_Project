@@ -12,5 +12,5 @@ from collection_card.gpt import load_model
 
 def generate_summary(text:str) -> str:
     prompt = f"Summarize the following text concisely:\n\n{text}"
-    summary_text = load_model(prompt, max_tokens=150, temperature=0.7, stream=False)
+    summary_text = load_model(prompt, max_tokens=1500, temperature=0.7, stream=False)
     return summary_text
