@@ -403,20 +403,41 @@ def get_results(request):
         return Response({"error": str(e)}, status=500)
 
 # -------------------- Cards: Company-aware News -------------------------------
-def _build_company_context(name_param: str | None):
+def _build_company_context(name_param: str | None, id_param: str | None = None):
     """
-    Load a company profile (by name if provided, else latest).
+    Load a company profile by id (preferred) or name (fallback), else latest.
     Returns (company_name, description, competitors_list).
     """
-    doc = get_company_profile(name=name_param) if name_param else get_company_profile()
+    db = get_mongo_db()
+    doc = None
+
+    # 1) Prefer company_id if provided
+    if id_param:
+        try:
+            oid = ObjectId(id_param)
+            doc = db["company_profiles"].find_one({"_id": oid})
+        except Exception:
+            pass  # fallback to name/latest
+
+    # 2) Try by name
+    if not doc and name_param:
+        doc = get_company_profile(name=name_param)
+
+    # 3) Fallback to latest profile
+    if not doc:
+        doc = get_company_profile()
+
     if not doc:
         raise ValueError("No company profile available. Seed one first.")
+
     return (doc.get("name"), doc.get("description") or "", doc.get("competitors") or [])
+
 
 @api_view(["GET"])
 def card_news(request):
     """
-    GET /api/cards/news/?company=EcoDrive%20Motors&threshold=0.5&limit=10
+    GET /api/cards/news/?company_id=<id>&threshold=0.5&limit=10
+    or /api/cards/news/?company=EcoDrive%20Motors
     Optional: &api_url=https://...  (if AI team wants to fetch news via external API)
     Returns: { company, count, items: [{ title, url, relevance, source, published_date }] }
     """
@@ -424,7 +445,9 @@ def card_news(request):
         return Response({"error": "news analyzer not available"}, status=500)
 
     company_name = (request.GET.get("company") or "").strip() or None
+    company_id = (request.GET.get("company_id") or "").strip() or None
     api_url = (request.GET.get("api_url") or "").strip() or None
+
     try:
         threshold = float(request.GET.get("threshold", 0.5))
     except Exception:
@@ -436,8 +459,8 @@ def card_news(request):
     limit = max(1, min(limit, 50))
 
     try:
-        # Build company context
-        cname, description, competitors = _build_company_context(company_name)
+        # Build company context (prefer id)
+        cname, description, competitors = _build_company_context(company_name, company_id)
         context = {
             "company": cname,
             "description": description,
@@ -489,19 +512,23 @@ def card_news(request):
         logger.exception("card_news error: %s", e)
         return Response({"error": str(e)}, status=500)
 
+
 # -------------------- Cards: Company-aware Trending Topics --------------------
 @api_view(["GET"])
 def card_trends(request):
     """
-    GET /api/cards/trends/?company=EcoDrive%20Motors&threshold=0.5&limit=10
+    GET /api/cards/trending/?company_id=<id>&threshold=0.5&limit=10
+    or /api/cards/trending/?company=EcoDrive%20Motors
     Optional: &api_url=https://... (if AI team wants to fetch trending topics externally)
-    Returns: { company, topics: [ "EV charging", "battery recycling", ... ] }
+    Returns: [ "EV charging", "battery recycling", ... ]
     """
     if analyse_relevancy is None:
         return Response({"error": "topic analyzer not available"}, status=500)
 
     company_name = (request.GET.get("company") or "").strip() or None
+    company_id = (request.GET.get("company_id") or "").strip() or None
     api_url = (request.GET.get("api_url") or "").strip() or None
+
     try:
         threshold = float(request.GET.get("threshold", 0.5))
     except Exception:
@@ -513,7 +540,8 @@ def card_trends(request):
     limit = max(1, min(limit, 50))
 
     try:
-        cname, description, competitors = _build_company_context(company_name)
+        # Build company context (prefer id)
+        cname, description, competitors = _build_company_context(company_name, company_id)
         context = {
             "company": cname,
             "description": description,
@@ -521,6 +549,7 @@ def card_trends(request):
             "recent_searches": [],
         }
 
+        # Get trending topics: external API if given, else fallback
         trending_topics = []
         if api_url and fetch_trends:
             try:
@@ -531,12 +560,18 @@ def card_trends(request):
         if not trending_topics:
             trending_topics = global_top_topics(days=30, limit=30)
 
+        # Run AI relevance
         analysis = analyse_relevancy.relevancy_rag(context, trending_topics)
-        filtered = [x.get("topic") for x in analysis if float(x.get("relevance", 0)) >= threshold]
+        filtered = [
+            x.get("topic")
+            for x in analysis
+            if float(x.get("relevance", 0)) >= threshold
+        ]
         if limit:
             filtered = filtered[:limit]
 
-        return Response({"company": cname, "topics": filtered}, status=200)
+        # ✅ Return as a simple list
+        return Response(filtered, status=200)
 
     except Exception as e:
         logger.exception("card_trends error: %s", e)
