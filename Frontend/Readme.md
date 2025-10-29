@@ -4,7 +4,7 @@ Run the web UI locally and connect it to the Django backend.
 
 ---
 
-## 1. Prerequisites
+Prerequisites
 
 - Node.js 18+ or 20+
 - One package manager: npm, pnpm, or yarn
