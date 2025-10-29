@@ -8,8 +8,7 @@ def relevancy_rag(context: dict, trending_topics: list[str]):
     company = context["company"]
     description = context["description"]
     competitors = ", ".join(context["competitors"])
-    internal_topics = "\n".join(context.get("recent_searches", [])) or "N/A"
-    external_topics = "\n".join(trending_topics)
+    topics = "\n".join(trending_topics)
 
     prompt = f"""
 You are an AI market analyst. Your job is to assess which external trending topics are most relevant to {company}.
@@ -20,17 +19,14 @@ Company description:
 Competitors:
 {competitors}
 
-Recent internal focus topics:
-{internal_topics}
-
-External trending topics to evaluate:
-{external_topics}
+trending topics to evaluate:
+{topics}
 
 Return ONLY a valid JSON array with NO additional text. Each topic should have a relevance score between 0.0 and 1.0.
 Format:
 [
-  {{"topic": "EV Market Growth", "relevance": 0.95}},
-  {{"topic": "AI Maintenance Systems", "relevance": 0.89}}
+  {{"topic": "relevance": 0.95}},
+  {{"topic": " "relevance": 0.89}}
 ]
 """
 
@@ -44,7 +40,7 @@ Format:
         if not isinstance(result, list):
             raise ValueError(f"Expected list, got {type(result)}")
         
-        return result  # Now it's a real Python list!
+        return result 
         
     except json.JSONDecodeError as e:
         raise ValueError(f"GPT returned invalid JSON: {e}\nResponse: {analysis}")

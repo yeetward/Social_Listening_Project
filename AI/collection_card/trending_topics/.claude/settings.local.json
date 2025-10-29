@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/aniru/Documents/GitHub/Pace-Unit/Backend/api/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,7 +1,7 @@
 import requests
-import sys
 
-def get_trending_topics(api_url=None, verbose=False):
+
+def get_trending_topics(api_url=None):
     """
     Fetch trending topics from an API endpoint
     Args:
@@ -14,12 +14,8 @@ def get_trending_topics(api_url=None, verbose=False):
         raise ValueError("API URL not provided")
     
     try:
-        if verbose:
-            print(f"📡 Fetching trends from: {api_url}", file=sys.stderr)
-        
         response = requests.get(api_url, timeout=30)
         response.raise_for_status()
-        
         data = response.json()
         
         # Handle different response formats
@@ -31,9 +27,6 @@ def get_trending_topics(api_url=None, verbose=False):
             trending_topics = data["topics"]
         else:
             raise ValueError(f"Unexpected response format: {data}")
-        
-        if verbose:
-            print(f"✓ Fetched {len(trending_topics)} trending topics", file=sys.stderr)
         
         return trending_topics
         
