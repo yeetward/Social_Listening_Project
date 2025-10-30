@@ -60,13 +60,14 @@ Terminal 2
 
 # Windows
 Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/search/" -Method POST `
--Body '{"subject":"Artificial Intelligence"}' -ContentType "application/json"
+-Body '{"subject":"Artificial Intelligence"}' -ContentType "application/json" |
+ConvertTo-Json -Depth 10
 
 
 # macOS / Linux
-curl -X POST http://127.0.0.1:8001/api/search/ \
--H "Content-Type: application/json" \
--d '{"subject":"Artificial Intelligence"}'
+curl -s -X POST "http://127.0.0.1:8001/api/search/" \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"Artificial Intelligence"}' | jq .
 ```
 
 ## `/api/debug/mongo/`
