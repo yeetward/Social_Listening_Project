@@ -5,7 +5,7 @@ import argparse
 import json
 import os
 import sys
-
+from bson import ObjectId
 from .fetch_industry_articles import get_industry_articles
 from .generate_opportunities import generate_opportunities
 
@@ -19,25 +19,44 @@ client = MongoClient(MONGO_URI)
 db = client["pace_database"]
 
 
-def get_company_context(company_name: str) -> dict:
-    """
-    Fetch company description + competitors for context.
-    Assumes collection: company_profiles
-    {
-      name: "Robotic Marketer",
-      description: "...",
-      competitors: ["Company A", "Company B", ...]
-    }
-    """
-    company = db.company_profiles.find_one({"name": company_name})
+def get_company_context(company_id: str):
+    """Retrieve company description & competitors from Mongo by ID"""
+    try:
+        # Convert string ID to ObjectId
+        obj_id = ObjectId(company_id)
+    except Exception as e:
+        raise ValueError(f"Invalid company ID format: {company_id}")
+    
+    company = db.company_profiles.find_one({"_id": obj_id})
     if not company:
-        raise ValueError(f"No company_profile found for '{company_name}'")
-
+        raise ValueError(f"No company found for ID {company_id}")
+    
     return {
-        "company": company["name"],
+        "name": company["name"],
         "description": company["description"],
-        "competitors": company.get("competitors", []),
+        "competitors": company["competitors"]
     }
+
+def get_recent_searches(limit=10):
+    """Retrieve most recent analyzed topics from ai_results (optional)"""
+    cursor = db.ai_results.find(
+        {"status": "done"},
+        {"ai_title": 1, "_id": 0}
+    ).sort("published_ts", -1).limit(limit)
+    return [doc["ai_title"] for doc in cursor]
+
+def build_context(company_id: str, limit=10):
+    """Build internal company context"""
+    company_info = get_company_context(company_id)
+    recent_searches = get_recent_searches(limit)
+
+    context = {
+        "company": company_info["name"],
+        "description": company_info["description"],
+        "competitors": company_info["competitors"],
+        "recent_searches": recent_searches
+    }
+    return context
 
 
 def log(msg: str, verbose: bool):
@@ -97,14 +116,9 @@ if __name__ == "__main__":
         description="Generate growth/partnership/expansion opportunities for a given industry view."
     )
     parser.add_argument(
-        "company_name",
+        "company_id",
         type=str,
-        help="Company name as stored in company_profiles"
-    )
-    parser.add_argument(
-        "industry_name",
-        type=str,
-        help="Industry/topic/sector currently being viewed (e.g. 'AI in retail', 'renewable energy')"
+        help="Company id as stored in company_profiles"
     )
     parser.add_argument(
         "--limit",
@@ -127,8 +141,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        log(f"🏢 Loading company context for {args.company_name}...", args.verbose)
-        company_ctx = get_company_context(args.company_name)
+        company_ctx = get_company_context(args.company_id)
 
         log(f"📰 Fetching {args.limit} recent '{args.industry_name}' articles...", args.verbose)
         articles = get_industry_articles(

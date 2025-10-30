@@ -1,7 +1,4 @@
 from pymongo import MongoClient
-import argparse
-
-import json
 import sys
 from bson import ObjectId
 import os
@@ -32,24 +29,14 @@ def get_company_context(company_id: str):
         "competitors": company["competitors"]
     }
 
-def get_recent_searches(limit=10):
-    """Retrieve most recent analyzed topics from ai_results (optional)"""
-    cursor = db.ai_results.find(
-        {"status": "done"},
-        {"ai_title": 1, "_id": 0}
-    ).sort("published_ts", -1).limit(limit)
-    return [doc["ai_title"] for doc in cursor]
-
 def build_context(company_id: str, limit=10):
     """Build internal company context"""
     company_info = get_company_context(company_id)
-    recent_searches = get_recent_searches(limit)
 
     context = {
         "company": company_info["name"],
         "description": company_info["description"],
         "competitors": company_info["competitors"],
-        "recent_searches": recent_searches
     }
     return context
 
@@ -69,7 +56,7 @@ def filter_relevant_topics(analysis_result: list, threshold=0.5):
     ]
     return relevant_topics
 
-def run(company_id: str, api_url: str = "http://127.0.0.1:8001/api/trends/", threshold: float = 0.5, full_analysis: bool = False, verbose: bool = False, limit: int = 30):
+def run(company_id: str):
     """
     Main callable entry point for backend integration.
     Equivalent to running this file as a CLI.
@@ -77,79 +64,23 @@ def run(company_id: str, api_url: str = "http://127.0.0.1:8001/api/trends/", thr
       - list[str] of topic names (if full_analysis=False)
       - list[dict] of {topic, relevance} (if full_analysis=True)
     """
+
+    api_url = "http://127.0.0.1:8001/api/trends/"
     try:
-        # 1️⃣ Fetch trending topics
+        #Fetch trending topics
         trending_topics = fetch_trends.get_trending_topics(api_url)
         if not trending_topics:
             raise ValueError("No trending topics retrieved")
 
-        # 2️⃣ Build company context
+        # Build company context
         context = build_context(company_id)
 
-        # 3️⃣ Run AI relevance analysis
+        # Run AI relevance analysis
         analysis_result = analyse_relevancy.relevancy_rag(context, trending_topics)
-
-        # 4️⃣ Prepare output
-        if full_analysis:
-            # full results with relevance scores
-            output = [
-                x for x in analysis_result
-                if float(x.get("relevance", 0)) >= threshold
-            ][:limit]
-        else:
-            # only topics above threshold
-            output = filter_relevant_topics(analysis_result, threshold)[:limit]
-
-        if verbose:
-            print(f"✓ Generated {len(output)} relevant topics", file=sys.stderr)
-
-        return output
+        print(f"✓ Analyzed {len(analysis_result)} trending topics for relevancy")
+ 
+        return analysis_result
 
     except Exception as e:
         raise RuntimeError(f"run() failed: {e}")
     
-# ---- CLI Entrypoint ----
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run topic relevance RAG for a company.")
-    parser.add_argument("company_id", type=str, help="Company ID (MongoDB ObjectId)")
-    parser.add_argument("--api-url", type=str, 
-                        default="http://127.0.0.1:8001/api/trends/",
-                        help="API endpoint for trending topics")
-    parser.add_argument("--full-analysis", action="store_true",
-                        help="Return full analysis with scores instead of just topic names")
-    parser.add_argument("--threshold", type=float, default=0.5,
-                        help="Minimum relevance threshold (0.0-1.0, default: 0.5)")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Show debug output")
-
-    args = parser.parse_args()
-
-    try:
-        # Fetch trending topics from API
-        trending_topics = fetch_trends.get_trending_topics(args.api_url, verbose=args.verbose)
-        
-        if not trending_topics:
-            print("Error: No trending topics retrieved", file=sys.stderr)
-            sys.exit(1)
-        
-        # Build company context
-        context = build_context(args.company_id)
-
-        # Run RAG analysis
-        analysis_result = analyse_relevancy.relevancy_rag(context, trending_topics)
-
-        # Prepare output based on flags
-        if args.full_analysis:
-            # Return full analysis with scores
-            output = analysis_result
-        else:
-            # Return only relevant topic names
-            output = filter_relevant_topics(analysis_result, args.threshold)
-
-        # Output clean JSON to stdout (backend can parse this)
-        print(json.dumps(output))
-
-    except Exception as e:
-        # Print errors to stderr so they don't interfere with JSON output
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)

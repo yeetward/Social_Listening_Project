@@ -16,7 +16,6 @@ def news_relevancy_rag(context: dict, news_articles: list[dict]):
     company = context["company"]
     description = context["description"]
     competitors = ", ".join(context["competitors"])
-    internal_topics = "\n".join(context.get("recent_searches", [])) or "N/A"
     
     # Format news articles for the prompt
     articles_text = ""
@@ -34,9 +33,6 @@ Company description:
 
 Competitors:
 {competitors}
-
-Recent internal focus topics:
-{internal_topics}
 
 News articles to evaluate:
 {articles_text}
