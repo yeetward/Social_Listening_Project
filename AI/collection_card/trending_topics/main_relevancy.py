@@ -1,11 +1,12 @@
 from pymongo import MongoClient
 import argparse
-import analyse_relevancy
+
 import json
 import sys
 from bson import ObjectId
 import os
-import fetch_trends
+from . import analyse_relevancy
+from . import fetch_trends
 
 # ---- Mongo Setup ----
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://AI_Team_Database:46jdJQEZlhoSDagV@cluster0.dqugl74.mongodb.net/pace_database?retryWrites=true&w=majority&appName=Cluster0")
@@ -68,6 +69,45 @@ def filter_relevant_topics(analysis_result: list, threshold=0.5):
     ]
     return relevant_topics
 
+def run(company_id: str, api_url: str = "http://127.0.0.1:8001/api/trends/", threshold: float = 0.5, full_analysis: bool = False, verbose: bool = False, limit: int = 30):
+    """
+    Main callable entry point for backend integration.
+    Equivalent to running this file as a CLI.
+    Returns a Python list — either:
+      - list[str] of topic names (if full_analysis=False)
+      - list[dict] of {topic, relevance} (if full_analysis=True)
+    """
+    try:
+        # 1️⃣ Fetch trending topics
+        trending_topics = fetch_trends.get_trending_topics(api_url)
+        if not trending_topics:
+            raise ValueError("No trending topics retrieved")
+
+        # 2️⃣ Build company context
+        context = build_context(company_id)
+
+        # 3️⃣ Run AI relevance analysis
+        analysis_result = analyse_relevancy.relevancy_rag(context, trending_topics)
+
+        # 4️⃣ Prepare output
+        if full_analysis:
+            # full results with relevance scores
+            output = [
+                x for x in analysis_result
+                if float(x.get("relevance", 0)) >= threshold
+            ][:limit]
+        else:
+            # only topics above threshold
+            output = filter_relevant_topics(analysis_result, threshold)[:limit]
+
+        if verbose:
+            print(f"✓ Generated {len(output)} relevant topics", file=sys.stderr)
+
+        return output
+
+    except Exception as e:
+        raise RuntimeError(f"run() failed: {e}")
+    
 # ---- CLI Entrypoint ----
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run topic relevance RAG for a company.")

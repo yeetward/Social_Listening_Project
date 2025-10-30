@@ -2,7 +2,32 @@
 import time
 from bson import ObjectId
 from .persist import get_mongo_db
-import time
+
+
+def get_recent_articles(limit: int = 20):
+    """
+    Fetch recent AI-processed articles (status='done') sorted by published_ts.
+    Returns a list of dicts with {ai_title, ai_summary, uri, source, relevance_score, published_ts}.
+    """
+    db = get_mongo_db()
+    cursor = (
+        db.ai_results.find(
+            {"status": "done"},
+            {
+                "_id": 0,
+                "ai_title": 1,
+                "ai_summary": 1,
+                "uri": 1,
+                "source": 1,
+                "relevance_score": 1,
+                "published_ts": 1,
+            }
+        )
+        .sort("published_ts", -1)
+        .limit(limit)
+    )
+    return list(cursor)
+
 
 def global_top_topics(days: int = 30, limit: int = 20):
     """

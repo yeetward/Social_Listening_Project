@@ -447,20 +447,28 @@ def persist_posts(rows: Iterable[dict]) -> Tuple[int, int]:
 def upsert_company_profile(profile: dict):
     """
     Insert or update a fake company profile by name.
-    Expected keys: { name: str, description: str }
+    Expected keys: { name: str, description: str, competitors?: list[str] }
     """
     db = get_mongo_db()
     now = datetime.now(timezone.utc)
 
     name = (profile.get("name") or "").strip()
     desc = (profile.get("description") or "").strip()
+    comps = profile.get("competitors", [])
     if not name:
         raise ValueError("company profile name is required")
+
+    # Normalize competitors to a clean list of unique strings
+    if comps is None:
+        comps = []
+    if not isinstance(comps, list):
+        raise ValueError("competitors must be a list of strings")
+    comps = sorted({str(c).strip() for c in comps if str(c).strip()})
 
     db["company_profiles"].update_one(
         {"name": name},
         {
-            "$set": {"name": name, "description": desc},
+            "$set": {"name": name, "description": desc, "competitors": comps},
             "$setOnInsert": {"created_at": now},
         },
         upsert=True

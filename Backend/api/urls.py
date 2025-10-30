@@ -1,7 +1,7 @@
 # Backend/api/urls.py
 # Backend/api/urls.py
 from django.urls import path
-from .views import health, search_posts, mongo_status, list_history, get_search_status, get_results
+from .views import health, search_posts, mongo_status, list_history, get_search_status, get_results, ai_generate_ideas
 from .views import get_trends
 from .views import get_top_topics
 from .views import get_company
@@ -31,5 +31,6 @@ urlpatterns = [
     # for cards (company-aware) ---
     path("cards/trending/", card_trends),          # NEW: returns [{topic, relevance}, ...]
     path("cards/news/", card_news),                # NEW: returns {company, count, items:[...]}
+    path("ai/ideas/", ai_generate_ideas),          # for ideas 
 
 ]

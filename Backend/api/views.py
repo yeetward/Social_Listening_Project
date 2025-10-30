@@ -642,6 +642,7 @@ from threading import Thread
 
 from .analytics import trend_timeseries_by_day, trend_top_tags, trend_by_source
 from .analytics import global_top_topics
+from .analytics import get_recent_articles
 
 from .sources import REGISTRY as FETCHERS
 from .persist import (
@@ -675,12 +676,20 @@ except Exception:
     analyse_news_relevancy = None
     logger.warning("AI.collection_card.news_feed.analyse_news_relevancy not importable.")
 
-# Company-aware Trending analyzer (required for trending endpoint)
+
 try:
-    from AI.collection_card.trending_topics import analyse_relevancy, fetch_trends
+    from AI.collection_card.trending_topics.main_relevancy import run as trending_run
+except Exception as e:
+    trending_run = None
+    logger.warning("Failed to import trending run(): %s", e)
+
+
+
+try:
+    from AI.collection_card.ideas.generate_actionable_insights import generate_actionable_insights
 except Exception:
-    analyse_relevancy = None
-    logger.warning("AI.collection_card.trending_topics.analyse_relevancy not importable.")
+    generate_actionable_insights = None
+    logger.warning("AI.collection_card.ideas.generate_actionable_insights not importable.")
 
 
 # -----------------------------------------------------------------------------
@@ -1118,22 +1127,73 @@ def get_results(request):
 # -----------------------------------------------------------------------------
 # Cards: Company-aware Trending Topics (primary endpoint for FE)
 # -----------------------------------------------------------------------------
-
 @api_view(["GET"])
 def card_trends(request):
     """
-    GET /api/cards/trending/
-    Returns a plain list of trending topics (no AI relevance or competitors).
+    GET /api/cards/trending/?company_id=<id>&threshold=0.5&limit=10&full=0
+    Optional:
+      - &company=<name> (if you don't have company_id; we resolve it to an ID)
+      - &api_url=<endpoint that returns topics or {"topics":[...]}>
+
+    Returns:
+      - full=0 (default): ["topic A", "topic B", ...]
+      - full=1: [{"topic": "...", "relevance": 0.87}, ...]
     """
-    limit = int(request.GET.get("limit", 10))
-    api_url = f"http://127.0.0.1:8001/api/topics/top/?days=30&limit={limit}"
+    if trending_run is None:
+        return Response({"error": "trending.run not available"}, status=500)
+
+    company_id   = (request.GET.get("company_id") or "").strip() or None
+    company_name = (request.GET.get("company") or "").strip() or None
+    api_url      = (request.GET.get("api_url") or "").strip() or None
 
     try:
-        trending_topics = fetch_trends.get_trending_topics(api_url)
-        return Response(trending_topics, status=status.HTTP_200_OK)
+        threshold = float(request.GET.get("threshold", 0.5))
+    except Exception:
+        threshold = 0.5
+
+    try:
+        limit = int(request.GET.get("limit", 10))
+    except Exception:
+        limit = 10
+    limit = max(1, min(limit, 50))
+
+    full = (request.GET.get("full", "0").strip().lower() in ("1", "true"))
+
+    try:
+        # Resolve company_id by name if needed
+        if not company_id and company_name:
+            doc = get_company_profile(name=company_name)
+            if not doc:
+                return Response({"error": f"Company '{company_name}' not found"}, status=404)
+            company_id = str(doc["_id"])
+
+        if not company_id:
+            return Response({"error": "company_id (or company name) is required"}, status=400)
+
+        # Default API for topics if not provided (ask for a bigger pool than limit)
+        if not api_url:
+            api_url = f"http://127.0.0.1:8001/api/topics/top/?days=30&limit={max(30, limit)}"
+
+        # 🔥 Call your AI module's main run()
+        results = trending_run(
+            company_id=company_id,
+            api_url=api_url,
+            threshold=threshold,
+            full_analysis=full,
+            verbose=False,
+            limit=limit,  # your run() already trims to limit
+        )
+
+        # Just in case the runner didn't trim:
+        if isinstance(results, list):
+            results = results[:limit]
+
+        return Response(results, status=200)
+
     except Exception as e:
         logger.exception("card_trends error: %s", e)
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=500)
+
     
 # @api_view(["GET"])
 # def card_trends(request):
@@ -1306,7 +1366,44 @@ def get_top_topics(request):
         logger.exception("get_top_topics error: %s", e)
         return Response({"error": str(e)}, status=500)
 
+@api_view(["GET"])
+def ai_generate_ideas(request):
+    """
+    GET /api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10
+    Generate actionable AI insights (content, opportunities, threats, etc.)
+    """
+    company_name = (request.GET.get("company") or "").strip()
+    insight_type = request.GET.get("type", "all").lower()
+    limit = int(request.GET.get("limit", 10))
 
+    try:
+        # 1️⃣ Get company profile
+        company_doc = get_company_profile(name=company_name)
+        if not company_doc:
+            return Response({"error": f"Company '{company_name}' not found"}, status=404)
+
+        company_context = {
+            "company": company_doc.get("name"),
+            "description": company_doc.get("description", ""),
+            "competitors": company_doc.get("competitors", []),
+        }
+
+        # 2️⃣ Get recent AI articles
+        recent_articles = get_recent_articles(limit=limit)
+        if not recent_articles:
+            return Response({"error": "No recent AI results found"}, status=404)
+
+        # 3️⃣ Run AI idea generator
+        logger.info(f"Generating {insight_type} insights for {company_name} ({len(recent_articles)} articles)")
+        insights = generate_actionable_insights(company_context, recent_articles, insight_type=insight_type)
+
+        # 4️⃣ Return insights
+        return Response({"company": company_name, "count": len(insights), "insights": insights}, status=200)
+
+    except Exception as e:
+        logger.exception("ai_generate_ideas error: %s", e)
+        return Response({"error": str(e)}, status=500)
+    
 @api_view(["GET"])
 def get_company(request):
     """

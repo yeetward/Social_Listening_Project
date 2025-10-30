@@ -39,6 +39,54 @@ def get_recent_articles(limit=20):
     )
     return articles
 
+def run(
+    company_name: str,
+    insight_type: str = "all",
+    limit: int = 20,
+    verbose: bool = False,
+):
+    """
+    Main callable entry point for backend integration.
+
+    Returns:
+      - list[dict]: actionable insights (same shape as CLI JSON)
+    Raises:
+      - RuntimeError/ValueError on errors
+    """
+    if insight_type not in {"content", "opportunities", "threats", "all"}:
+        raise ValueError(f"Invalid insight_type: {insight_type}")
+
+    def log(msg: str):
+        if verbose:
+            print(msg, file=sys.stderr)
+
+    try:
+        # 1) Company context
+        log(f"🏢 Loading company context for {company_name}...")
+        company_context = get_company_context(company_name)
+
+        # 2) Recent articles
+        log(f"📰 Fetching {limit} recent articles...")
+        recent_articles = get_recent_articles(limit)
+        if not recent_articles:
+            # Return empty list rather than raising to keep API stable
+            log("⚠️ No recent articles found; returning empty insights.")
+            return []
+
+        # 3) Generate insights
+        log(f"🤖 Generating {insight_type} insights...")
+        insights = generate_actionable_insights.generate_actionable_insights(
+            company_context,
+            recent_articles,
+            insight_type=insight_type,
+        )
+
+        log(f"✓ Generated {len(insights)} actionable insights")
+        return insights
+
+    except Exception as e:
+        raise RuntimeError(f"ideas.run() failed: {e}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate actionable insights from recent articles.")
     parser.add_argument("company_name", type=str, help="Company name")
