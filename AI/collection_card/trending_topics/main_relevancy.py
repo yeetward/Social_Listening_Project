@@ -40,29 +40,12 @@ def build_context(company_id: str, limit=10):
     }
     return context
 
-def filter_relevant_topics(analysis_result: list, threshold=0.5):
-    """
-    Filter topics by relevance threshold and return just topic names
-    Args:
-        analysis_result: List of dicts with 'topic' and 'relevance'
-        threshold: Minimum relevance score (0.0 to 1.0)
-    Returns:
-        List of relevant topic names
-    """
-    relevant_topics = [
-        item["topic"] 
-        for item in analysis_result 
-        if item.get("relevance", 0) >= threshold
-    ]
-    return relevant_topics
-
 def run(company_id: str):
     """
     Main callable entry point for backend integration.
     Equivalent to running this file as a CLI.
     Returns a Python list — either:
       - list[str] of topic names (if full_analysis=False)
-      - list[dict] of {topic, relevance} (if full_analysis=True)
     """
 
     api_url = "http://127.0.0.1:8001/api/trends/"
@@ -77,7 +60,6 @@ def run(company_id: str):
 
         # Run AI relevance analysis
         analysis_result = analyse_relevancy.relevancy_rag(context, trending_topics)
-        print(f"✓ Analyzed {len(analysis_result)} trending topics for relevancy")
  
         return analysis_result
 
