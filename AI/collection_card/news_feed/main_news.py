@@ -41,38 +41,60 @@ def build_context(company_id: str, limit=10):
     }
     return context
 
-def filter_relevant_news(analysis_result: list, threshold=0.5):
-    """
-    Filter news articles by relevance threshold
-    Args:
-        analysis_result: List of dicts with article data and 'relevance'
-        threshold: Minimum relevance score (0.0 to 1.0)
-    Returns:
-        List of relevant articles with metadata
-    """
-    relevant_news = [
-        item 
-        for item in analysis_result 
-        if item.get("relevance", 0) >= threshold
-    ]
-    return relevant_news
-
-def run(company_id: str):
+#def run(company_id: str):
+def run(
+    company_name: str,
+    api_url: str | None = None,
+    api_key: str | None = None,
+    limit: int = 50,
+    no_llm: bool = False,
+    history_id: str | None = None,
+    return_stored: bool = False,
+    verbose: bool = False,
+):
     """
     Programmatic entrypoint equivalent to CLI.
     Fetches, analyzes, and filters news relevant to a given company.
     """
     api_url = None
     try:
-        articles = fetch_news.get_news_articles(api_url)
+        # articles = fetch_news.get_news_articles(api_url)
+        dummy_response = {
+    "articles": [
+        {
+            "title": "EV Motors Launches New Range of Affordable Electric Vehicles",
+            "description": "EV Motors unveiled its new 'EcoDrive' series aimed at making electric mobility accessible to all consumers.",
+            "url": "https://example.com/evmotors-ecodrive-launch",
+            "author": "Jane Doe",
+            "source": "TechNews Daily",
+            "publishedAt": "2025-10-30T08:00:00Z"
+        },
+        {
+            "title": "EV Motors Partners with SolarGrid for Sustainable Charging Network",
+            "description": "The partnership will enable EV owners to charge using 100% renewable solar energy at over 500 new stations nationwide.",
+            "url": "https://example.com/evmotors-solargrid-partnership",
+            "author": "John Smith",
+            "source": "GreenFuture Magazine",
+            "publishedAt": "2025-10-29T14:30:00Z"
+        },
+        {
+            "title": "EV Motors Reports Record Quarterly Sales Amid Growing EV Adoption",
+            "description": "Strong demand for electric SUVs and compact cars has pushed EV Motors’ revenue up by 25% compared to last year.",
+            "url": "https://example.com/evmotors-q3-sales",
+            "author": "Emily Nguyen",
+            "source": "Reuters",
+            "publishedAt": "2025-10-27T10:15:00Z"
+        }
+    ]
+}
+
 
         # 2. Build company context
-        context = build_context(company_id)
+        context = build_context("68feebb67c33c037fd2d62f7")
 
         # 3. Run RAG analysis
         analysis_result = analyse_news_relevancy.news_relevancy_rag(context, articles)
         return analysis_result
-
 
 
     except Exception as e:

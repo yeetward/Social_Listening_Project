@@ -40,7 +40,17 @@ def build_context(company_id: str, limit=10):
     }
     return context
 
-def run(company_id: str):
+# def run(company_id: str):
+def run(
+    company_name: str,
+    api_url: str | None = None,
+    api_key: str | None = None,
+    limit: int = 50,
+    no_llm: bool = False,
+    history_id: str | None = None,
+    return_stored: bool = False,
+    verbose: bool = False,
+):
     """
     Main callable entry point for backend integration.
     Equivalent to running this file as a CLI.
@@ -56,7 +66,7 @@ def run(company_id: str):
             raise ValueError("No trending topics retrieved")
 
         # Build company context
-        context = build_context(company_id)
+        context = build_context("68feebb67c33c037fd2d62f7")
 
         # Run AI relevance analysis
         analysis_result = analyse_relevancy.relevancy_rag(context, trending_topics)
