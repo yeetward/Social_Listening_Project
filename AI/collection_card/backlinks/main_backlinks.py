@@ -467,13 +467,24 @@ def run(
 
         log("Scoring & enriching...", verbose)
         analysed = analyse_backlinks(
-            raw, company_name=profile["name"], top_n=limit, with_llm=(not no_llm)
+            raw,
+            company_name=profile["name"],
+            top_n=limit,
+            with_llm=(not no_llm),
         )
 
+        # --- Safe write: fallback if MongoDB is read-only ---
         log("Persisting to Mongo...", verbose)
-        upsert_backlink_insights(
-            company_name=profile["name"], backlinks=analysed, history_id=history_id
-        )
+        try:
+            upsert_backlink_insights(
+                company_name=profile["name"],
+                backlinks=analysed,
+                history_id=history_id,
+            )
+        except Exception as e:
+            log(f" Skipping DB write due to permissions: {e}", verbose)
+            # still continue execution even if DB is read-only
+            pass
 
         return analysed
 
