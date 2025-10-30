@@ -18,13 +18,13 @@ python -m venv .venv
 ```
 
 ```bash
-Terminal 1 & 2
+Open 2 Terminals. Terminal 1 & 2
 
 # Windows
-venv_backend\Scripts\activate
+.venv/Scripts/activate
 
 # macOS / Linux
-source venv_backend/bin/activate
+source .venv/bin/activate
 ```
 
 ## 3.  Install Dependencies
@@ -40,32 +40,200 @@ Terminal 1
 python manage.py runserver 8001
 ```
 
-## 5. Health Check
+## Quick testing
 
+## `/api/health/`
 ```bash
 Terminal 2
 
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/health/" -Method GET
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/health/" -Method GET |
+  ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl http://127.0.0.1:8001/api/health/
+curl -s http://127.0.0.1:8001/api/health/ | jq .
 ```
 
-## Quick testing
-
+## `/api/search/`
 ```bash
 Terminal 2
 
 # Windows
 Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/search/" -Method POST `
--Body '{"subject":"Artificial Intelligence"}' -ContentType "application/json"
+-Body '{"subject":"Artificial Intelligence"}' -ContentType "application/json" |
+ConvertTo-Json -Depth 10
 
 
 # macOS / Linux
-curl -X POST http://127.0.0.1:8001/api/search/ \
--H "Content-Type: application/json" \
--d '{"subject":"Artificial Intelligence"}'
+curl -s -X POST "http://127.0.0.1:8001/api/search/" \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"Artificial Intelligence"}' | jq .
+```
+
+## `/api/debug/mongo/`
+```bash
+Terminal 2
+
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/debug/mongo/" -Method GET |
+  ConvertTo-Json -Depth 10
+
+
+# macOS / Linux
+curl -s http://127.0.0.1:8001/api/debug/mongo/ | jq .
+```
+
+## `/api/history/`
+```bash
+Terminal 2
+
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/history/?limit=20" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/history/?limit=20" | jq .
+```
+
+## `/api/search/status/`
+```bash
+Terminal 2
+
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/search/status/?history_id=<HISTORY_ID>" -Method GET | ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/search/status/?history_id=<HISTORY_ID>" | jq .
+```
+
+## `/api/results/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/results/?history_id=<HISTORY_ID>&status=done&page=1&page_size=10" -Method GET | ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/results/?history_id=<HISTORY_ID>&status=done&page=1&page_size=10" | jq .
+```
+
+## `/api/trends/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/trends/?history_id=<HISTORY_ID>&days=30" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/trends/?history_id=<HISTORY_ID>&days=30" | jq .
+```
+
+## `/api/topics/top/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/topics/top/?days=30&limit=15" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/topics/top/?days=30&limit=15" | jq .
+```
+
+## `/api/company/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/company/?name=EcoDrive%20Motors" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/company/?name=EcoDrive%20Motors" | jq .
+```
+
+# Cards
+## `/api/cards/trending/`
+```bash
+Terminal 2
+# Windows 
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" | jq .
+```
+
+## `/api/cards/newsfeed/`
+```bash
+Terminal 2
+# Windows 
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" | jq .
+```
+
+## `/api/ai/ideas/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" | jq .
+```
+
+## `/api/ai/competitors/`
+```bash
+Terminal 2
+# Windows (PowerShell)
+$body = @{
+  text       = "We build EV fast chargers for fleets and retail."
+  seed_brand = "EcoDrive Motors"
+  industry   = @("EV","Charging","Energy")
+  location   = @("Australia","New South Wales")
+  top_n      = 5
+  min_score  = 0.25
+  verbose    = $false
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/competitors/" -Method POST `
+  -ContentType "application/json" -Body $body |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s -X POST "http://127.0.0.1:8001/api/ai/competitors/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text":"We build EV fast chargers for fleets and retail.",
+    "seed_brand":"EcoDrive Motors",
+    "industry":["EV","Charging","Energy"],
+    "location":["Australia","New South Wales"],
+    "top_n":5,
+    "min_score":0.25,
+    "verbose":false
+  }' | jq .
+```
+
+## `/api/ai/backlinks/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" | jq .
+```
+
+## `/api/ai/opportunities/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4" -Method GET |
+  ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s "http://127.0.0.1:8001/api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4" | jq .
 ```
 
 ## Notes
@@ -74,6 +242,28 @@ curl -X POST http://127.0.0.1:8001/api/search/ \
 - The default port 8001 can be changed if needed (e.g. runserver 8080).
 
 - All environment variables must be set before launching the Django server.
+
+
+## API Endpoints
+
+| Endpoint                   | Method | Description |
+| --------------------------- | ------ | ------------ |
+| `/api/health/`              | GET    | Check if the backend server is running and healthy |
+| `/api/search/`              | POST   | Create a new search history, fetch data from all sources, and trigger AI processing |
+| `/api/history/`             | GET    | List previously run searches with metadata (subject, date, AI status) |
+| `/api/search/status/`       | GET    | Check the AI processing progress for a given `history_id` |
+| `/api/results/`             | GET    | Retrieve paginated AI-generated results for a given `history_id` |
+| `/api/trends/`              | GET    | Get timeseries trends, top tags, and source breakdown for a `history_id` |
+| `/api/topics/top/`          | GET    | Retrieve global trending topics (simple topic list) |
+| `/api/debug/mongo/`         | GET    | Show MongoDB collection names and document counts for debugging |
+| `/api/company/`             | GET    | Retrieve the latest or specific company profile (name, description, competitors) |
+| `/api/cards/trending/`      | GET    | Generate company-aware trending topics using the AI relevancy model |
+| `/api/cards/newsfeed/`      | GET    | Generate AI-ranked news feed for a given company  |
+| `/api/ai/ideas/`            | GET    | Generate AI-powered idea suggestions based on company insights |
+| `/api/ai/competitors/`      | POST   | Identify competitor brands from a given text or context using AI |
+| `/api/ai/backlinks/`        | GET    | Retrieve backlinks and sources related to a company       |
+| `/api/ai/opportunities/`    | GET    | Generate business opportunities related to a company and industry |
+
 
 ---
 
@@ -160,21 +350,3 @@ db.raw_insights.createIndex({ published_ts: -1 })
 db.ai_results.createIndex({ history_id: 1, rank: 1 })
 db.history.createIndex({ created_at: -1 })
 ```
-
-## API Endpoints
-
-| Endpoint              | Method | Description                 |
-| --------------------- | ------ | --------------------------- |
-| `/api/health/`        | GET    | Check server status         |
-| `/api/search/`        | POST   | Create history + fetch data |
-| `/api/history/`       | GET    | List previous searches      |
-| `/api/search/status/` | GET    | Check AI progress           |
-| `/api/results/`       | GET    | Paginated AI results        |
-| `/api/trends/`        | GET    | Trends analytics            |
-| `/api/topics/top/`    | GET    | Provides trending topics    |
-| `/api/debug/mongo/`   | GET    | Debug collection counts     |
-| `/api/cards/news/`    | GET    | Provides news feed          |
-| `/api/cards/trending/`| GET    | Provides ideas              |
-
-
-

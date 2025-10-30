@@ -422,6 +422,14 @@
   font-weight: 500;
 }
 
+#rmtool .rm-loading {
+  color: var(--rm-muted);
+  text-align: center;
+  padding: 20px 0;
+  font-style: italic;
+  font-size: 14px;
+}
+
 /* Results-only minimal styling */
 #rmtool .rm-listing {
   display: grid;
