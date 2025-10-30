@@ -268,90 +268,175 @@ def run(
     - No domain stored in DB; we resolve it at runtime (description URL or ai_results inference).
     - Optionally, a one-off domain_override can be provided via CLI/env without changing schema.
     """
+    #     try:
+    #         if return_stored:
+    #             log(f"Fetching cached backlink insights for {company_name}", verbose)
+    #             return get_top_backlinks(company_name, limit=limit)
+
+    #         # 1) Company context
+    #         profile = get_company_profile(company_name)
+    #         description = profile.get("description", "")
+
+    #         # Domain resolution priority:
+    #         # a) explicit override (CLI/ENV)
+    #         # b) parse from description URL
+    #         # c) infer from ai_results URLs
+    #         domains: list[str] = []
+    #         if domain_override:
+    #             domains = [domain_override.lower().strip()]
+    #             log(f"Using domain override: {domains[0]}", verbose)
+    #         else:
+    #             primary = extract_domain_from_description(description)
+    #             if primary:
+    #                 domains = [primary]
+    #                 log(f"Resolved domain from description: {primary}", verbose)
+    #             else:
+    #                 inferred = infer_candidate_domains_from_ai_results(limit=100)
+    #                 if inferred:
+    #                     domains = inferred
+    #                     log(
+    #                         f"No explicit domain. Using inferred candidates: {', '.join(domains[:5])}",
+    #                         verbose,
+    #                     )
+
+    #         if not domains:
+    #             log(
+    #                 "No domain resolved/inferred; returning cached backlink insights (if any).",
+    #                 verbose,
+    #             )
+    #             return get_top_backlinks(company_name, limit=limit)
+
+    #         # 2) Fetch backlinks for each candidate domain and merge de-duped
+    #         backlinks_raw_all = []
+    #         for dom in domains:
+    #             log(f"Fetching backlinks for {dom} ...", verbose)
+    #             try:
+    #                 batch = get_backlinks_for_domain(
+    #                     domain=dom, api_url=api_url, api_key=api_key, limit=limit
+    #                 )
+    #                 backlinks_raw_all.extend(batch or [])
+    #             except Exception as fe:
+    #                 log(f"! fetch failed for {dom}: {fe}", verbose)
+
+    #         # De-dup by source_url
+    #         seen = set()
+    #         backlinks_raw = []
+    #         for row in backlinks_raw_all:
+    #             su = (row.get("source_url") or "").strip().lower()
+    #             if su and su not in seen:
+    #                 seen.add(su)
+    #                 backlinks_raw.append(row)
+
+    #         log(
+    #             f"✓ Retrieved {len(backlinks_raw)} unique backlinks across {len(domains)} domain(s)",
+    #             verbose,
+    #         )
+    #         if not backlinks_raw:
+    #             return get_top_backlinks(company_name, limit=limit)
+
+    #         # 3) Analyse + (optional) LLM enrich
+    #         log("Scoring backlinks and enriching with AI...", verbose)
+    #         analysed = analyse_backlinks(
+    #             backlinks_raw,
+    #             company_name=company_name,
+    #             top_n=limit,
+    #             with_llm=(not no_llm),
+    #         )
+
+    #         # 4) Persist for UI
+    #         log("Writing backlink insights to MongoDB...", verbose)
+    #         upsert_backlink_insights(
+    #             company_name=company_name,
+    #             backlinks=analysed,
+    #             history_id=history_id,
+    #         )
+
+    #         # 5) Return for API layer
+    #         return analysed
+
+    #     except Exception as e:
+    #         raise RuntimeError(f"backlinks.run() failed: {e}") from e
+
+    # if __name__ == "__main__":
+    #     parser = argparse.ArgumentParser(
+    #         description="Collect, score, enrich, and store backlink intelligence for a company (no domain field required)."
+    #     )
+    #     parser.add_argument(
+    #         "company_name", type=str, help="Company name (must exist in company_profiles)"
+    #     )
+    #     parser.add_argument(
+    #         "--api-url", type=str, help="External backlinks API endpoint (optional)"
+    #     )
+    #     parser.add_argument(
+    #         "--api-key", type=str, help="API key for backlink provider (optional)"
+    #     )
+    #     parser.add_argument("--limit", type=int, default=50, help="Max backlinks to score")
+    #     parser.add_argument(
+    #         "--no-llm", action="store_true", help="Disable LLM enrichment step"
+    #     )
+    #     parser.add_argument(
+    #         "--history-id", type=str, help="Optional history ObjectId for traceability"
+    #     )
+    #     parser.add_argument("--verbose", action="store_true", help="Debug output to stderr")
+    #     parser.add_argument(
+    #         "--return-stored",
+    #         action="store_true",
+    #         help="Return cached results from Mongo instead of recomputing",
+    #     )
+    #     parser.add_argument(
+    #         "--domain-override",
+    #         type=str,
+    #         help="One-off domain to fetch (does not touch DB schema)",
+    #     )
+    #     args = parser.parse_args()
+
+    #     try:
+    #         results = run(
+    #             company_name=args.company_name,
+    #             api_url=args.api_url,
+    #             api_key=args.api_key,
+    #             limit=args.limit,
+    #             no_llm=args.no_llm,
+    #             history_id=args.history_id,
+    #             return_stored=args.return_stored,
+    #             verbose=args.verbose,
+    #         )
+    #         print(json.dumps(results or []))
+    #     except Exception as e:
+    #         print(f"ERROR: {e}", file=sys.stderr)
+    #         sys.exit(1)
+
     try:
         if return_stored:
-            log(f"Fetching cached backlink insights for {company_name}", verbose)
+            log(f"Reading cached backlinks for {company_name}", verbose)
             return get_top_backlinks(company_name, limit=limit)
 
-        # 1) Company context
         profile = get_company_profile(company_name)
-        description = profile.get("description", "")
+        log(f"Company: {profile['name']}", verbose)
 
-        # Domain resolution priority:
-        # a) explicit override (CLI/ENV)
-        # b) parse from description URL
-        # c) infer from ai_results URLs
-        domains: list[str] = []
-        if domain_override:
-            domains = [domain_override.lower().strip()]
-            log(f"Using domain override: {domains[0]}", verbose)
-        else:
-            primary = extract_domain_from_description(description)
-            if primary:
-                domains = [primary]
-                log(f"Resolved domain from description: {primary}", verbose)
-            else:
-                inferred = infer_candidate_domains_from_ai_results(limit=100)
-                if inferred:
-                    domains = inferred
-                    log(
-                        f"No explicit domain. Using inferred candidates: {', '.join(domains[:5])}",
-                        verbose,
-                    )
-
-        if not domains:
-            log(
-                "No domain resolved/inferred; returning cached backlink insights (if any).",
-                verbose,
-            )
-            return get_top_backlinks(company_name, limit=limit)
-
-        # 2) Fetch backlinks for each candidate domain and merge de-duped
-        backlinks_raw_all = []
-        for dom in domains:
-            log(f"Fetching backlinks for {dom} ...", verbose)
-            try:
-                batch = get_backlinks_for_domain(
-                    domain=dom, api_url=api_url, api_key=api_key, limit=limit
-                )
-                backlinks_raw_all.extend(batch or [])
-            except Exception as fe:
-                log(f"! fetch failed for {dom}: {fe}", verbose)
-
-        # De-dup by source_url
-        seen = set()
-        backlinks_raw = []
-        for row in backlinks_raw_all:
-            su = (row.get("source_url") or "").strip().lower()
-            if su and su not in seen:
-                seen.add(su)
-                backlinks_raw.append(row)
-
-        log(
-            f"✓ Retrieved {len(backlinks_raw)} unique backlinks across {len(domains)} domain(s)",
-            verbose,
+        # Fetch by COMPANY (not domain)
+        log("Fetching backlinks (by company)...", verbose)
+        raw = get_backlinks_for_company(
+            company=profile["name"],
+            description=profile["description"],
+            api_url=api_url,
+            api_key=api_key,
+            limit=limit,
         )
-        if not backlinks_raw:
-            return get_top_backlinks(company_name, limit=limit)
+        log(f"✓ Retrieved {len(raw)} backlinks", verbose)
+        if not raw:
+            return []
 
-        # 3) Analyse + (optional) LLM enrich
-        log("Scoring backlinks and enriching with AI...", verbose)
+        log("Scoring & enriching...", verbose)
         analysed = analyse_backlinks(
-            backlinks_raw,
-            company_name=company_name,
-            top_n=limit,
-            with_llm=(not no_llm),
+            raw, company_name=profile["name"], top_n=limit, with_llm=(not no_llm)
         )
 
-        # 4) Persist for UI
-        log("Writing backlink insights to MongoDB...", verbose)
+        log("Persisting to Mongo...", verbose)
         upsert_backlink_insights(
-            company_name=company_name,
-            backlinks=analysed,
-            history_id=history_id,
+            company_name=profile["name"], backlinks=analysed, history_id=history_id
         )
 
-        # 5) Return for API layer
         return analysed
 
     except Exception as e:
@@ -360,49 +445,38 @@ def run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Collect, score, enrich, and store backlink intelligence for a company (no domain field required)."
+        description="Backlink intelligence by company (no domain field needed)."
     )
+    parser.add_argument("company_name", type=str)
     parser.add_argument(
-        "company_name", type=str, help="Company name (must exist in company_profiles)"
-    )
-    parser.add_argument(
-        "--api-url", type=str, help="External backlinks API endpoint (optional)"
-    )
-    parser.add_argument(
-        "--api-key", type=str, help="API key for backlink provider (optional)"
-    )
-    parser.add_argument("--limit", type=int, default=50, help="Max backlinks to score")
-    parser.add_argument(
-        "--no-llm", action="store_true", help="Disable LLM enrichment step"
-    )
-    parser.add_argument(
-        "--history-id", type=str, help="Optional history ObjectId for traceability"
-    )
-    parser.add_argument("--verbose", action="store_true", help="Debug output to stderr")
-    parser.add_argument(
-        "--return-stored",
-        action="store_true",
-        help="Return cached results from Mongo instead of recomputing",
-    )
-    parser.add_argument(
-        "--domain-override",
+        "--api-url",
         type=str,
-        help="One-off domain to fetch (does not touch DB schema)",
+        help="Optional provider endpoint that supports company queries",
     )
+    parser.add_argument("--api-key", type=str)
+    parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument("--no-llm", action="store_true")
+    parser.add_argument("--history-id", type=str)
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--return-stored", action="store_true")
     args = parser.parse_args()
 
     try:
-        results = run(
+        if args.return_stored:
+            print(json.dumps(get_top_backlinks(args.company_name, limit=args.limit)))
+            sys.exit(0)
+
+        out = run(
             company_name=args.company_name,
             api_url=args.api_url,
             api_key=args.api_key,
             limit=args.limit,
             no_llm=args.no_llm,
             history_id=args.history_id,
-            return_stored=args.return_stored,
+            return_stored=False,
             verbose=args.verbose,
         )
-        print(json.dumps(results or []))
+        print(json.dumps(out))
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
