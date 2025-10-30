@@ -1399,64 +1399,30 @@ def ai_generate_ideas(request):
 def ai_competitors(request):
     """
     POST /api/ai/competitors/
-    Body (JSON):
-    {
-      "text": "free-form context text",                 # required
-      "seed_brand": "Apple",                            # required
-      "industry": ["smartphone","mobile","cloud"],      # optional (list or CSV)
-      "location": ["US","United States"],               # optional (list or CSV)
-      "top_n": 5,                                       # optional (default 5)
-      "min_score": 0.25,                                # optional (default 0.25)
-      "verbose": false                                  # optional
-    }
+    Body:
+      { "company": "EcoDrive Motors" }
+
     Returns:
-    { "seed_brand": str, "count": int, "results": [ { "name", "score", "explanation" }, ... ] }
+      [ "Tesla Motors", "BYD Auto", "Rivian Automotive" ]
     """
-    if competitor_run is None:
-        return Response({"error": "competitor_fusion_demo.run not available"}, status=500)
-
-    data = request.data or {}
-    text = (data.get("text") or "").strip()
-    seed_brand = (data.get("seed_brand") or "").strip()
-
-    if not text:
-        return Response({"error": "text is required"}, status=400)
-    if not seed_brand:
-        return Response({"error": "seed_brand is required"}, status=400)
-
-    industry = _as_list(data.get("industry"))
-    location = _as_list(data.get("location"))
-
     try:
-        top_n = int(data.get("top_n", 5))
-    except Exception:
-        top_n = 5
-    try:
-        min_score = float(data.get("min_score", 0.25))
-    except Exception:
-        min_score = 0.25
+        db = get_mongo_db()
+        data = request.data or {}
+        company_name = (data.get("company") or "").strip()
 
-    verbose = str(data.get("verbose", "false")).lower() in ("1", "true", "yes")
+        if not company_name:
+            return Response({"error": "company name required"}, status=400)
 
-    try:
-        results = competitor_run(
-            text=text,
-            seed_brand=seed_brand,
-            industry=industry,
-            location=location,
-            top_n=top_n,
-            min_score=min_score,
-            verbose=verbose,
-        )
-        if isinstance(results, list):
-            results = results[:max(1, top_n)]
-        return Response(
-            {"seed_brand": seed_brand, "count": len(results), "results": results},
-            status=200,
-        )
+        doc = db["company_profiles"].find_one({"name": company_name})
+        if not doc:
+            return Response({"error": "company not found"}, status=404)
+
+        competitors = doc.get("competitors", [])
+        return Response(competitors, status=200)
+
     except Exception as e:
-        logger.exception("ai_competitors error: %s", e)
-        return Response({"error": str(e)}, status=500) 
+        logger.exception("ai_competitors simple error: %s", e)
+        return Response({"error": str(e)}, status=500)
 
 @api_view(["GET"])
 def ai_backlinks(request):
