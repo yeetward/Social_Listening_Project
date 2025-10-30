@@ -6,6 +6,8 @@ Apple Inc. is facing increasing competition from Samsung and Google in the smart
 Tim Cook, Apple's CEO, mentioned innovation will drive iPhone strategy this year.
 Meanwhile, Microsoft is expanding cloud services, competing with Amazon Web Services and Google Cloud.
 """
+
+
 def run(
     text: str,
     seed_brand: str,
