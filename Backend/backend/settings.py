@@ -6,6 +6,13 @@ REPO_ROOT = BASE_DIR.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+# Load .env from repo root
+try:
+    from dotenv import load_dotenv
+    load_dotenv(REPO_ROOT / ".env")
+except Exception:
+    pass
+
 # -------------------------------------------------------------------
 # Secrets & API keys
 # -------------------------------------------------------------------

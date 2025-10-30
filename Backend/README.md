@@ -39,10 +39,16 @@ Create a .env file in the root directory:
 MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/
 MONGODB_DBNAME=pace_database
 DJANGO_SETTINGS_MODULE=backend.settings
+
+# APIs
 GUARDIAN_API_KEY=<your-guardian-key>
 REDDIT_CLIENT_ID=<your-reddit-client-id>
 REDDIT_CLIENT_SECRET=<your-reddit-client-secret>
 REDDIT_USER_AGENT="PACE Discovery Bot"
+
+# Groq (AI)
+GROQ_API_KEY=<your-groq-api-key>
+GROQ_MODEL_ID=openai/gpt-oss-20b
 ```
 
 ## 5.  Run the Server
@@ -185,6 +191,8 @@ db.history.createIndex({ created_at: -1 })
 | `/api/trends/`        | GET    | Trends analytics            |
 | `/api/topics/top/`    | GET    | Provides trending topics    |
 | `/api/debug/mongo/`   | GET    | Debug collection counts     |
+| `/api/cards/news/`    | GET    | Provides news feed          |
+| `/api/cards/trending/`| GET    | Provides ideas              |
 
 
 

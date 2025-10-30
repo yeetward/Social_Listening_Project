@@ -5,7 +5,8 @@ from .views import health, search_posts, mongo_status, list_history, get_search_
 from .views import get_trends
 from .views import get_top_topics
 from .views import get_company
-from .views import card_news, card_trends
+from .views import card_trends
+from .views import card_news
 
 
 urlpatterns = [
@@ -27,7 +28,8 @@ urlpatterns = [
     # for fake company profile
     path("company/", get_company),
 
-        # --- AI result cards ---
-    path("cards/news/", card_news),
-    path("cards/trending/", card_trends),
+    # for cards (company-aware) ---
+    path("cards/trending/", card_trends),          # NEW: returns [{topic, relevance}, ...]
+    path("cards/news/", card_news),                # NEW: returns {company, count, items:[...]}
+
 ]
