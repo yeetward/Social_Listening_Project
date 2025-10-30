@@ -208,20 +208,15 @@
 #         print(f"ERROR: {e}", file=sys.stderr)
 #         sys.exit(1)
 
-
 import argparse
 import json
 import os
 import sys
 from pymongo import MongoClient
 
-from .fetch_backlinks import get_backlinks_for_domain
+from .fetch_backlinks import get_backlinks_for_company
 from .analyse_backlinks import analyse_backlinks
 from .mongo_backlinks import upsert_backlink_insights, get_top_backlinks
-from .company_domain import (
-    extract_domain_from_description,
-    infer_candidate_domains_from_ai_results,
-)
 
 # --- Mongo Setup ---
 MONGO_URI = os.getenv(
@@ -234,23 +229,66 @@ db = client["pace_database"]
 
 def get_company_profile(company_name: str) -> dict:
     """
-    Pull profile for a company from Mongo (schema-limited):
-      { name, created_at, description, competitors }
+    Schema (as per your instruction):
+      { name: str, created_at: ISO, description: str, competitors: [str] }
     """
-    profile = db.company_profiles.find_one({"name": company_name})
-    if not profile:
-        raise ValueError(f"Company '{company_name}' not found in company_profiles")
+    prof = db.company_profiles.find_one({"name": company_name})
+    if not prof:
+        raise ValueError(f"Company '{company_name}' not found in company_profiles.")
     return {
-        "name": profile["name"],
-        "description": profile.get("description", ""),
-        "competitors": profile.get("competitors", []),
-        "created_at": profile.get("created_at"),
+        "name": prof["name"],
+        "description": prof.get("description", ""),
+        "competitors": prof.get("competitors", []),
     }
 
 
-def log(msg, verbose=False):
+def log(msg: str, verbose: bool = False):
     if verbose:
         print(msg, file=sys.stderr)
+
+
+# import argparse
+# import json
+# import os
+# import sys
+# from pymongo import MongoClient
+
+# from .fetch_backlinks import get_backlinks_for_domain
+# from .analyse_backlinks import analyse_backlinks
+# from .mongo_backlinks import upsert_backlink_insights, get_top_backlinks
+# from .company_domain import (
+#     extract_domain_from_description,
+#     infer_candidate_domains_from_ai_results,
+# )
+
+# # --- Mongo Setup ---
+# MONGO_URI = os.getenv(
+#     "MONGO_URI",
+#     "mongodb+srv://AI_Team_Database:46jdJQEZlhoSDagV@cluster0.dqugl74.mongodb.net/pace_database?retryWrites=true&w=majority&appName=Cluster0",
+# )
+# client = MongoClient(MONGO_URI)
+# db = client["pace_database"]
+
+
+# def get_company_profile(company_name: str) -> dict:
+#     """
+#     Pull profile for a company from Mongo (schema-limited):
+#       { name, created_at, description, competitors }
+#     """
+#     profile = db.company_profiles.find_one({"name": company_name})
+#     if not profile:
+#         raise ValueError(f"Company '{company_name}' not found in company_profiles")
+#     return {
+#         "name": profile["name"],
+#         "description": profile.get("description", ""),
+#         "competitors": profile.get("competitors", []),
+#         "created_at": profile.get("created_at"),
+#     }
+
+
+# def log(msg, verbose=False):
+#     if verbose:
+#         print(msg, file=sys.stderr)
 
 
 def run(
@@ -416,7 +454,7 @@ def run(
 
         # Fetch by COMPANY (not domain)
         log("Fetching backlinks (by company)...", verbose)
-        raw = get_backlinks_for_domain(
+        raw = get_backlinks_for_company(
             company=profile["name"],
             description=profile["description"],
             api_url=api_url,
