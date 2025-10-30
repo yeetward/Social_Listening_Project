@@ -32,33 +32,15 @@ source venv_backend/bin/activate
 pip install -r requirements.txt
 ```
 
-## 4.  Configure Environment Variables
-Create a .env file in the root directory:
 
-```bash
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/
-MONGODB_DBNAME=pace_database
-DJANGO_SETTINGS_MODULE=backend.settings
-
-# APIs
-GUARDIAN_API_KEY=<your-guardian-key>
-REDDIT_CLIENT_ID=<your-reddit-client-id>
-REDDIT_CLIENT_SECRET=<your-reddit-client-secret>
-REDDIT_USER_AGENT="PACE Discovery Bot"
-
-# Groq (AI)
-GROQ_API_KEY=<your-groq-api-key>
-GROQ_MODEL_ID=openai/gpt-oss-20b
-```
-
-## 5.  Run the Server
+## 4.  Run the Server
 ```bash
 Terminal 1
 
 python manage.py runserver 8001
 ```
 
-## 6. Health Check
+## 5. Health Check
 
 ```bash
 Terminal 2

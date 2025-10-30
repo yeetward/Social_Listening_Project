@@ -677,7 +677,7 @@ except Exception:
 
 # Company-aware Trending analyzer (required for trending endpoint)
 try:
-    from AI.collection_card.trending_topics import analyse_relevancy
+    from AI.collection_card.trending_topics import analyse_relevancy, fetch_trends
 except Exception:
     analyse_relevancy = None
     logger.warning("AI.collection_card.trending_topics.analyse_relevancy not importable.")
@@ -1118,61 +1118,81 @@ def get_results(request):
 # -----------------------------------------------------------------------------
 # Cards: Company-aware Trending Topics (primary endpoint for FE)
 # -----------------------------------------------------------------------------
+
 @api_view(["GET"])
 def card_trends(request):
     """
-    GET /api/cards/trending/?company_id=<id>&threshold=0.5&limit=10
-    Optional: &company=<name> (fallback if id not supplied)
-    Returns: [{ "topic": str, "relevance": float }, ...]
+    GET /api/cards/trending/
+    Returns a plain list of trending topics (no AI relevance or competitors).
     """
-    if analyse_relevancy is None:
-        return Response({"error": "AI relevancy module not available"}, status=500)
-
-    company_name = (request.GET.get("company") or "").strip() or None
-    company_id = (request.GET.get("company_id") or "").strip() or None
+    limit = int(request.GET.get("limit", 10))
+    api_url = f"http://127.0.0.1:8001/api/topics/top/?days=30&limit={limit}"
 
     try:
-        threshold = float(request.GET.get("threshold", 0.5))
-    except Exception:
-        threshold = 0.5
-    try:
-        limit = int(request.GET.get("limit", 10))
-    except Exception:
-        limit = 10
-    limit = max(1, min(limit, 50))
-
-    try:
-        # 1) Company context from Mongo
-        cname, description, competitors = _build_company_context(company_name, company_id)
-        context = {
-            "company": cname,
-            "description": description,
-            "competitors": competitors,
-            "recent_searches": [],  # can enrich later if needed
-        }
-
-        # 2) Build trending topics internally (no HTTP dependency)
-        topics = global_top_topics(days=30, limit=30)
-
-        # 3) AI relevance scoring
-        analysis_raw = analyse_relevancy.relevancy_rag(context, topics)
-        analysis_list = _coerce_ai_list(analysis_raw)
-
-        # 4) Filter + limit
-        filtered = [
-            x for x in analysis_list
-            if float(x.get("relevance", 0)) >= threshold
-        ][:limit]
-
-        return Response(filtered, status=200)
-
-    except ValueError as e:
-        # AI returned a plain error string or malformed JSON
-        logger.warning("card_trends validation/AI error: %s", e)
-        return Response({"error": str(e)}, status=502)
+        trending_topics = fetch_trends.get_trending_topics(api_url)
+        return Response(trending_topics, status=status.HTTP_200_OK)
     except Exception as e:
         logger.exception("card_trends error: %s", e)
-        return Response({"error": str(e)}, status=500)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+# @api_view(["GET"])
+# def card_trends(request):
+#     result = get_news_articles("http://127.0.0.1:8001/api/topics/top/?days=30&limit=10", verbose=True)
+
+#     return result
+    # """
+    # GET /api/cards/trending/?company_id=<id>&threshold=0.5&limit=10
+    # Optional: &company=<name> (fallback if id not supplied)
+    # Returns: [{ "topic": str, "relevance": float }, ...]
+    # """
+    # if analyse_relevancy is None:
+    #     return Response({"error": "AI relevancy module not available"}, status=500)
+
+    # company_name = (request.GET.get("company") or "").strip() or None
+    # company_id = (request.GET.get("company_id") or "").strip() or None
+
+    # try:
+    #     threshold = float(request.GET.get("threshold", 0.5))
+    # except Exception:
+    #     threshold = 0.5
+    # try:
+    #     limit = int(request.GET.get("limit", 10))
+    # except Exception:
+    #     limit = 10
+    # limit = max(1, min(limit, 50))
+
+    # try:
+    #     # 1) Company context from Mongo
+    #     cname, description, competitors = _build_company_context(company_name, company_id)
+    #     context = {
+    #         "company": cname,
+    #         "description": description,
+    #         "competitors": competitors,
+    #         "recent_searches": [],  # can enrich later if needed
+    #     }
+
+    #     # 2) Build trending topics internally (no HTTP dependency)
+    #     topics = global_top_topics(days=30, limit=30)
+
+    #     # 3) AI relevance scoring
+    #     analysis_raw = analyse_relevancy.relevancy_rag(context, topics)
+    #     analysis_list = _coerce_ai_list(analysis_raw)
+
+    #     # 4) Filter + limit
+    #     filtered = [
+    #         x for x in analysis_list
+    #         if float(x.get("relevance", 0)) >= threshold
+    #     ][:limit]
+
+    #     return Response(filtered, status=200)
+
+    # except ValueError as e:
+    #     # AI returned a plain error string or malformed JSON
+    #     logger.warning("card_trends validation/AI error: %s", e)
+    #     return Response({"error": str(e)}, status=502)
+    # except Exception as e:
+    #     logger.exception("card_trends error: %s", e)
+    #     return Response({"error": str(e)}, status=500)
 
 
 # -----------------------------------------------------------------------------
