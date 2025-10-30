@@ -4,30 +4,6 @@ from bson import ObjectId
 from .persist import get_mongo_db
 
 
-def get_recent_articles(limit: int = 20):
-    """
-    Fetch recent AI-processed articles (status='done') sorted by published_ts.
-    Returns a list of dicts with {ai_title, ai_summary, uri, source, relevance_score, published_ts}.
-    """
-    db = get_mongo_db()
-    cursor = (
-        db.ai_results.find(
-            {"status": "done"},
-            {
-                "_id": 0,
-                "ai_title": 1,
-                "ai_summary": 1,
-                "uri": 1,
-                "source": 1,
-                "relevance_score": 1,
-                "published_ts": 1,
-            }
-        )
-        .sort("published_ts", -1)
-        .limit(limit)
-    )
-    return list(cursor)
-
 
 def global_top_topics(days: int = 30, limit: int = 20):
     """
@@ -104,3 +80,15 @@ def trend_by_source(history_id: ObjectId, days: int = 30):
         {"$sort": {"count": -1}},
     ]
     return list(db["ai_results"].aggregate(pipeline))
+
+def _as_list(val):
+    """
+    Accept list[str] or comma-separated str -> list[str]. Anything else -> [].
+    """
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return [str(x).strip() for x in val if str(x).strip()]
+    if isinstance(val, str):
+        return [s.strip() for s in val.split(",") if s.strip()]
+    return []

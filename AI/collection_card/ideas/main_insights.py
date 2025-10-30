@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 import argparse
-import generate_actionable_insights
+from . import generate_actionable_insights
 import json
 import os
 import sys

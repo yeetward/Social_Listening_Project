@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Set
-from identify_competitor import KeyPlayerIdentifier  
+from .identify_competitor import KeyPlayerIdentifier  
 
 def extract_org_candidates(text: str, *, spacy_model: str = "en_core_web_sm") -> List[str]:
     kpi = KeyPlayerIdentifier(model_name=spacy_model)

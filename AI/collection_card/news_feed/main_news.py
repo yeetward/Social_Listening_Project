@@ -1,8 +1,8 @@
 from pymongo import MongoClient
 import argparse
-import analyse_news_relevancy
+from . import analyse_news_relevancy
 import json
-import fetch_news
+from . import fetch_news
 import os
 import sys
 
@@ -56,7 +56,71 @@ def filter_relevant_news(analysis_result: list, threshold=0.5):
     ]
     return relevant_news
 
+def run(
+    company_name: str,
+    *,
+    api_url: str | None = None,
+    news_articles: list | None = None,
+    threshold: float = 0.5,
+    limit: int | None = None,
+    full_analysis: bool = False,
+    verbose: bool = False
+):
+    """
+    Programmatic entrypoint equivalent to CLI.
+    Fetches, analyzes, and filters news relevant to a given company.
+    """
+    def log(msg: str):
+        if verbose:
+            print(msg, file=sys.stderr)
 
+    try:
+        # 1. Load news data
+        if api_url:
+            log("📡 Fetching news from API...")
+            articles = fetch_news.get_news_articles(api_url)
+        elif news_articles:
+            if not isinstance(news_articles, list):
+                raise ValueError("news_articles must be a list of dicts.")
+            articles = news_articles
+        else:
+            raise ValueError("Must supply either api_url or news_articles.")
+
+        log(f"✓ Loaded {len(articles)} articles")
+
+        # 2. Build company context
+        log(f"🏢 Building context for {company_name}...")
+        context = build_context(company_name)
+
+        # 3. Run RAG analysis
+        log(f"🤖 Analyzing {len(articles)} articles...")
+        analysis_result = analyse_news_relevancy.news_relevancy_rag(context, articles)
+
+        # 4. Filter by relevance threshold
+        log(f"🔍 Filtering by threshold {threshold}...")
+        filtered = filter_relevant_news(analysis_result, threshold)
+        if limit:
+            filtered = filtered[:limit]
+        log(f"✓ {len(filtered)} relevant articles found")
+
+        # 5. Prepare final output
+        if full_analysis:
+            return filtered
+        else:
+            return [
+                {
+                    "title": item.get("title"),
+                    "url": item.get("url"),
+                    "relevance": item.get("relevance"),
+                    "source": item.get("source"),
+                    "published_date": item.get("published_date"),
+                }
+                for item in filtered
+            ]
+
+    except Exception as e:
+        raise RuntimeError(f"newsfeed.run() failed: {e}") from e
+    
 # ---- CLI Entrypoint ----
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run news relevance analysis for a company.")

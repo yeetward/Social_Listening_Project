@@ -642,7 +642,7 @@ from threading import Thread
 
 from .analytics import trend_timeseries_by_day, trend_top_tags, trend_by_source
 from .analytics import global_top_topics
-from .analytics import get_recent_articles
+from .analytics import _as_list
 
 from .sources import REGISTRY as FETCHERS
 from .persist import (
@@ -686,11 +686,35 @@ except Exception as e:
 
 
 try:
-    from AI.collection_card.ideas.generate_actionable_insights import generate_actionable_insights
-except Exception:
-    generate_actionable_insights = None
-    logger.warning("AI.collection_card.ideas.generate_actionable_insights not importable.")
+    from AI.collection_card.ideas.main_insights import run as ideas_run
+except Exception as e:
+    ideas_run = None
+    logger.warning("Failed to import ideas.run(): %s", e)
 
+
+try:
+    from AI.collection_card.competitor_analysis.competitor_fusion_demo import run as competitor_run
+except Exception as e:
+    competitor_run = None
+    logger.warning("Failed to import competitor_fusion_demo.run(): %s", e)
+
+try:
+    from AI.collection_card.backlinks.main_backlinks import run as backlinks_run
+except Exception as e:
+    backlinks_run = None
+    logger.warning("Failed to import backlinks.run(): %s", e)
+
+try:
+    from AI.collection_card.opportunities.main_opportunities import run as opportunities_run
+except Exception as e:
+    opportunities_run = None
+    logger.warning("Failed to import opportunities.run(): %s", e)
+
+try:
+    from AI.collection_card.news_feed.main_news import run as newsfeed_run
+except Exception as e:
+    newsfeed_run = None
+    logger.warning("Failed to import main_newsfeed.run(): %s", e)
 
 # -----------------------------------------------------------------------------
 # Health
@@ -718,66 +742,6 @@ def _parse_sources_param(val):
             seen.add(k)
             out.append(k)
     return out
-
-
-def _coerce_ai_list(value):
-    """
-    Accepts:
-      - Python list (already parsed) -> returns list
-      - JSON string of a list       -> parses & returns list
-      - plain error string          -> raises ValueError with that string
-      - anything else               -> raises ValueError with type info
-    """
-    if isinstance(value, list):
-        return value
-
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
-            raise ValueError("AI returned empty response")
-        if raw.startswith("[") and raw.endswith("]"):
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"AI returned malformed JSON: {e}")
-            if not isinstance(parsed, list):
-                raise ValueError(f"AI returned {type(parsed)}, expected list")
-            return parsed
-        # treat as plain-text error
-        raise ValueError(raw[:500])
-
-    raise ValueError(f"AI returned {type(value)}, expected list or JSON string")
-
-
-def _build_company_context(name_param: str | None, id_param: str | None = None):
-    """
-    Resolve company by id (preferred) or name (fallback) or latest.
-    Returns (company_name, description, competitors_list).
-    """
-    db = get_mongo_db()
-    doc = None
-
-    # 1) Prefer company_id if provided
-    if id_param:
-        try:
-            oid = ObjectId(id_param)
-            doc = db["company_profiles"].find_one({"_id": oid})
-        except Exception:
-            pass  # fall through
-
-    # 2) Try by name
-    if not doc and name_param:
-        doc = get_company_profile(name=name_param)
-
-    # 3) Fallback to latest
-    if not doc:
-        doc = get_company_profile()
-
-    if not doc:
-        raise ValueError("No company profile available. Seed one first.")
-
-    return (doc.get("name"), doc.get("description") or "", doc.get("competitors") or [])
-
 
 # -----------------------------------------------------------------------------
 # Built-in simple AI worker (fallback)
@@ -1258,81 +1222,114 @@ def card_trends(request):
 # -----------------------------------------------------------------------------
 # Cards: Company-aware News (optional, for parity/testing)
 # -----------------------------------------------------------------------------
-@api_view(["GET"])
-def card_news(request):
-    """
-    GET /api/cards/news/?company_id=<id>&threshold=0.5&limit=10
-    Returns: { company, count, items: [{ title, url, relevance, source, published_date }] }
-    """
-    if analyse_news_relevancy is None:
-        return Response({"error": "news analyzer not available"}, status=500)
 
+@api_view(["GET"])
+def news_feed(request):
+    """
+    GET /api/cards/newsfeed/?company=EcoDrive%20Motors&threshold=0.5&limit=10
+    Optional:
+      - &api_url=https://...      # fetch news via external endpoint
+      - &full_analysis=1          # return full LLM analysis with scores/why
+      - &verbose=1
+
+    If api_url is not provided, falls back to recent items from raw_insights and
+    passes them as `news_articles` to the runner.
+    """
+    if newsfeed_run is None:
+        return Response({"error": "newsfeed.run not available"}, status=500)
+
+    # Accept either company_id or company name; prefer id if given
     company_name = (request.GET.get("company") or "").strip() or None
-    company_id = (request.GET.get("company_id") or "").strip() or None
+    company_id   = (request.GET.get("company_id") or "").strip() or None
+    api_url      = (request.GET.get("api_url") or "").strip() or None
 
     try:
         threshold = float(request.GET.get("threshold", 0.5))
     except Exception:
         threshold = 0.5
+
     try:
         limit = int(request.GET.get("limit", 10))
     except Exception:
         limit = 10
-    limit = max(1, min(limit, 50))
+    limit = max(1, min(limit, 100))
+
+    full_analysis = str(request.GET.get("full_analysis", "0")).lower() in ("1", "true", "yes")
+    verbose       = str(request.GET.get("verbose", "0")).lower() in ("1", "true", "yes")
 
     try:
-        # Build company context
-        cname, description, competitors = _build_company_context(company_name, company_id)
-        context = {
-            "company": cname,
-            "description": description,
-            "competitors": competitors,
-            "recent_searches": [],
-        }
+        # Resolve a concrete company name (runner expects name)
+        if not company_name and company_id:
+            doc = get_company_profile(name=None)  # default in case id is bad
+            try:
+                oid = ObjectId(company_id)
+                db = get_mongo_db()
+                by_id = db["company_profiles"].find_one({"_id": oid})
+                if by_id:
+                    company_name = by_id.get("name")
+            except Exception:
+                pass
+            if not company_name and doc:
+                company_name = doc.get("name")
 
-        # Pull recent news from raw_insights (no external HTTP)
-        db = get_mongo_db()
-        cursor = (
-            db["raw_insights"]
-            .find({}, {"title": 1, "url": 1, "source": 1, "published_ts": 1, "text": 1})
-            .sort("published_ts", -1)
-            .limit(200)
-        )
-        news_articles = []
-        for r in cursor:
-            news_articles.append({
+        if not company_name:
+            # Fallback: if name still missing, try latest profile
+            doc = get_company_profile(name=None)
+            if doc:
+                company_name = doc.get("name")
+
+        if not company_name:
+            return Response({"error": "company (name or id) is required"}, status=400)
+
+        # Prefer external API when provided; otherwise build news_articles from Mongo
+        if api_url:
+            items = newsfeed_run(
+                company_name=company_name,
+                api_url=api_url,
+                threshold=threshold,
+                limit=limit,
+                full_analysis=full_analysis,
+                verbose=verbose,
+            )
+        else:
+            db = get_mongo_db()
+            cursor = (
+                db["raw_insights"]
+                .find({}, {"title": 1, "url": 1, "source": 1, "published_ts": 1, "text": 1})
+                .sort("published_ts", -1)
+                .limit(200)
+            )
+            news_articles = [{
                 "title": r.get("title") or "",
                 "url": r.get("url") or "",
                 "source": r.get("source"),
                 "published_date": r.get("published_ts"),
                 "text": r.get("text") or "",
-            })
+            } for r in cursor]
 
-        # AI analysis
-        analysis_raw = analyse_news_relevancy.news_relevancy_rag(context, news_articles)
-        analysis_list = _coerce_ai_list(analysis_raw)
+            items = newsfeed_run(
+                company_name=company_name,
+                news_articles=news_articles,
+                threshold=threshold,
+                limit=limit,
+                full_analysis=full_analysis,
+                verbose=verbose,
+            )
 
-        filtered = [it for it in analysis_list if float(it.get("relevance", 0)) >= threshold]
-        if limit:
-            filtered = filtered[:limit]
+        if not isinstance(items, list):
+            return Response(
+                {"company": company_name, "count": 0, "items": [], "note": "Unexpected output format"},
+                status=200,
+            )
 
-        out = [{
-            "title": it.get("title"),
-            "url": it.get("url"),
-            "relevance": it.get("relevance"),
-            "source": it.get("source"),
-            "published_date": it.get("published_date"),
-        } for it in filtered]
+        # Runner already trims by limit, but hard-guard just in case
+        items = items[:limit]
 
-        return Response({"company": cname, "count": len(out), "items": out}, status=200)
+        return Response({"company": company_name, "count": len(items), "items": items}, status=200)
 
-    except ValueError as e:
-        logger.warning("card_news validation/AI error: %s", e)
-        return Response({"error": str(e)}, status=502)
     except Exception as e:
-        logger.exception("card_news error: %s", e)
+        logger.exception("news_feed error: %s", e)
         return Response({"error": str(e)}, status=500)
-
 
 # -----------------------------------------------------------------------------
 # Debug
@@ -1370,40 +1367,219 @@ def get_top_topics(request):
 def ai_generate_ideas(request):
     """
     GET /api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10
-    Generate actionable AI insights (content, opportunities, threats, etc.)
     """
     company_name = (request.GET.get("company") or "").strip()
-    insight_type = request.GET.get("type", "all").lower()
-    limit = int(request.GET.get("limit", 10))
+    insight_type = (request.GET.get("type") or "all").lower()
+    try:
+        limit = int(request.GET.get("limit", 10))
+    except Exception:
+        limit = 10
+
+    if not company_name:
+        return Response({"error": "company is required"}, status=400)
+
+    if ideas_run is None:
+        return Response({"error": "ideas.run not available"}, status=500)
 
     try:
-        # 1️⃣ Get company profile
-        company_doc = get_company_profile(name=company_name)
-        if not company_doc:
-            return Response({"error": f"Company '{company_name}' not found"}, status=404)
-
-        company_context = {
-            "company": company_doc.get("name"),
-            "description": company_doc.get("description", ""),
-            "competitors": company_doc.get("competitors", []),
-        }
-
-        # 2️⃣ Get recent AI articles
-        recent_articles = get_recent_articles(limit=limit)
-        if not recent_articles:
-            return Response({"error": "No recent AI results found"}, status=404)
-
-        # 3️⃣ Run AI idea generator
-        logger.info(f"Generating {insight_type} insights for {company_name} ({len(recent_articles)} articles)")
-        insights = generate_actionable_insights(company_context, recent_articles, insight_type=insight_type)
-
-        # 4️⃣ Return insights
+        insights = ideas_run(
+            company_name=company_name,
+            insight_type=insight_type,
+            limit=limit,
+            verbose=False,
+        )
+        # ideas_run already returns a list[dict]
         return Response({"company": company_name, "count": len(insights), "insights": insights}, status=200)
 
     except Exception as e:
         logger.exception("ai_generate_ideas error: %s", e)
         return Response({"error": str(e)}, status=500)
-    
+
+@api_view(["POST"])
+def ai_competitors(request):
+    """
+    POST /api/ai/competitors/
+    Body (JSON):
+    {
+      "text": "free-form context text",                 # required
+      "seed_brand": "Apple",                            # required
+      "industry": ["smartphone","mobile","cloud"],      # optional (list or CSV)
+      "location": ["US","United States"],               # optional (list or CSV)
+      "top_n": 5,                                       # optional (default 5)
+      "min_score": 0.25,                                # optional (default 0.25)
+      "verbose": false                                  # optional
+    }
+    Returns:
+    { "seed_brand": str, "count": int, "results": [ { "name", "score", "explanation" }, ... ] }
+    """
+    if competitor_run is None:
+        return Response({"error": "competitor_fusion_demo.run not available"}, status=500)
+
+    data = request.data or {}
+    text = (data.get("text") or "").strip()
+    seed_brand = (data.get("seed_brand") or "").strip()
+
+    if not text:
+        return Response({"error": "text is required"}, status=400)
+    if not seed_brand:
+        return Response({"error": "seed_brand is required"}, status=400)
+
+    industry = _as_list(data.get("industry"))
+    location = _as_list(data.get("location"))
+
+    try:
+        top_n = int(data.get("top_n", 5))
+    except Exception:
+        top_n = 5
+    try:
+        min_score = float(data.get("min_score", 0.25))
+    except Exception:
+        min_score = 0.25
+
+    verbose = str(data.get("verbose", "false")).lower() in ("1", "true", "yes")
+
+    try:
+        results = competitor_run(
+            text=text,
+            seed_brand=seed_brand,
+            industry=industry,
+            location=location,
+            top_n=top_n,
+            min_score=min_score,
+            verbose=verbose,
+        )
+        if isinstance(results, list):
+            results = results[:max(1, top_n)]
+        return Response(
+            {"seed_brand": seed_brand, "count": len(results), "results": results},
+            status=200,
+        )
+    except Exception as e:
+        logger.exception("ai_competitors error: %s", e)
+        return Response({"error": str(e)}, status=500) 
+
+@api_view(["GET"])
+def ai_backlinks(request):
+    """
+    GET /api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0
+    Optional:
+      - api_url=<external provider endpoint>
+      - api_key=<provider key>
+      - history_id=<ObjectId string>
+      - verbose=1
+      - return_stored=1  (skip recompute; read what's in Mongo)
+      - no_llm=1        (disable LLM enrichment)
+    Returns:
+      { "company": str, "count": int, "backlinks": [ ... ] }
+    """
+    if backlinks_run is None:
+        return Response({"error": "backlinks.run not available"}, status=500)
+
+    company = (request.GET.get("company") or "").strip()
+    if not company:
+        return Response({"error": "company is required"}, status=400)
+
+    api_url = (request.GET.get("api_url") or "").strip() or None
+    api_key = (request.GET.get("api_key") or "").strip() or None
+
+    # ints
+    try:
+        limit = int(request.GET.get("limit", 50))
+    except Exception:
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    # bools
+    def _to_bool(v, default=False):
+        if v is None:
+            return default
+        s = str(v).strip().lower()
+        return s in ("1", "true", "yes", "y", "on")
+
+    no_llm        = _to_bool(request.GET.get("no_llm"), default=False)
+    return_stored = _to_bool(request.GET.get("return_stored"), default=False)
+    verbose       = _to_bool(request.GET.get("verbose"), default=False)
+
+    history_id = (request.GET.get("history_id") or "").strip() or None
+
+    try:
+        results = backlinks_run(
+            company_name=company,
+            api_url=api_url,
+            api_key=api_key,
+            limit=limit,
+            no_llm=no_llm,
+            history_id=history_id,
+            return_stored=return_stored,
+            verbose=verbose,
+        )
+        # results is list[dict]
+        return Response(
+            {"company": company, "count": len(results or []), "backlinks": results or []},
+            status=200,
+        )
+    except Exception as e:
+        logger.exception("ai_backlinks error: %s", e)
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["GET"])
+def ai_opportunities(request):
+    """
+    GET /api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4&verbose=0
+
+    Query params:
+      - company (str, required): company name as in company_profiles
+      - industry (str, required): industry/topic/sector ("EV charging", "AI in retail", etc.)
+      - limit (int, optional): how many recent industry articles to consider (default 20, 1..200)
+      - min_relevance (float, optional): minimum relevance_score gate from ai_results (default 0.4)
+      - verbose (bool, optional): 1/true to enable debug logs (default 0)
+
+    Returns:
+      { "company": str, "industry": str, "count": int, "opportunities": [ ... ] }
+    """
+    if opportunities_run is None:
+        return Response({"error": "opportunities.run not available"}, status=500)
+
+    company = (request.GET.get("company") or "").strip()
+    industry = (request.GET.get("industry") or "").strip()
+    if not company:
+        return Response({"error": "company is required"}, status=400)
+    if not industry:
+        return Response({"error": "industry is required"}, status=400)
+
+    # ints/floats
+    try:
+        limit = int(request.GET.get("limit", 20))
+    except Exception:
+        limit = 20
+    limit = max(1, min(limit, 200))
+
+    try:
+        min_relevance = float(request.GET.get("min_relevance", 0.4))
+    except Exception:
+        min_relevance = 0.4
+
+    # bool
+    verbose = str(request.GET.get("verbose", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+
+    try:
+        opps = opportunities_run(
+            company_name=company,
+            industry_name=industry,
+            limit=limit,
+            min_relevance=min_relevance,
+            verbose=verbose,
+        ) or []
+
+        return Response(
+            {"company": company, "industry": industry, "count": len(opps), "opportunities": opps},
+            status=200,
+        )
+    except Exception as e:
+        logger.exception("ai_opportunities error: %s", e)
+        return Response({"error": str(e)}, status=500)
+
+
 @api_view(["GET"])
 def get_company(request):
     """

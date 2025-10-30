@@ -5,7 +5,7 @@ import math
 import re
 
 
-from ner_adapter import extract_org_candidates
+from .ner_adapter import extract_org_candidates
 
 # --- Optional SBERT name-sim boost (safe if not installed) ---
 try:

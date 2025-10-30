@@ -1,12 +1,12 @@
 # Backend/api/urls.py
 # Backend/api/urls.py
 from django.urls import path
-from .views import health, search_posts, mongo_status, list_history, get_search_status, get_results, ai_generate_ideas
+from .views import health, search_posts, mongo_status, list_history, get_search_status, get_results, ai_generate_ideas, ai_competitors, ai_backlinks, ai_opportunities
 from .views import get_trends
 from .views import get_top_topics
 from .views import get_company
 from .views import card_trends
-from .views import card_news
+from .views import news_feed
 
 
 urlpatterns = [
@@ -30,7 +30,10 @@ urlpatterns = [
 
     # for cards (company-aware) ---
     path("cards/trending/", card_trends),          # NEW: returns [{topic, relevance}, ...]
-    path("cards/news/", card_news),                # NEW: returns {company, count, items:[...]}
+    path("cards/newsfeed/", news_feed),                # NEW: returns {company, count, items:[...]}
     path("ai/ideas/", ai_generate_ideas),          # for ideas 
+    path("ai/competitors/", ai_competitors),
+    path("ai/backlinks/", ai_backlinks),
+    path("ai/opportunities/", ai_opportunities),
 
 ]
