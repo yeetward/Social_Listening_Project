@@ -416,7 +416,7 @@ def run(
 
         # Fetch by COMPANY (not domain)
         log("Fetching backlinks (by company)...", verbose)
-        raw = get_backlinks_for_company(
+        raw = get_backlinks_for_domain(
             company=profile["name"],
             description=profile["description"],
             api_url=api_url,
