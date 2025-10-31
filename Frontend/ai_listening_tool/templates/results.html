@@ -410,6 +410,17 @@
         transform: rotate(360deg);
       }
     }
+
+    /* Pagination ellipsis */
+    .rm-page-ellipsis {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+      color: #6b7280;
+      font-size: 14px;
+      user-select: none;
+    }
   </style>
 </div>
 {% endblock %}
@@ -423,8 +434,8 @@
   // State management
   let allResults = [];
   let currentPage = 1;
-  const PAGE_SIZE = 3;
-  const TOTAL_PAGES = 4; // force max 4 pages
+  const PAGE_SIZE = 10;
+  const TOTAL_PAGES = 10; // force max 10 pages
   let isLoading = false;
 
   // Populate header search input with current search term
@@ -1129,7 +1140,7 @@
       // Don't set a default days filter - let backend use its default
       const data = await window.apiPost('/search/', {
         subject: subject,
-        limit: 50,
+        limit: 100,
         priority: 'all'
       });
 
@@ -1473,9 +1484,51 @@
   function renderPager(totalPages) {
     const pages = Math.min(totalPages, TOTAL_PAGES);
     let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹</button>';
-    for (let p = 1; p <= pages; p++) {
+
+    // Smart pagination: show max 5 page buttons with ellipsis
+    const maxVisible = 5;
+    let startPage = 1;
+    let endPage = pages;
+
+    if (pages > maxVisible) {
+      const halfVisible = Math.floor(maxVisible / 2);
+
+      if (currentPage <= halfVisible + 1) {
+        // Near the start
+        startPage = 1;
+        endPage = maxVisible;
+      } else if (currentPage >= pages - halfVisible) {
+        // Near the end
+        startPage = pages - maxVisible + 1;
+        endPage = pages;
+      } else {
+        // In the middle
+        startPage = currentPage - halfVisible;
+        endPage = currentPage + halfVisible;
+      }
+    }
+
+    // Add first page if not in range
+    if (startPage > 1) {
+      btns += `<button data-page="1">1</button>`;
+      if (startPage > 2) {
+        btns += '<span class="rm-page-ellipsis">...</span>';
+      }
+    }
+
+    // Add visible page buttons
+    for (let p = startPage; p <= endPage; p++) {
       btns += `<button class="${p === currentPage ? 'rm-page-active' : ''}" data-page="${p}">${p}</button>`;
     }
+
+    // Add last page if not in range
+    if (endPage < pages) {
+      if (endPage < pages - 1) {
+        btns += '<span class="rm-page-ellipsis">...</span>';
+      }
+      btns += `<button data-page="${pages}">${pages}</button>`;
+    }
+
     btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>›</button>';
     return `<div class="rm-results-pager">${btns}</div>`;
   }

@@ -816,12 +816,12 @@ def search_posts(request):
     if not subject:
         return Response({"error": "subject is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # display preview cap (1..10)
+    # display preview cap (1..100)
     try:
         preview_limit = int(data.get("limit") or 10)
     except Exception:
         preview_limit = 10
-    preview_limit = max(1, min(preview_limit, 10))
+    preview_limit = max(1, min(preview_limit, 100))
 
     # per-source fetch amount (increase pool)
     try:
