@@ -1,0 +1,116 @@
+# Backend/api/sources/newsapi_api.py
+import os, math, time, logging
+from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Optional
+import requests
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------------
+# Constants (safe to keep)
+# --------------------------------------------------------------------
+ENDPOINT = getattr(settings, "NEWSAPI_ENDPOINT", "https://newsapi.org/v2/everything")
+MAX_PAGE_SIZE = 100
+
+# --------------------------------------------------------------------
+# Helpers
+# --------------------------------------------------------------------
+def _to_ts(iso_str: Optional[str]) -> Optional[int]:
+    if not iso_str:
+        return None
+    try:
+        return int(datetime.fromisoformat(iso_str.replace("Z", "+00:00")).timestamp())
+    except Exception:
+        return None
+
+# --------------------------------------------------------------------
+# Main fetcher
+# --------------------------------------------------------------------
+def fetch(
+    query: str,
+    limit: int = 120,
+    *,
+    days: int = 7,
+    language: str = "en",
+    sort_by: str = "publishedAt"
+) -> List[Dict]:
+    """
+    Adapter for REGISTRY: fetch(query, limit, **kwargs) -> list[dict] shaped like raw_insights rows.
+    Pulls articles from NewsAPI and normalizes them for Mongo persistence.
+    """
+    api_key = getattr(settings, "NEWSAPI_KEY", None)
+    if not api_key:
+        logger.error("newsapi error: NEWSAPI_KEY not set in Django settings")
+        raise RuntimeError("NEWSAPI_KEY not set in Django settings")
+
+    to_dt = datetime.now(timezone.utc)
+    from_dt = to_dt - timedelta(days=days)
+    page_size = min(MAX_PAGE_SIZE, max(1, limit))
+    pages = math.ceil(limit / page_size)
+
+    out: List[Dict] = []
+
+    for page in range(1, pages + 1):
+        params = {
+            "q": query,
+            "from": from_dt.isoformat().replace("+00:00", "Z"),
+            "to": to_dt.isoformat().replace("+00:00", "Z"),
+            "language": language,
+            "sortBy": sort_by,
+            "pageSize": page_size,
+            "page": page,
+            "apiKey": api_key,
+        }
+        try:
+            r = requests.get(ENDPOINT, params=params, timeout=15)
+            if r.status_code == 429:
+                logger.warning("NewsAPI rate limited (429) – stopping early.")
+                break
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            logger.exception("NewsAPI request failed: %s", e)
+            break
+
+        articles = data.get("articles") or []
+        if not articles:
+            break
+
+        for a in articles:
+            url = (a.get("url") or "").strip()
+            if not url:
+                continue
+
+            title = (a.get("title") or "").strip()
+            desc = (a.get("description") or "").strip()
+            content = (a.get("content") or "").strip()
+
+            # Clean truncation suffix like "... [+120 chars]"
+            if " [+" in content:
+                content = content.split(" [+", 1)[0].rstrip()
+
+            combined_text = (desc + "\n\n" + content).strip() if (desc or content) else ""
+
+            out.append({
+                "post_id": f"newsapi:{hash(url)}",
+                "source": "newsapi",
+                "url": url,
+                "title": title,
+                "text": combined_text,
+                "text_html": "",
+                "published_ts": _to_ts(a.get("publishedAt")),
+                "author": a.get("author") or None,
+                "engagement": None,
+            })
+
+            if len(out) >= limit:
+                break
+
+        if len(out) >= limit:
+            break
+
+        time.sleep(0.2)  # polite pacing
+
+    logger.info("newsapi fetched %d articles for query='%s'", len(out), query)
+    return out

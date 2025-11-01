@@ -22,6 +22,8 @@ ALLOWED_HOSTS = []
 
 GUARDIAN_API_KEY = os.environ.get("GUARDIAN_API_KEY", "61c6baaf-f156-4fd7-8b94-005642818a11")
 
+NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY", "11da17e92c5d487f874c914347697aec")
+
 # REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "")
 # REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "")
 # REDDIT_USER_AGENT = os.environ.get("REDDIT_USER_AGENT", "PaceDiscoveryBot/1.0 (+team)")

@@ -1550,19 +1550,38 @@ def ai_opportunities(request):
 def get_company(request):
     """
     GET /api/company/?name=EcoDrive%20Motors   (optional name)
-    Returns the latest (or named) company profile: { name, description, competitors, created_at }.
+    Returns the latest (or named) company profile, including cards.
     """
     name = (request.GET.get("name") or "").strip() or None
     try:
         doc = get_company_profile(name=name)
         if not doc:
             return Response({"error": "company profile not found"}, status=404)
+
+        # Sensible default cards in case you fetch an older doc without 'cards'
+        def _default_cards():
+            from datetime import datetime, timezone, timedelta
+            now = datetime.now(timezone.utc)
+            next_week = now + timedelta(days=7)
+            # Store as ISO8601 string with Z suffix for consistency in FE
+            nx = next_week.isoformat().replace("+00:00", "Z")
+            return {
+                "trending":     {"data": [], "updated_at": None, "next_refresh_at": nx},
+                "newsfeed":     {"data": [], "updated_at": None, "next_refresh_at": nx},
+                "ideas":        {"data": [], "updated_at": None, "next_refresh_at": nx},
+                "backlinks":    {"data": [], "updated_at": None, "next_refresh_at": nx},
+                "opportunities":{"data": [], "updated_at": None, "next_refresh_at": nx},
+            }
+
+        cards = doc.get("cards") or _default_cards()
+
         return Response({
             "id": str(doc.get("_id")),
             "name": doc.get("name"),
             "description": doc.get("description"),
             "competitors": doc.get("competitors", []),
             "created_at": doc.get("created_at"),
+            "cards": cards,
         }, status=200)
     except Exception as e:
         logger.exception("get_company error: %s", e)

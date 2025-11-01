@@ -1,205 +1,3 @@
-# # Backend/api/persist.py
-# from typing import Iterable, Tuple
-# from django.conf import settings
-# from pymongo import MongoClient
-# from pymongo.server_api import ServerApi
-
-
-# _mongo_client = None
-# _mongo_db = None
-
-
-# def get_mongo_db():
-#     """Return a cached MongoDB database handle using settings.MONGODB_URI/DBNAME."""
-#     global _mongo_client, _mongo_db
-#     if _mongo_db is not None:
-#         return _mongo_db
-
-#     uri = settings.MONGODB_URI
-#     dbname = settings.MONGODB_DBNAME
-
-#     if not uri or not dbname:
-#         raise RuntimeError("Mongo settings missing: MONGODB_URI / MONGODB_DBNAME")
-
-#     _mongo_client = MongoClient(uri, server_api=ServerApi("1"))
-#     _mongo_db = _mongo_client[dbname]
-#     return _mongo_db
-
-
-
-# def persist_posts(rows: Iterable[dict]) -> Tuple[int, int]:
-#     """
-#     Upsert posts into MongoDB 'posts' collection by URL.
-#     Returns (created_count, updated_count).
-#     """
-#     db = get_mongo_db()
-#     col = db["posts"]
-
-#     created = 0
-#     updated = 0
-
-#     for p in rows:
-#         url = (p.get("url") or "").strip()
-#         if not url:
-#             continue  
-
-#         doc = {
-#             "source_key": (p.get("source") or "").strip(),
-#             "post_id": p.get("post_id") or "",
-#             "url": url,
-#             "title": p.get("title") or "",
-#             "text": p.get("text") or "",
-#             "text_html": p.get("text_html") or "",
-#             "author": p.get("author") or "",
-#             "published_ts": p.get("published_ts"),
-#             "engagement": p.get("engagement") or {},
-#         }
-
-#         # Upsert by URL
-#         res = col.update_one({"url": url}, {"$set": doc}, upsert=True)
-#         # If upserted_id is set, we created; otherwise updated
-#         if res.upserted_id is not None:
-#             created += 1
-#         elif res.matched_count:
-#             updated += 1
-
-#     return created, updated
-
-
-
-
-
-
-# Backend/api/persist.py
-# Backend/api/persist.py
-# Backend/api/persist.py
-
-
-
-
-# from typing import Iterable, Tuple, Dict, Any
-# from datetime import datetime
-# from bson import ObjectId
-# from django.conf import settings
-# from pymongo import MongoClient
-# from pymongo.server_api import ServerApi
-
-# _mongo_client = None
-# _mongo_db = None
-
-# def get_mongo_db():
-#     """
-#     Cached MongoDB database handle using settings.MONGODB_URI/DBNAME.
-#     """
-#     global _mongo_client, _mongo_db
-#     if _mongo_db is not None:
-#         return _mongo_db
-
-#     uri = settings.MONGODB_URI
-#     dbname = settings.MONGODB_DBNAME
-#     if not uri or not dbname:
-#         raise RuntimeError("Mongo settings missing: MONGODB_URI / MONGODB_DBNAME")
-
-#     _mongo_client = MongoClient(uri, server_api=ServerApi("1"))
-#     _mongo_db = _mongo_client[dbname]
-#     return _mongo_db
-
-
-# # ---------- HISTORY DOCS ----------
-
-# def create_history(*, subject: str, location: str, industry: str,
-#                    sources_used: list[str], params: Dict[str, Any]) -> ObjectId:
-#     """
-#     Insert a new 'history' document and return its _id.
-#     """
-#     db = get_mongo_db()
-#     now = datetime.utcnow()
-#     doc = {
-#         "subject": subject,
-#         "location": location,
-#         "industry": industry,
-#         "sources_used": sources_used,
-#         "params": params or {},
-#         "created_at": now,
-
-#         # AI status (AI worker will update these)
-#         "ai_ready": False,
-#         "ai_count": 0,
-#         "ai_target": 100,
-#         "started_at": now,
-#         "last_updated": None,
-#         "finished_at": None,
-#     }
-#     res = db["history"].insert_one(doc)
-#     return res.inserted_id
-
-
-# # ---------- RAW INSIGHTS UPSERT ----------
-
-# def persist_raw_insights(rows: Iterable[dict], history_id: ObjectId, *, cap: int = 500) -> Tuple[int, int, int]:
-#     """
-#     Upsert up to 'cap' docs into 'raw_insights' by URL; add the history_id to 'histories' array.
-#     Returns (created_count, updated_count, seen_after_dedupe).
-#     """
-#     db = get_mongo_db()
-#     col = db["raw_insights"]
-
-#     created = 0
-#     updated = 0
-#     count = 0
-#     seen_urls = set()
-
-#     for p in rows:
-#         if count >= cap:
-#             break
-
-#         url = (p.get("url") or "").strip()
-#         if not url or url in seen_urls:
-#             continue
-#         seen_urls.add(url)
-
-#         doc = {
-#             "source": (p.get("source") or "").strip(),
-#             "post_id": p.get("post_id") or "",
-#             "url": url,
-#             "title": p.get("title") or "",
-#             "text": p.get("text") or "",
-#             "text_html": p.get("text_html") or "",
-#             "author": p.get("author") or "",
-#             "published_ts": p.get("published_ts"),
-#             "engagement": p.get("engagement") or None,
-#             "created_at": datetime.utcnow(),
-#         }
-
-#         # Upsert by URL + push history link
-#         res = col.update_one(
-#             {"url": url},
-#             {
-#                 "$setOnInsert": {"created_at": doc["created_at"]},
-#                 "$set": {
-#                     "source": doc["source"],
-#                     "post_id": doc["post_id"],
-#                     "title": doc["title"],
-#                     "text": doc["text"],
-#                     "text_html": doc["text_html"],
-#                     "author": doc["author"],
-#                     "published_ts": doc["published_ts"],
-#                     "engagement": doc["engagement"],
-#                 },
-#                 "$addToSet": {"histories": history_id},
-#             },
-#             upsert=True,
-#         )
-#         if res.upserted_id is not None:
-#             created += 1
-#         elif res.matched_count:
-#             updated += 1
-
-#         count += 1
-
-#     return created, updated, len(seen_urls)
-
-# Backend/api/persist.py
 # Backend/api/persist.py
 
 from typing import Iterable, Tuple, List, Dict, Optional
@@ -268,6 +66,7 @@ def create_history(
     res = db["history"].insert_one(doc)
     return res.inserted_id
 
+
 def mark_history_ai_started(history_id: ObjectId):
     db = get_mongo_db()
     now = datetime.now(timezone.utc)
@@ -276,6 +75,7 @@ def mark_history_ai_started(history_id: ObjectId):
         {"$set": {"started_at": now, "last_updated": now}}
     )
 
+
 def mark_history_ai_progress(history_id: ObjectId, ai_count: int):
     db = get_mongo_db()
     now = datetime.now(timezone.utc)
@@ -283,6 +83,7 @@ def mark_history_ai_progress(history_id: ObjectId, ai_count: int):
         {"_id": ObjectId(history_id)},
         {"$set": {"ai_count": ai_count, "last_updated": now}}
     )
+
 
 def mark_history_ai_done(history_id: ObjectId, total_count: Optional[int] = None):
     db = get_mongo_db()
@@ -311,7 +112,6 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
         if not url:
             continue
 
-        # Keep created_at only on first insert
         res = col.update_one(
             {"url": url},
             {
@@ -319,22 +119,20 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
                     "url": url,
                     "source": (p.get("source") or "").strip(),
                     "title": p.get("title") or "",
-                    "text": p.get("text") or "",           # keep this lean (cleaned text)
-                    "text_html": p.get("text_html") or "",  # optional; consider omitting if large
+                    "text": p.get("text") or "",
+                    "text_html": p.get("text_html") or "",
                     "author": p.get("author") or None,
                     "published_ts": p.get("published_ts"),
                     "engagement": p.get("engagement") or None,
-                    # enrichment candidates (may be None at ingest time)
                     "tags": p.get("tags") if "tags" in p else None,
                     "influencer_mentions": p.get("influencer_mentions") if "influencer_mentions" in p else None,
                     "backlinks": p.get("backlinks") if "backlinks" in p else None,
                 },
-                "$setOnInsert": {
-                    "created_at": now,
-                }
+                "$setOnInsert": {"created_at": now},
             },
             upsert=True
         )
+
         if res.upserted_id is not None:
             created += 1
         elif res.matched_count:
@@ -353,8 +151,7 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
     db = get_mongo_db()
     now = datetime.now(timezone.utc)
 
-    # Build URL -> raw_id map once
-    urls = [ (p.get("url") or "").strip() for p in rows if p.get("url") ]
+    urls = [(p.get("url") or "").strip() for p in rows if p.get("url")]
     urls = [u for u in urls if u]
     if not urls:
         return 0
@@ -374,11 +171,9 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
         set_on_insert = {
             "history_id": ObjectId(history_id),
             "url": url,
-            "raw_id": raw_map.get(url),                    # pointer to raw_insights
-            # small passthroughs so list views don’t need a join
+            "raw_id": raw_map.get(url),
             "source": (p.get("source") or "").strip(),
             "published_ts": p.get("published_ts"),
-            # queue state
             "status": "queued",
             "created_at": now,
         }
@@ -388,12 +183,11 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
         db["ai_results"].bulk_write(ops)
     return len(ops)
 
+
 def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
     """
     Upsert a batch of ai_results for a given history_id.
     Each item should include at least: url, rank, ai_title, ai_summary.
-    We upsert on (history_id, url).
-    Returns (upserted_count, matched_updates)
     """
     db = get_mongo_db()
     col = db["ai_results"]
@@ -409,9 +203,7 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
         docset = {
             "history_id": ObjectId(history_id),
             "url": url,
-            # (optional) keep raw_id in sync if provided by caller
             "raw_id": it.get("raw_id"),
-            # AI outputs
             "rank": it.get("rank"),
             "relevance_score": it.get("relevance_score"),
             "ai_title": it.get("ai_title"),
@@ -419,10 +211,8 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
             "tags": it.get("tags"),
             "influencer_mentions": it.get("influencer_mentions"),
             "backlinks": it.get("backlinks"),
-            # small passthroughs copied from raw
             "source": it.get("source"),
             "published_ts": it.get("published_ts"),
-            # status → done unless caller overrides
             "status": it.get("status") or "done",
             "finished_at": now,
         }
@@ -433,20 +223,33 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
     updates = getattr(result, "modified_count", 0) if result else 0
     return upserts, updates
 
-# -------------------- Legacy shim (keeps old imports working) --------------------
+# -------------------- Legacy shim --------------------
 
 def persist_posts(rows: Iterable[dict]) -> Tuple[int, int]:
     """
     Backward-compatible shim that writes into 'raw_insights'.
-    (Older code called persist_posts; we now store to raw_insights.)
     """
     return persist_raw_insights(rows)
 
 # ---------------------- Company profile helpers ---------------------------------------
 
+def _iso_z(dt: datetime) -> str:
+    """Convert a datetime to ISO string with Z suffix (UTC)."""
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _default_card_block(now: datetime) -> dict:
+    """Return default structure for each company card."""
+    return {
+        "data": [],
+        "updated_at": None,
+        "next_refresh_at": _iso_z(now + timedelta(days=7)),
+    }
+
+
 def upsert_company_profile(profile: dict):
     """
-    Insert or update a fake company profile by name.
+    Insert or update a company profile by name with card placeholders.
     Expected keys: { name: str, description: str, competitors?: list[str] }
     """
     db = get_mongo_db()
@@ -458,21 +261,35 @@ def upsert_company_profile(profile: dict):
     if not name:
         raise ValueError("company profile name is required")
 
-    # Normalize competitors to a clean list of unique strings
     if comps is None:
         comps = []
     if not isinstance(comps, list):
         raise ValueError("competitors must be a list of strings")
     comps = sorted({str(c).strip() for c in comps if str(c).strip()})
 
+    # Default cards for each section
+    cards = {
+        "trending": _default_card_block(now),
+        "newsfeed": _default_card_block(now),
+        "ideas": _default_card_block(now),
+        "backlinks": _default_card_block(now),
+        "opportunities": _default_card_block(now),
+    }
+
     db["company_profiles"].update_one(
         {"name": name},
         {
-            "$set": {"name": name, "description": desc, "competitors": comps},
+            "$set": {
+                "name": name,
+                "description": desc,
+                "competitors": comps,
+                "cards": cards,
+            },
             "$setOnInsert": {"created_at": now},
         },
         upsert=True
     )
+
 
 def get_company_profile(name: Optional[str] = None) -> Optional[dict]:
     """
