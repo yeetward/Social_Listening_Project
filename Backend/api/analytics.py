@@ -3,7 +3,10 @@ import time
 from bson import ObjectId
 from .persist import get_mongo_db
 
+import requests
+from datetime import datetime, timezone, timedelta
 
+from .persist import _iso_z, get_mongo_db, get_company_profile
 
 def global_top_topics(days: int = 30, limit: int = 20):
     """
@@ -92,3 +95,23 @@ def _as_list(val):
     if isinstance(val, str):
         return [s.strip() for s in val.split(",") if s.strip()]
     return []
+
+
+def _parse_iso_to_date(s: str | None):
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            s = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return dt.astimezone(timezone.utc).date()
+    except Exception:
+        return None
+
+def _coerce_topics_list(payload) -> list[str]:
+    if isinstance(payload, list):
+        return [str(x).strip() for x in payload if isinstance(x, str)]
+    if isinstance(payload, dict) and isinstance(payload.get("topics"), list):
+        return [str(x).strip() for x in payload["topics"] if isinstance(x, str)]
+    return []
+
