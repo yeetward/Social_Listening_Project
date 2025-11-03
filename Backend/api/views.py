@@ -664,6 +664,67 @@ from .persist import (
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------
+# NewsAPI config (for news_feed only)
+# ---------------------------------------------------------------------
+NEWSAPI_DEFAULT_KEY = "11da17e92c5d487f874c914347697aec"  # demo key (user approved to expose)
+NEWSAPI_ENDPOINT = "https://newsapi.org/v2/everything"
+
+# def _to_bool(v, default=False):
+#     if v is None:
+#         return default
+#     s = str(v).strip().lower()
+#     return s in ("1", "true", "yes", "y", "on")
+
+# def _epoch_to_iso_z(ts):
+#     """Convert unix seconds -> ISO8601 Z string; returns None if bad."""
+#     try:
+#         return datetime.fromtimestamp(int(ts), tz=timezone.utc) \
+#                        .isoformat().replace("+00:00", "Z")
+#     except Exception:
+#         return None
+
+def _map_newsapi_articles(articles):
+    """
+    Map NewsAPI articles to the AI-expected schema:
+    {title, description, url, author, source, publishedAt}
+    """
+    mapped = []
+    for a in (articles or []):
+        source_name = None
+        src = a.get("source")
+        if isinstance(src, dict):
+            source_name = src.get("name")
+        if not source_name:
+            source_name = src if isinstance(src, str) else "Unknown"
+
+        mapped.append({
+            "title": a.get("title") or "",
+            "description": a.get("description") or "",
+            "url": a.get("url") or "",
+            "author": a.get("author") or None,
+            "source": source_name,
+            "publishedAt": a.get("publishedAt"),  # keep NewsAPI ISO string
+        })
+    return mapped
+
+
+def _fetch_from_newsapi(query: str, api_key: str, page_size: int = 50):
+    params = {
+        "q": query,
+        "pageSize": max(10, min(int(page_size), 100)),
+        "language": "en",
+        "sortBy": "publishedAt",
+        "apiKey": api_key,
+    }
+    r = requests.get(NEWSAPI_ENDPOINT, params=params, timeout=25)
+    r.raise_for_status()
+    payload = r.json()
+    return _map_newsapi_articles(payload.get("articles") or [])
+
+
+
 # -----------------------------------------------------------------------------
 # Optional AI imports
 # -----------------------------------------------------------------------------
@@ -1509,27 +1570,30 @@ def card_trends(request):
 @api_view(["GET"])
 def news_feed(request):
     """
-    GET /api/cards/newsfeed/?company=EcoDrive%20Motors&threshold=0.5&limit=10
-    Optional:
-      - &api_url=https://...      # fetch news via external endpoint
-      - &full_analysis=1          # return full LLM analysis with scores/why
-      - &verbose=1
+    GET /api/cards/newsfeed/?company_id=<id>&limit=10&max_age_days=7&force=0
+      Optional:
+        - &company=<name>        (resolve to id)
+        - &sources=bbc_rss,techcrunch_rss,news_rss   (allowlist when reading raw_insights)
+        - &use_newsapi=1         (also pull from NewsAPI if pool is small)
+        - &query=<string>        (NewsAPI query fallback; defaults to company name)
+        - &page_size=50          (NewsAPI page size; 10..100)
 
-    If api_url is not provided, falls back to recent items from raw_insights and
-    passes them as `news_articles` to the runner.
+    Source of truth: company_profiles.cards.newsfeed
+    - If not force AND today(UTC) < next_refresh_at.date() AND data exists -> return schema.
+    - Else:
+        * Build raw_articles from raw_insights (within max_age_days, allowed sources).
+        * Optionally augment with NewsAPI (when use_newsapi=1).
+        * Call newsfeed_run(company_id, news_articles=raw_articles).
+        * Re-read schema and return.
+        * (compat) if AI wrote to 'news_feed', migrate to 'newsfeed'.
+        * (safety) if next_refresh_at missing, set to now+7d.
     """
-    if newsfeed_run is None:
-        return Response({"error": "newsfeed.run not available"}, status=500)
+    db = get_mongo_db()
 
-    # Accept either company_id or company name; prefer id if given
-    company_name = (request.GET.get("company") or "").strip() or None
+    # ----- inputs -----
     company_id   = (request.GET.get("company_id") or "").strip() or None
-    api_url      = (request.GET.get("api_url") or "").strip() or None
-
-    try:
-        threshold = float(request.GET.get("threshold", 0.5))
-    except Exception:
-        threshold = 0.5
+    company_name = (request.GET.get("company") or "").strip() or None
+    force        = str(request.GET.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
 
     try:
         limit = int(request.GET.get("limit", 10))
@@ -1537,82 +1601,176 @@ def news_feed(request):
         limit = 10
     limit = max(1, min(limit, 100))
 
-    full_analysis = str(request.GET.get("full_analysis", "0")).lower() in ("1", "true", "yes")
-    verbose       = str(request.GET.get("verbose", "0")).lower() in ("1", "true", "yes")
-
     try:
-        # Resolve a concrete company name (runner expects name)
-        if not company_name and company_id:
-            doc = get_company_profile(name=None)  # default in case id is bad
-            try:
-                oid = ObjectId(company_id)
-                db = get_mongo_db()
-                by_id = db["company_profiles"].find_one({"_id": oid})
-                if by_id:
-                    company_name = by_id.get("name")
-            except Exception:
-                pass
-            if not company_name and doc:
-                company_name = doc.get("name")
+        max_age_days = int(request.GET.get("max_age_days", 7))
+    except Exception:
+        max_age_days = 7
 
-        if not company_name:
-            # Fallback: if name still missing, try latest profile
-            doc = get_company_profile(name=None)
-            if doc:
-                company_name = doc.get("name")
+    # Sources allowlist (when reading raw_insights)
+    sources_param = (request.GET.get("sources") or "").strip()
+    if sources_param:
+        allowed_sources = {s.strip() for s in sources_param.split(",") if s.strip()}
+    else:
+        allowed_sources = {
+            "news_rss", "bbc_rss", "techcrunch_rss", "guardian_api", "google_news_rss",
+            "abc_au_rss", "cnn_rss", "reuters_rss"
+        }
 
-        if not company_name:
-            return Response({"error": "company (name or id) is required"}, status=400)
+    # Optional external enrichment
+    use_newsapi = str(request.GET.get("use_newsapi", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+    query       = (request.GET.get("query") or "").strip()
+    try:
+        page_size = int(request.GET.get("page_size", 50))
+    except Exception:
+        page_size = 50
 
-        # Prefer external API when provided; otherwise build news_articles from Mongo
-        if api_url:
-            items = newsfeed_run(
-                company_name=company_name,
-                api_url=api_url,
-                threshold=threshold,
-                limit=limit,
-                full_analysis=full_analysis,
-                verbose=verbose,
-            )
-        else:
-            db = get_mongo_db()
-            cursor = (
-                db["raw_insights"]
-                .find({}, {"title": 1, "url": 1, "source": 1, "published_ts": 1, "text": 1})
-                .sort("published_ts", -1)
-                .limit(200)
-            )
-            news_articles = [{
-                "title": r.get("title") or "",
-                "url": r.get("url") or "",
-                "source": r.get("source"),
-                "published_date": r.get("published_ts"),
-                "text": r.get("text") or "",
-            } for r in cursor]
+    # ----- resolve company -----
+    if not company_id and company_name:
+        doc = get_company_profile(name=company_name)
+        if not doc:
+            return Response({"error": f"Company '{company_name}' not found"}, status=404)
+        company_id = str(doc["_id"])
+    if company_id and not company_name:
+        prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
+        if prof:
+            company_name = prof.get("name")
+    if not company_id:
+        # fallback: latest profile
+        doc = get_company_profile(name=None)
+        if not doc:
+            return Response({"error": "company_id (or company name) is required"}, status=400)
+        company_id = str(doc["_id"])
+        company_name = company_name or doc.get("name")
 
-            items = newsfeed_run(
-                company_name=company_name,
-                news_articles=news_articles,
-                threshold=threshold,
-                limit=limit,
-                full_analysis=full_analysis,
-                verbose=verbose,
-            )
+    # ----- helper: read schema + respond -----
+    def _read_from_db_and_respond():
+        fresh = db["company_profiles"].find_one(
+            {"_id": ObjectId(company_id)},
+            {"name": 1, "cards.newsfeed": 1}
+        ) or {}
+        name  = fresh.get("name") or company_name
+        card  = ((fresh.get("cards") or {}).get("newsfeed") or {})
+        data  = (card.get("data") or [])[:limit]
+        return Response({"company": name, "company_id": company_id, "count": len(data), "items": data}, status=200)
 
-        if not isinstance(items, list):
-            return Response(
-                {"company": company_name, "count": 0, "items": [], "note": "Unexpected output format"},
-                status=200,
-            )
+    # ----- freshness check -----
+    prof  = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
+    cards = prof.get("cards") or {}
+    nf    = cards.get("newsfeed") or {}
+    next_refresh_at   = nf.get("next_refresh_at")
+    next_refresh_date = _parse_iso_to_date(next_refresh_at)
+    today_utc         = datetime.now(timezone.utc).date()
 
-        # Runner already trims by limit, but hard-guard just in case
-        items = items[:limit]
+    if not force and next_refresh_date and today_utc < next_refresh_date and (nf.get("data") or []):
+        return _read_from_db_and_respond()
 
-        return Response({"company": company_name, "count": len(items), "items": items}, status=200)
+    # ----- build local raw article pool from raw_insights -----
+    now_ts   = int(time.time())
+    cutoff   = now_ts - max_age_days * 86400
+    pool_cap = 200
+    pool_min = max(3 * limit, 60)  # aim for enough for AI to filter
 
-    except Exception as e:
-        logger.exception("news_feed error: %s", e)
-        return Response({"error": str(e)}, status=500)
+    def _ts_to_iso_z(ts: int | None):
+        if not ts:
+            return None
+        try:
+            return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        except Exception:
+            return None
+
+    cursor = (
+        db["raw_insights"]
+        .find(
+            {"published_ts": {"$gte": cutoff}, "source": {"$in": list(allowed_sources)}},
+            {"title": 1, "url": 1, "source": 1, "published_ts": 1, "text": 1, "author": 1, "summary": 1}
+        )
+        .sort("published_ts", -1)
+        .limit(pool_cap)
+    )
+
+    raw_articles = []
+    for r in cursor:
+        title = (r.get("title") or "").strip()
+        url   = (r.get("url") or "").strip()
+        if not title or not url:
+            continue
+        raw_articles.append({
+            "title": title,
+            "description": (r.get("summary") or r.get("text") or "").strip(),
+            "url": url,
+            "author": (r.get("author") or None),
+            "source": r.get("source"),
+            "publishedAt": _ts_to_iso_z(r.get("published_ts")),
+        })
+
+    # ----- optionally augment via NewsAPI if pool seems small -----
+    if use_newsapi:
+        q = query or company_name or ""
+        try:
+            extra = _fetch_from_newsapi(q, api_key=NEWSAPI_DEFAULT_KEY, page_size=page_size)
+        except Exception as e:
+            logger.warning("NewsAPI fetch failed: %s", e)
+            extra = []
+
+        # de-dup by URL
+        seen = {a["url"] for a in raw_articles if a.get("url")}
+        for a in (extra or []):
+            u = (a.get("url") or "").strip()
+            if u and u not in seen:
+                raw_articles.append(a)
+                seen.add(u)
+
+    # trim to desired pool size for AI
+    raw_articles = raw_articles[:max(pool_min, limit)]
+
+    # If absolutely nothing, return empty schema-like response
+    if not raw_articles:
+        # also ensure there is a next_refresh_at so FE won’t hammer
+        now = datetime.now(timezone.utc)
+        db["company_profiles"].update_one(
+            {"_id": ObjectId(company_id)},
+            {"$set": {"cards.newsfeed.next_refresh_at": _iso_z(now + timedelta(days=1))}},
+            upsert=True,
+        )
+        return Response({"company": company_name, "company_id": company_id, "count": 0, "items": []}, status=200)
+
+    # ----- call AI runner (authoritative persister) -----
+    if newsfeed_run is not None:
+        try:
+            newsfeed_run(company_id=company_id, news_articles=raw_articles)
+        except Exception as e:
+            logger.warning("newsfeed_run failed; continuing with schema migration/safety. %s", e)
+
+    # ----- compatibility + safety: migrate & ensure next_refresh_at -----
+    fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
+    cards = fresh.get("cards") or {}
+
+    # If AI wrote to 'news_feed', copy to 'newsfeed' (your schema-of-truth)
+    if "news_feed" in cards and (not cards.get("newsfeed") or not (cards["newsfeed"].get("data") or [])):
+        src = cards["news_feed"] or {}
+        block = {
+            "data": src.get("data") or [],
+            "updated_at": src.get("updated_at") or _iso_z(datetime.now(timezone.utc)),
+            "next_refresh_at": src.get("next_refresh_at") or None,
+        }
+        db["company_profiles"].update_one(
+            {"_id": ObjectId(company_id)},
+            {"$set": {"cards.newsfeed": block}}
+        )
+        fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.newsfeed": 1}) or {}
+
+    # Ensure next_refresh_at exists
+    cur = ((fresh.get("cards") or {}).get("newsfeed") or {})
+    if not cur.get("next_refresh_at"):
+        now = datetime.now(timezone.utc)
+        db["company_profiles"].update_one(
+            {"_id": ObjectId(company_id)},
+            {"$set": {"cards.newsfeed.next_refresh_at": _iso_z(now + timedelta(days=7))}}
+        )
+
+        # ----- final: re-read schema -----
+    return _read_from_db_and_respond()
+
 
 # -----------------------------------------------------------------------------
 # Debug
@@ -2336,6 +2494,7 @@ def get_company(request):
                 "ideas":        {"data": [], "updated_at": None, "next_refresh_at": nx},
                 "backlinks":    {"data": [], "updated_at": None, "next_refresh_at": nx},
                 "opportunities":{"data": [], "updated_at": None, "next_refresh_at": nx},
+                "new_competitors": {"data": [], "updated_at": None, "next_refresh_at": nx}, # ← NEW
             }
 
         cards = doc.get("cards") or _default_cards()
