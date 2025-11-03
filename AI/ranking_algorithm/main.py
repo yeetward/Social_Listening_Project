@@ -155,12 +155,9 @@ def run(history_id: str, keyword: str):
 
 
 # -----------------------------------------------------------------------------
-# CLI
+# CLI for testing
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run AI scoring + summarization pipeline.")
-    parser.add_argument("history_id", type=str)
-    parser.add_argument("keyword", type=str)
-    args = parser.parse_args()
-
-    run(args.history_id, args.keyword)
+    history_id = "6900b9d93b7866e2ec8bdc91"
+    keyword = "Iphone 16"
+    run(history_id,keyword)

@@ -13,7 +13,7 @@ def fetch_articles(history_id: str):
     history_id = ObjectId(history_id)
 
     queued = list(db.ai_results.find(
-        {"history_id": history_id, "status": "queued"},
+        {"history_id": history_id},
         {"url": 1, "raw_id": 1, "source": 1, "published_ts": 1}
     ))
 

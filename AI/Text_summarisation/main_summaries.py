@@ -35,6 +35,8 @@ def run(
     - Also returns per-article micro-summaries (first sentence, truncated)
     - Returns clean JSON for the frontend (no DB writes)
     """
+    return ""
+'''
     try:
         profile = get_company_by_id(company_id)
         if not profile:
@@ -117,3 +119,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
+'''

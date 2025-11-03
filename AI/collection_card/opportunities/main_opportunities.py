@@ -59,6 +59,6 @@ def run(company_id: str,history_id: str):
 # ----------- CLI for testing --------------------------------------
 if __name__ == "__main__":
     company_id = "690531c37c33c037fd2d9bda"  # Example company ID
-    history_id = "64f5c4e2f1c2b5a1d6e8c9b0"  # Example history ID
+    history_id = "6900b9d93b7866e2ec8bdc91"  # Example history ID
     result = run(company_id,history_id)
 
