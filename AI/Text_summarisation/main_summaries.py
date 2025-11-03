@@ -35,7 +35,7 @@ def run(
     - Also returns per-article micro-summaries (first sentence, truncated)
     - Returns clean JSON for the frontend (no DB writes)
     """
-    return ""
+    return "summary"
 '''
     try:
         profile = get_company_by_id(company_id)
