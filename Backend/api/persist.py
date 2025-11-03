@@ -274,6 +274,7 @@ def upsert_company_profile(profile: dict):
         "ideas": _default_card_block(now),
         "backlinks": _default_card_block(now),
         "opportunities": _default_card_block(now),
+        "new_competitors": _default_card_block(now), # ← NEW
     }
 
     db["company_profiles"].update_one(
@@ -290,6 +291,13 @@ def upsert_company_profile(profile: dict):
             },
         },
         upsert=True
+    )
+
+
+    # Backfill the new card if the doc already existed (Mongo has no $setIfAbsent)
+    db["company_profiles"].update_one(
+        {"name": name, "cards.new_competitors": {"$exists": False}},
+        {"$set": {"cards.new_competitors": _default_card_block(now)}}
     )
 
 
