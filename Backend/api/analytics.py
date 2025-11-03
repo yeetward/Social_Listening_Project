@@ -7,37 +7,66 @@ import requests
 from datetime import datetime, timezone, timedelta
 
 from .persist import _iso_z, get_mongo_db, get_company_profile
-
 def global_top_topics(days: int = 30, limit: int = 20):
     """
-    Return the most common topic tags from all AI results within the last X days.
-    Outputs a list of strings (topic names).
+    Return the most common HISTORY subjects (deduped) linked to completed AI results
+    within the last X days.
+
+    De-dup logic:
+      - One vote per (history_id, subject), not per ai_results row.
+      - Subjects are normalized (trim + lowercase) to avoid casing/whitespace dupes.
     """
     db = get_mongo_db()
 
-    # Convert to seconds since epoch
-    now_sec = int(time.time())
-    from_sec = now_sec - days * 86400
+    now_dt = datetime.now(timezone.utc)
+    from_dt = now_dt - timedelta(days=days)
 
     pipeline = [
-        # Match only completed AI results with tags
-        {"$match": {
-            "status": "done",
-            "published_ts": {"$gte": from_sec},  # compare using seconds (not ms)
-            "tags": {"$type": "array", "$ne": []}
+        # Only finished AI results
+        {"$match": {"status": "done"}},
+
+        # Join ai_results -> history
+        {"$lookup": {
+            "from": "history",
+            "localField": "history_id",
+            "foreignField": "_id",
+            "as": "hist"
         }},
-        # Flatten tags array
-        {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},
-        # Group and count each tag
-        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$unwind": {"path": "$hist", "preserveNullAndEmptyArrays": False}},
+
+        # Time window on history.created_at and require non-empty subject
+        {"$match": {
+            "hist.created_at": {"$gte": from_dt},
+            "hist.subject": {"$type": "string", "$ne": ""}
+        }},
+
+        # Normalize subject to avoid dupes due to case/whitespace
+        {"$set": {
+            "norm_subject": {
+                "$toLower": {
+                    "$trim": {"input": "$hist.subject"}
+                }
+            }
+        }},
+
+        # De-dup per (history_id, normalized subject)
+        {"$group": {
+            "_id": {"hid": "$hist._id", "sub": "$norm_subject"}
+        }},
+
+        # Count unique histories per normalized subject
+        {"$group": {
+            "_id": "$_id.sub",
+            "count": {"$sum": 1}
+        }},
+
         {"$sort": {"count": -1}},
-        {"$limit": limit}
+        {"$limit": max(1, int(limit))}
     ]
 
-    # Run pipeline
     rows = list(db["ai_results"].aggregate(pipeline))
 
-    # Return only the topic names as a list of strings
+    # Return the normalized subject strings
     return [r["_id"] for r in rows]
 
 
