@@ -23,9 +23,13 @@ from AI.ranking_algorithm.engagement_scorer import engagement_score
 
 # --- Summarization + Topic Detection ---
 from AI.Topic_detection.Topic_detection import detect_topic_simple
+<<<<<<< Updated upstream
 from AI.Text_summarisation.main_summaries import run as generate_summary
 from AI.ranking_algorithm.check_history import clauses
 
+=======
+from AI.Text_summarisation.main_summaries import generate_summary
+>>>>>>> Stashed changes
 
 # --- Sentiment Analysis ---
 from AI.sentiment_analysis.sentiment_analyzer import quick_sentiment
@@ -189,6 +193,7 @@ def run(history_id: str, keyword: str):
     if not docs:
         print("[INFO] No articles waiting for AI processing.")
         return []
+    print(f"[INFO] Processing {len(docs)} articles for keyword='{keyword}'")
     use_algos = ["tfidf", "bm25", "sbert", "engagement"]
     weights = DEFAULT_WEIGHTS
 
@@ -197,6 +202,8 @@ def run(history_id: str, keyword: str):
     bm25_raw = bm25.score_all_for_query(keyword)
     bm25_scores = minmax_normalize(bm25_raw)
     top_ids = set(sorted(bm25_scores, key=bm25_scores.get, reverse=True)[:TOPK])
+
+    print(bm25_scores)
 
     rows: List[Tuple[float, Dict[str, Any], Dict[str, float]]] = []
     for d in docs:
@@ -210,10 +217,20 @@ def run(history_id: str, keyword: str):
             try:
                 if a == "sbert":
                     raw_score = ALGORITHMS["sbert"](keyword, d) if d["_id"] in top_ids else 0.0
+<<<<<<< Updated upstream
                 elif a == "tfidf":
                     raw_score = ALGORITHMS["tfidf"](keyword, d)
                 elif a == "engagement":
                     raw_score = ALGORITHMS["engagement"](keyword, d)
+=======
+                    print(f"[DEBUG] SBERT score for doc {d['_id']}: {raw_score}")
+                elif a == "tfidf":
+                    raw_score = ALGORITHMS["tfidf"](keyword, d)
+                    print(f"[DEBUG] TF-IDF score for doc {d['_id']}: {raw_score}")
+                elif a == "engagement":
+                    raw_score = ALGORITHMS["engagement"](keyword, d)
+                    print(f"[DEBUG] Engagement score for doc {d['_id']}: {raw_score}")
+>>>>>>> Stashed changes
                 else:
                     raw_score = 0.0
             except Exception:
@@ -283,13 +300,17 @@ def run(history_id: str, keyword: str):
             "ai_title": topic,
             "ai_summary": summary,
             "tags": [topic],
-            "sentiment": sentiment,  # <-- Sentiment analysis result
+            "sentiment": sentiment,  
             "source": d["source"],
             "published_ts": d["published_ts"],
             "status": "done",
+<<<<<<< Updated upstream
         #     "has_placeholder": has_placeholder,
          })
 
+=======
+        })
+>>>>>>> Stashed changes
     write_ai_results_batch(history_id, items)
     print(f"[SUCCESS] Processed & saved {len(items)} AI-ranked articles.")
     return rows

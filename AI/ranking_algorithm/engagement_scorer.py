@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # AI/Algorithms/engagement_scorer.py
 # """
 # Heuristic engagement score based on likes/comments/shares
@@ -37,6 +38,9 @@
 #         return 1.0
 #     return float(score)
 
+=======
+# AI/ranking_algorithm/engagement_scorer.py
+>>>>>>> Stashed changes
 """
 Heuristic engagement score based on likes/comments/shares/views.
 Scales to [0,1] with soft saturation so one viral post doesn't dominate.
