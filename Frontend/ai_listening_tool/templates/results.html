@@ -25,284 +25,255 @@
     <div class="rm-results-sep"></div>
     <h1 class="rm-results-page-title">Industry Search Results</h1>
 
-    <!-- Top 4 Cards Row -->
-    <div class="rm-top-cards-row">
-      <!-- FILTER (now far left) -->
-      <div class="rm-top-card rm-filter-card" style="position: relative;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+    <!-- Wrapper for Filter and Cards Side by Side -->
+    <div class="rm-filter-and-cards-wrapper">
+      <!-- FILTER CARD (Completely Independent) -->
+      <aside class="rm-filter-card-standalone">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <h3 class="rm-top-card-title" style="margin: 0;">FILTER <span id="filterCount"
               style="font-weight: 400; color: #6b7280;"></span></h3>
           <button id="clearAllFiltersBtn" class="rm-filter-clear-btn" style="display: none;">Clear all</button>
         </div>
-        <div class="rm-filter-buttons-list">
-          <!-- Time Filter -->
-          <div class="rm-filter-item" style="position: relative;">
-            <button id="timeFilterLabel" class="rm-filter-dropdown-btn" type="button">
-              <span id="timeFilterText" class="rm-filter-btn-text">Time</span>
-              <span class="rm-filter-btn-icon">▼</span>
-            </button>
-            <div id="timeFilterDropdown" class="rm-filter-dropdown">
-              <div class="rm-dropdown-content" id="timeFilterOptions">
-                <!-- Will be populated dynamically based on data -->
-              </div>
-            </div>
-          </div>
 
-          <!-- Platform Filter -->
-          <div class="rm-filter-item" style="position: relative;">
-            <button id="platformFilterLabel" class="rm-filter-dropdown-btn" type="button">
-              <span id="platformFilterText" class="rm-filter-btn-text">Platform</span>
-              <span class="rm-filter-btn-icon">▼</span>
-            </button>
-            <div id="platformFilterDropdown" class="rm-filter-dropdown">
-              <div class="rm-dropdown-content">
-                <div id="platformOptions">
-                  <!-- Will be populated dynamically -->
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Sentiment Filter -->
-          <div class="rm-filter-item" style="position: relative;">
-            <button id="sentimentFilterLabel" class="rm-filter-dropdown-btn" type="button">
-              <span id="sentimentFilterText" class="rm-filter-btn-text">Sentiment</span>
-              <span class="rm-filter-btn-icon">▼</span>
-            </button>
-            <div id="sentimentFilterDropdown" class="rm-filter-dropdown">
-              <div class="rm-dropdown-content">
-                <button type="button" class="rm-dropdown-option" data-sentiment="positive">Positive</button>
-                <button type="button" class="rm-dropdown-option" data-sentiment="negative">Negative</button>
-                <button type="button" class="rm-dropdown-option" data-sentiment="spike">Spike</button>
-                <div class="rm-dropdown-divider"></div>
-                <button type="button" class="rm-dropdown-option rm-option-clear" data-sentiment="">Clear</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Top Influencers Filter -->
-          <div class="rm-filter-item" style="position: relative;">
-            <button id="influencersFilterLabel" class="rm-filter-dropdown-btn" type="button">
-              <span id="influencersFilterText" class="rm-filter-btn-text">Top Influencers</span>
-              <span class="rm-filter-btn-icon">▼</span>
-            </button>
-            <div id="influencersFilterDropdown" class="rm-filter-dropdown">
-              <div class="rm-dropdown-content">
-                <button type="button" class="rm-dropdown-option" data-influencers="enabled">Show Only
-                  Influencers</button>
-                <div class="rm-dropdown-divider"></div>
-                <button type="button" class="rm-dropdown-option rm-option-clear" data-influencers="">Clear</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Trending Topics -->
-      <div class="rm-top-card">
-        <h3 class="rm-top-card-title is-normal">Trending Topics</h3>
-        <div class="rm-topics-box">
-          <ul class="rm-top-card-list">
-            <li>Multi-Cancer Early Detection / Liquid Biopsies</li>
-            <li>Digital Mental Health Devices & Regulation</li>
-            <li>Home Health, Remote Monitoring & "Hospital at Home" Models</li>
-            <li>Interoperability & Health Data Flow</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Opportunities -->
-      <div class="rm-top-card">
-        <h3 class="rm-top-card-title is-normal">Opportunities</h3>
-        <ul class="rm-top-card-list rm-opportunities-list">
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in Healthcare</span>
-          </li>
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare Costs
-              & Affordability Pressures</span></li>
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate
-              healthcare plans</span></li>
-          <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around clinical
-              burnout</span></li>
-        </ul>
-      </div>
-
-      <!-- Action -->
-      <div class="rm-top-card">
-        <h3 class="rm-top-card-title is-normal">Action</h3>
-        <div class="rm-action-form">
-          <ul class="rm-top-card-list rm-checklist">
-            <li><label><input type="checkbox"> <span>Email</span></label></li>
-            <li><label><input type="checkbox"> <span>Blog</span></label></li>
-            <li><label><input type="checkbox"> <span>Website Content</span></label></li>
-            <li><label><input type="checkbox"> <span>Social Media</span></label></li>
-            <li><label><input type="checkbox"> <span>Press Release</span></label></li>
-          </ul>
-          <button class="rm-action-submit"
-            style="margin-top: 20px !important; margin-bottom: 20px !important;">Submit</button>
-        </div>
-      </div>
-
-
-    </div>
-
-    <!-- Main Content with Sidebar -->
-    <div class="rm-results-layout">
-      <!-- Left Sidebar -->
-      <aside class="rm-results-sidebar">
-        <!-- PRIORITY Section -->
+        <!-- Time Filter -->
         <div class="rm-filter-section">
-          <h4 class="rm-filter-title">PRIORITY</h4>
-          <ul class="rm-filter-list rm-checklist">
+          <h4 class="rm-filter-section-title">Time</h4>
+          <ul class="rm-filter-checkbox-list" id="timeFilterCheckboxes">
+            <!-- Will be populated dynamically -->
+          </ul>
+        </div>
+
+        <!-- Platform Filter -->
+        <div class="rm-filter-section">
+          <h4 class="rm-filter-section-title">Platform</h4>
+          <ul class="rm-filter-checkbox-list" id="platformFilterCheckboxes">
+            <!-- Will be populated dynamically -->
+          </ul>
+        </div>
+
+        <!-- Sentiment Filter -->
+        <div class="rm-filter-section">
+          <h4 class="rm-filter-section-title">Sentiment</h4>
+          <ul class="rm-filter-checkbox-list" id="sentimentFilterCheckboxes">
+            <!-- Will be populated dynamically -->
+          </ul>
+        </div>
+
+        <!-- Priority Filter -->
+        <div class="rm-filter-section">
+          <h4 class="rm-filter-section-title">Priority</h4>
+          <ul class="rm-filter-checkbox-list">
             <li><label><input type="checkbox" name="priorityChk" value="high"> <span>High</span></label></li>
             <li><label><input type="checkbox" name="priorityChk" value="medium"> <span>Medium</span></label></li>
             <li><label><input type="checkbox" name="priorityChk" value="low"> <span>Low</span></label></li>
           </ul>
         </div>
+
+        <!-- Top Influencers Filter (Empty) -->
+        <div class="rm-filter-section">
+          <h4 class="rm-filter-section-title">Top Influencers</h4>
+          <ul class="rm-filter-checkbox-list">
+            <!-- Intentionally empty -->
+          </ul>
+        </div>
       </aside>
 
-      <!-- Main Results Area -->
-      <main class="rm-results-main">
+      <!-- Right Column: Top 3 Cards + Results Below -->
+      <div class="rm-right-column">
+        <!-- Top 3 Cards -->
+        <div class="rm-three-cards-container">
+          <!-- Trending Topics -->
+          <div class="rm-top-card rm-top-card-fixed-height">
+            <h3 class="rm-top-card-title is-normal">Trending Topics</h3>
+            <div class="rm-topics-box">
+              <ul class="rm-top-card-list" id="trendingTopicsList">
+                <li style="color: #999; font-style: italic;">Loading trending topics...</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Opportunities -->
+          <div class="rm-top-card rm-top-card-fixed-height">
+            <h3 class="rm-top-card-title is-normal">Opportunities</h3>
+            <ul class="rm-top-card-list rm-opportunities-list">
+              <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in
+                  Healthcare</span>
+              </li>
+              <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare
+                  Costs
+                  & Affordability Pressures</span></li>
+              <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate
+                  healthcare plans</span></li>
+              <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around
+                  clinical
+                  burnout</span></li>
+            </ul>
+          </div>
+
+          <!-- Action -->
+          <div class="rm-top-card rm-top-card-fixed-height">
+            <h3 class="rm-top-card-title is-normal">Action</h3>
+            <div class="rm-action-form">
+              <ul class="rm-top-card-list rm-checklist">
+                <li><label><input type="checkbox"> <span>Email</span></label></li>
+                <li><label><input type="checkbox"> <span>Blog</span></label></li>
+                <li><label><input type="checkbox"> <span>Website Content</span></label></li>
+                <li><label><input type="checkbox"> <span>Social Media</span></label></li>
+                <li><label><input type="checkbox"> <span>Press Release</span></label></li>
+              </ul>
+              <button class="rm-action-submit"
+                style="margin-top: 20px !important; margin-bottom: 20px !important;">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Area (Directly Below Top 3 Cards) -->
         <div id="results-container">
           <div style="text-align:center; padding:40px; color:#666;">
             Loading...
           </div>
         </div>
-      </main>
+      </div>
     </div>
   </div>
 
   <style>
-    /* Filter buttons list */
-    .rm-filter-buttons-list {
+    /* Reduce title bottom margin to bring everything closer */
+    .rm-results-page-title {
+      margin-bottom: 12px !important;
+    }
+
+    /* Wrapper for Filter and Cards Side by Side */
+    .rm-filter-and-cards-wrapper {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 0px !important;
+      align-items: flex-start;
+    }
+
+    /* Right column containing top cards and results */
+    .rm-right-column {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 16px;
     }
 
-    .rm-filter-item {
-      width: 100%;
+    /* Filter Card Standalone Styling - Completely Independent */
+    .rm-filter-card-standalone {
+      width: 240px;
+      min-height: 280px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      flex-shrink: 0;
+      align-self: flex-start;
     }
 
-    /* Filter dropdown button styling */
-    .rm-filter-dropdown-btn {
-      width: 100%;
+    /* Filter Section Styling */
+    .rm-filter-section {
+      margin-bottom: 24px;
+    }
+
+    .rm-filter-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .rm-filter-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+      margin: 0 0 10px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    /* Filter Checkbox List */
+    .rm-filter-checkbox-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rm-filter-checkbox-list li {
+      margin: 0;
+      padding: 0;
+    }
+
+    .rm-filter-checkbox-list label {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: #fff;
-      border: 1px solid #d1d5db;
-      border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
-      font-weight: 400;
-      color: #111;
-      transition: all 0.2s ease;
-      text-align: left;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #374151;
+      user-select: none;
     }
 
-    .rm-filter-dropdown-btn:hover {
-      background: #f9fafb;
-      border-color: #9ca3af;
+    .rm-filter-checkbox-list input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      cursor: pointer;
+      accent-color: #e11d2e;
+      flex-shrink: 0;
     }
 
-    .rm-filter-dropdown-btn.active {
-      background: #fef2f2;
-      border-color: #e11d2e;
-      color: #e11d2e;
-      font-weight: 500;
+    .rm-filter-checkbox-list label:hover {
+      color: #111827;
     }
 
-    .rm-filter-btn-text {
+    /* Three Cards Container - Independent Grid */
+    .rm-three-cards-container {
       flex: 1;
-      white-space: nowrap;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* Fixed Height Cards */
+    .rm-top-card-fixed-height {
+      height: 280px;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
-      text-overflow: ellipsis;
     }
 
-    .rm-filter-btn-icon {
-      font-size: 9px;
-      margin-left: 6px;
-      transition: transform 0.2s ease;
-      color: #6b7280;
+    .rm-top-card-fixed-height .rm-top-card-title {
+      flex-shrink: 0;
     }
 
-    .rm-filter-dropdown-btn.active .rm-filter-btn-icon {
-      transform: rotate(180deg);
-      color: #e11d2e;
-    }
-
-    /* Filter dropdown styling */
-    .rm-filter-dropdown {
-      position: absolute;
-      display: none;
-      z-index: 1000;
-      margin-top: 4px;
-      width: 100%;
-    }
-
-    .rm-filter-dropdown.show {
-      display: block;
-    }
-
-    .rm-dropdown-content {
-      background: #fff;
-      border-radius: 8px;
-      padding: 6px;
-      min-width: 160px;
-      max-height: 300px;
+    .rm-top-card-fixed-height .rm-topics-box {
+      flex: 1;
       overflow-y: auto;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      border: 1px solid #e5e7eb;
+      margin-bottom: 0;
     }
 
-    .rm-dropdown-option {
-      display: block;
-      width: 100%;
-      padding: 8px 12px;
-      border: none;
-      background: none;
-      text-align: left;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 14px;
-      font-weight: 400;
-      color: #111;
-      transition: background 0.15s;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    .rm-top-card-fixed-height .rm-top-card-list,
+    .rm-top-card-fixed-height .rm-opportunities-list {
+      flex: 1;
+      overflow-y: auto;
     }
 
-    .rm-dropdown-option:hover {
-      background: #f3f4f6;
+    .rm-top-card-fixed-height .rm-action-form {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
-    .rm-dropdown-option.selected {
-      /* Remove row highlight while keeping tick and red text */
-      background: transparent;
-      color: #dc2626;
-      font-weight: 600;
-      position: relative;
-      padding-left: 28px;
+    .rm-top-card-fixed-height .rm-action-form .rm-checklist {
+      flex: 1;
+      overflow-y: auto;
     }
 
-    .rm-dropdown-option.selected::before {
-      content: '✓';
-      position: absolute;
-      left: 8px;
-      font-weight: bold;
-      color: #dc2626;
-    }
-
-    .rm-dropdown-option.rm-option-clear {
-      color: #e11d2e;
-      font-weight: 500;
-      text-align: center;
-    }
-
-    .rm-dropdown-divider {
-      height: 1px;
-      background: #e5e7eb;
-      margin: 4px 0;
+    .rm-top-card-fixed-height .rm-action-submit {
+      flex-shrink: 0;
+      margin-top: auto !important;
     }
 
     /* Clear all button styling */
@@ -450,13 +421,13 @@
   // Get history_id - PRIORITY: URL param > sessionStorage
   // This allows clicking from history page to load specific history_id
   let historyId = urlParams.get('history_id') || sessionStorage.getItem('rm_history_id');
-  
+
   // If history_id came from URL, update sessionStorage
   if (urlParams.get('history_id')) {
     sessionStorage.setItem('rm_history_id', historyId);
     console.log('📌 Using history_id from URL:', historyId);
   }
-  
+
   const storedSubject = sessionStorage.getItem('rm_subject');
 
   // State management
@@ -509,36 +480,23 @@
     startSearchWorkflow();
   }
 
-  // --- Filter dropdowns ---
-  const timeFilterLabel = document.getElementById('timeFilterLabel');
-  const timeFilterDropdown = document.getElementById('timeFilterDropdown');
-  const timeFilterText = document.getElementById('timeFilterText');
-
-  const platformFilterLabel = document.getElementById('platformFilterLabel');
-  const platformFilterDropdown = document.getElementById('platformFilterDropdown');
-  const platformFilterText = document.getElementById('platformFilterText');
-
-  const sentimentFilterLabel = document.getElementById('sentimentFilterLabel');
-  const sentimentFilterDropdown = document.getElementById('sentimentFilterDropdown');
-  const sentimentFilterText = document.getElementById('sentimentFilterText');
-
-  const influencersFilterLabel = document.getElementById('influencersFilterLabel');
-  const influencersFilterDropdown = document.getElementById('influencersFilterDropdown');
-  const influencersFilterText = document.getElementById('influencersFilterText');
+  // --- Filter checkbox containers ---
+  const timeFilterCheckboxes = document.getElementById('timeFilterCheckboxes');
+  const platformFilterCheckboxes = document.getElementById('platformFilterCheckboxes');
+  const sentimentFilterCheckboxes = document.getElementById('sentimentFilterCheckboxes');
 
   // Initialize filters from URL
   function initializeFiltersFromURL() {
     const params = new URLSearchParams(window.location.search);
 
     // Check if this is a fresh search (only subject param, no filter params)
-    const hasFilterParams = params.has('days') || params.has('platforms') || params.has('sentiments') || params.has('influencers') || params.has('priorities');
+    const hasFilterParams = params.has('days') || params.has('platforms') || params.has('sentiments') || params.has('priorities');
 
     if (!hasFilterParams) {
       // Clear all stored filters for a fresh search
       sessionStorage.removeItem('rm_days');
       sessionStorage.removeItem('rm_platforms');
       sessionStorage.removeItem('rm_sentiments');
-      sessionStorage.removeItem('rm_influencers');
       return;
     }
 
@@ -546,9 +504,6 @@
     const days = params.get('days');
     if (days) {
       sessionStorage.setItem('rm_days', days);
-      if (timeFilterLabel) {
-        timeFilterLabel.classList.add('active');
-      }
     } else {
       sessionStorage.removeItem('rm_days');
     }
@@ -557,9 +512,6 @@
     const platforms = params.get('platforms');
     if (platforms) {
       sessionStorage.setItem('rm_platforms', platforms);
-      if (platformFilterLabel) {
-        platformFilterLabel.classList.add('active');
-      }
     } else {
       sessionStorage.removeItem('rm_platforms');
     }
@@ -568,22 +520,8 @@
     const sentiments = params.get('sentiments');
     if (sentiments) {
       sessionStorage.setItem('rm_sentiments', sentiments);
-      if (sentimentFilterLabel) {
-        sentimentFilterLabel.classList.add('active');
-      }
     } else {
       sessionStorage.removeItem('rm_sentiments');
-    }
-
-    // Influencers filter
-    const influencers = params.get('influencers');
-    if (influencers) {
-      sessionStorage.setItem('rm_influencers', influencers);
-      if (influencersFilterLabel) {
-        influencersFilterLabel.classList.add('active');
-      }
-    } else {
-      sessionStorage.removeItem('rm_influencers');
     }
 
     // Priority filter
@@ -647,13 +585,18 @@
     const clearAllBtn = document.getElementById('clearAllFiltersBtn');
 
     let count = 0;
-    if (sessionStorage.getItem('rm_days')) count++;
-    if (sessionStorage.getItem('rm_platforms') && sessionStorage.getItem('rm_platforms') !== '[]') count++;
-    if (sessionStorage.getItem('rm_sentiments') && sessionStorage.getItem('rm_sentiments') !== '[]') count++;
-    if (sessionStorage.getItem('rm_influencers')) count++;
 
-    const selectedPriorities = document.querySelectorAll('input[name="priorityChk"]:checked').length;
-    count += selectedPriorities;
+    // Count time filters
+    count += document.querySelectorAll('#timeFilterCheckboxes input[type="checkbox"]:checked').length;
+
+    // Count platform filters
+    count += document.querySelectorAll('#platformFilterCheckboxes input[type="checkbox"]:checked').length;
+
+    // Count sentiment filters
+    count += document.querySelectorAll('#sentimentFilterCheckboxes input[type="checkbox"]:checked').length;
+
+    // Count priority filters
+    count += document.querySelectorAll('input[name="priorityChk"]:checked').length;
 
     if (count > 0) {
       filterCountEl.textContent = `(${count})`;
@@ -662,175 +605,18 @@
       filterCountEl.textContent = '';
       clearAllBtn.style.display = 'none';
     }
-
-    // Update active state on buttons
-    updateButtonActiveStates();
   }
 
-  // Update active state on filter buttons
-  function updateButtonActiveStates() {
-    // Time button
-    if (timeFilterLabel) {
-      if (sessionStorage.getItem('rm_days')) {
-        timeFilterLabel.classList.add('active');
-      } else {
-        timeFilterLabel.classList.remove('active');
-      }
-    }
+  // Populate time filter checkboxes based on available data
+  function populateTimeFilterCheckboxes() {
+    if (!allResults || allResults.length === 0 || !timeFilterCheckboxes) return;
 
-    // Platform button
-    if (platformFilterLabel) {
-      const platforms = sessionStorage.getItem('rm_platforms');
-      if (platforms && platforms !== '[]') {
-        platformFilterLabel.classList.add('active');
-      } else {
-        platformFilterLabel.classList.remove('active');
-      }
-    }
-
-    // Sentiment button
-    if (sentimentFilterLabel) {
-      const sentiments = sessionStorage.getItem('rm_sentiments');
-      if (sentiments && sentiments !== '[]') {
-        sentimentFilterLabel.classList.add('active');
-      } else {
-        sentimentFilterLabel.classList.remove('active');
-      }
-    }
-
-    // Influencers button
-    if (influencersFilterLabel) {
-      if (sessionStorage.getItem('rm_influencers')) {
-        influencersFilterLabel.classList.add('active');
-      } else {
-        influencersFilterLabel.classList.remove('active');
-      }
-    }
-  }
-
-  // Update filter label text to show current selection
-  function updateFilterLabels() {
-    // Time filter label
-    const days = sessionStorage.getItem('rm_days');
-    if (days && timeFilterText) {
-      const labels = {
-        '1': 'Today',
-        '7': '7 days',
-        '30': '30 days',
-        '90': '90 days',
-        '365': 'Last year'
-      };
-      timeFilterText.textContent = `Time: ${labels[days] || days + ' days'}`;
-    } else if (timeFilterText) {
-      timeFilterText.textContent = 'Time';
-    }
-
-    // Platform filter label
-    const platforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
-    if (platforms.length > 0 && platformFilterText) {
-      platformFilterText.textContent = platforms.length === 1 ? `Platform: ${platforms[0]}` : `Platform (${platforms.length})`;
-    } else if (platformFilterText) {
-      platformFilterText.textContent = 'Platform';
-    }
-
-    // Sentiment filter label
-    const sentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
-    if (sentiments.length > 0 && sentimentFilterText) {
-      const capitalizedSentiments = sentiments.map(s => s.charAt(0).toUpperCase() + s.slice(1));
-      sentimentFilterText.textContent = sentiments.length === 1 ? `Sentiment: ${capitalizedSentiments[0]}` : `Sentiment (${sentiments.length})`;
-    } else if (sentimentFilterText) {
-      sentimentFilterText.textContent = 'Sentiment';
-    }
-
-    // Influencers filter label
-    const influencers = sessionStorage.getItem('rm_influencers');
-    if (influencers && influencersFilterText) {
-      influencersFilterText.textContent = 'Top Influencers: On';
-    } else if (influencersFilterText) {
-      influencersFilterText.textContent = 'Top Influencers';
-    }
-  }
-
-  // Generic dropdown functions
-  function openDropdown(dropdown, label) {
-    if (!label || !dropdown) return;
-
-    // Check if already open
-    const isOpen = dropdown.classList.contains('show');
-
-    // Close all other dropdowns
-    closeAllDropdowns();
-
-    if (!isOpen) {
-      // Position dropdown relative to its parent
-      dropdown.style.left = '0';
-      dropdown.style.top = '100%';
-
-      // Highlight selected option
-      highlightSelectedOption(dropdown);
-
-      // Show dropdown
-      dropdown.classList.add('show');
-    }
-  }
-
-  function closeAllDropdowns() {
-    [timeFilterDropdown, platformFilterDropdown, sentimentFilterDropdown, influencersFilterDropdown].forEach(d => {
-      if (d) d.classList.remove('show');
-    });
-  }
-
-  function highlightSelectedOption(dropdown) {
-    const options = dropdown.querySelectorAll('.rm-dropdown-option:not(.rm-option-clear)');
-    options.forEach(opt => opt.classList.remove('selected'));
-
-    // Highlight based on dropdown type
-    if (dropdown === timeFilterDropdown) {
-      const currentDays = sessionStorage.getItem('rm_days');
-      options.forEach(opt => {
-        if (opt.getAttribute('data-days') === currentDays) {
-          opt.classList.add('selected');
-        }
-      });
-    } else if (dropdown === platformFilterDropdown) {
-      const currentPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
-      options.forEach(opt => {
-        if (currentPlatforms.includes(opt.getAttribute('data-platform'))) {
-          opt.classList.add('selected');
-        }
-      });
-    } else if (dropdown === sentimentFilterDropdown) {
-      const currentSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
-      options.forEach(opt => {
-        if (currentSentiments.includes(opt.getAttribute('data-sentiment'))) {
-          opt.classList.add('selected');
-        }
-      });
-    } else if (dropdown === influencersFilterDropdown) {
-      const currentInfluencers = sessionStorage.getItem('rm_influencers');
-      options.forEach(opt => {
-        if (opt.getAttribute('data-influencers') === currentInfluencers) {
-          opt.classList.add('selected');
-        }
-      });
-    }
-  }
-
-  // Populate time filter dropdown based on available data
-  function populateTimeFilterDropdown() {
-    if (!allResults || allResults.length === 0) return;
-
-    const timeOptions = document.getElementById('timeFilterOptions');
-    if (!timeOptions) return;
-
-    const now = Date.now() / 1000; // current time in seconds (epoch)
-
-    // Get start of today in epoch seconds
+    const now = Date.now() / 1000;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayStartSeconds = todayStart.getTime() / 1000;
 
-    // Find the oldest result to determine which buckets are useful
+    // Find oldest result
     let oldestResultAge = 0;
     allResults.forEach(item => {
       const timestamp = item.published_ts || item.published || item.date;
@@ -843,80 +629,46 @@
       }
     });
 
-    // Define buckets with exclusive ranges (only show if data exists in that specific range)
+    // Define time buckets
     const buckets = [
-      {
-        label: 'Today',
-        days: 1,
-        minAge: 0,
-        maxAge: now - todayStartSeconds, // From now back to start of today
-        check: (itemTime) => itemTime >= todayStartSeconds
-      },
-      {
-        label: '7 days',
-        days: 7,
-        minAge: 0,
-        maxAge: 86400 * 7, // 0-7 days
-        check: (itemTime) => (now - itemTime) <= (86400 * 7)
-      },
-      {
-        label: '30 days',
-        days: 30,
-        minAge: 86400 * 7, // older than 7 days
-        maxAge: 86400 * 30, // up to 30 days
-        check: (itemTime) => (now - itemTime) <= (86400 * 30)
-      },
-      {
-        label: '90 days',
-        days: 90,
-        minAge: 86400 * 30, // older than 30 days
-        maxAge: 86400 * 90, // up to 90 days
-        check: (itemTime) => (now - itemTime) <= (86400 * 90)
-      },
-      {
-        label: 'Last year',
-        days: 365,
-        minAge: 86400 * 90, // older than 90 days
-        maxAge: Infinity,
-        check: (itemTime) => (now - itemTime) > (86400 * 90)
-      }
+      { label: 'Today', days: '1', minAge: 0 },
+      { label: '7 days', days: '7', minAge: 0 },
+      { label: '30 days', days: '30', minAge: 86400 * 7 },
+      { label: '90 days', days: '90', minAge: 86400 * 30 },
+      { label: 'Last year', days: '365', minAge: 86400 * 90 }
     ];
 
-    // Only show buckets where the oldest result is old enough to make that bucket useful
-    const availableBuckets = buckets.filter(bucket => {
-      // Check if any results exist in or beyond this bucket's minimum range
-      return oldestResultAge >= bucket.minAge;
-    });
+    // Filter available buckets
+    const availableBuckets = buckets.filter(bucket => oldestResultAge >= bucket.minAge);
 
-    // Check if currently selected value is still available
-    const currentDays = sessionStorage.getItem('rm_days');
-    const currentStillAvailable = availableBuckets.some(b => String(b.days) === currentDays);
+    // Get current selection from sessionStorage
+    const selectedDays = sessionStorage.getItem('rm_days') || '';
 
-    // If current selection is no longer available, default to first available bucket
-    if (currentDays && !currentStillAvailable && availableBuckets.length > 0) {
-      sessionStorage.setItem('rm_days', String(availableBuckets[0].days));
-      updateFilterLabels();
-      updateFilterCount();
-      updateURL();
-    }
-
-    // Render available buckets
+    // Render checkboxes
     let html = '';
     availableBuckets.forEach(bucket => {
-      html += `<button type="button" class="rm-dropdown-option" data-days="${bucket.days}">${bucket.label}</button>`;
+      const checked = selectedDays === bucket.days ? 'checked' : '';
+      html += `
+        <li>
+          <label>
+            <input type="checkbox" name="timeFilter" value="${bucket.days}" ${checked} data-filter-type="time">
+            <span>${bucket.label}</span>
+          </label>
+        </li>
+      `;
     });
 
-    if (availableBuckets.length > 0) {
-      html += '<div class="rm-dropdown-divider"></div>';
-      html += '<button type="button" class="rm-dropdown-option rm-option-clear" data-days="">Clear</button>';
-    }
+    timeFilterCheckboxes.innerHTML = html;
 
-    timeOptions.innerHTML = html;
+    // Add event listeners
+    timeFilterCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', handleTimeFilterChange);
+    });
   }
 
-  // Populate platform dropdown with unique platforms from results
-  function populatePlatformDropdown() {
-    if (!allResults || !platformFilterDropdown) return;
+  // Populate platform checkboxes with unique platforms from results
+  function populatePlatformCheckboxes() {
+    if (!allResults || !platformFilterCheckboxes) return;
 
     const platforms = new Set();
     allResults.forEach(item => {
@@ -924,66 +676,126 @@
       if (platform) platforms.add(platform);
     });
 
-    const platformOptions = document.getElementById('platformOptions');
-    if (!platformOptions) return;
+    // Get current selection from sessionStorage
+    const selectedPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
 
+    // Render checkboxes
     let html = '';
     Array.from(platforms).sort().forEach(platform => {
-      html += `<button type="button" class="rm-dropdown-option" data-platform="${platform}">${platform}</button>`;
+      const checked = selectedPlatforms.includes(platform) ? 'checked' : '';
+      html += `
+        <li>
+          <label>
+            <input type="checkbox" name="platformFilter" value="${platform}" ${checked} data-filter-type="platform">
+            <span>${platform}</span>
+          </label>
+        </li>
+      `;
     });
 
-    if (platforms.size > 0) {
-      html += '<div class="rm-dropdown-divider"></div>';
-      html += '<button type="button" class="rm-dropdown-option rm-option-clear" data-platform="">Clear</button>';
+    platformFilterCheckboxes.innerHTML = html;
+
+    // Add event listeners
+    platformFilterCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', handlePlatformFilterChange);
+    });
+  }
+
+  // Populate sentiment checkboxes
+  function populateSentimentCheckboxes() {
+    if (!sentimentFilterCheckboxes) return;
+
+    const sentiments = [
+      { label: 'Positive', value: 'positive' },
+      { label: 'Negative', value: 'negative' },
+      { label: 'Spike', value: 'spike' }
+    ];
+
+    // Get current selection from sessionStorage
+    const selectedSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
+
+    // Render checkboxes
+    let html = '';
+    sentiments.forEach(sentiment => {
+      const checked = selectedSentiments.includes(sentiment.value) ? 'checked' : '';
+      html += `
+        <li>
+          <label>
+            <input type="checkbox" name="sentimentFilter" value="${sentiment.value}" ${checked} data-filter-type="sentiment">
+            <span>${sentiment.label}</span>
+          </label>
+        </li>
+      `;
+    });
+
+    sentimentFilterCheckboxes.innerHTML = html;
+
+    // Add event listeners
+    sentimentFilterCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', handleSentimentFilterChange);
+    });
+  }
+
+  // Handle time filter checkbox changes
+  function handleTimeFilterChange(e) {
+    const checkbox = e.target;
+    const days = checkbox.value;
+
+    // Uncheck all other time filters (single select behavior)
+    document.querySelectorAll('#timeFilterCheckboxes input[type="checkbox"]').forEach(cb => {
+      if (cb !== checkbox) {
+        cb.checked = false;
+      }
+    });
+
+    // Update sessionStorage
+    if (checkbox.checked) {
+      sessionStorage.setItem('rm_days', days);
+    } else {
+      sessionStorage.removeItem('rm_days');
     }
 
-    platformOptions.innerHTML = html;
+    // Update UI and re-render
+    updateFilterCount();
+    updateURL();
+    renderResults();
   }
 
-  // Open dropdown when clicking filter buttons
-  if (timeFilterLabel) {
-    timeFilterLabel.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      populateTimeFilterDropdown();
-      openDropdown(timeFilterDropdown, timeFilterLabel);
-    });
-  }
+  // Handle platform filter checkbox changes
+  function handlePlatformFilterChange(e) {
+    const selectedPlatforms = Array.from(
+      document.querySelectorAll('#platformFilterCheckboxes input[type="checkbox"]:checked')
+    ).map(cb => cb.value);
 
-  if (platformFilterLabel) {
-    platformFilterLabel.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      populatePlatformDropdown();
-      openDropdown(platformFilterDropdown, platformFilterLabel);
-    });
-  }
-
-  if (sentimentFilterLabel) {
-    sentimentFilterLabel.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openDropdown(sentimentFilterDropdown, sentimentFilterLabel);
-    });
-  }
-
-  if (influencersFilterLabel) {
-    influencersFilterLabel.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openDropdown(influencersFilterDropdown, influencersFilterLabel);
-    });
-  }
-
-  // Close dropdowns when clicking outside
-  document.addEventListener('click', (e) => {
-    const clickedDropdown = e.target.closest('.rm-filter-dropdown');
-    const clickedLabel = e.target.closest('#timeFilterLabel, #platformFilterLabel, #sentimentFilterLabel, #influencersFilterLabel');
-
-    if (!clickedDropdown && !clickedLabel) {
-      closeAllDropdowns();
+    if (selectedPlatforms.length > 0) {
+      sessionStorage.setItem('rm_platforms', JSON.stringify(selectedPlatforms));
+    } else {
+      sessionStorage.removeItem('rm_platforms');
     }
-  });
+
+    // Update UI and re-render
+    updateFilterCount();
+    updateURL();
+    renderResults();
+  }
+
+  // Handle sentiment filter checkbox changes
+  function handleSentimentFilterChange(e) {
+    const selectedSentiments = Array.from(
+      document.querySelectorAll('#sentimentFilterCheckboxes input[type="checkbox"]:checked')
+    ).map(cb => cb.value);
+
+    if (selectedSentiments.length > 0) {
+      sessionStorage.setItem('rm_sentiments', JSON.stringify(selectedSentiments));
+    } else {
+      sessionStorage.removeItem('rm_sentiments');
+    }
+
+    // Update UI and re-render
+    updateFilterCount();
+    updateURL();
+    renderResults();
+  }
 
   // Clear all filters button
   const clearAllBtn = document.getElementById('clearAllFiltersBtn');
@@ -993,20 +805,16 @@
       sessionStorage.removeItem('rm_days');
       sessionStorage.removeItem('rm_platforms');
       sessionStorage.removeItem('rm_sentiments');
-      sessionStorage.removeItem('rm_influencers');
 
-      // Remove active class from all filter buttons
-      [timeFilterLabel, platformFilterLabel, sentimentFilterLabel, influencersFilterLabel].forEach(btn => {
-        if (btn) {
-          btn.classList.remove('active');
-        }
-      });
+      // Uncheck all filter checkboxes
+      document.querySelectorAll('#timeFilterCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('#platformFilterCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('#sentimentFilterCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
 
       // Uncheck priority filters
       document.querySelectorAll('input[name="priorityChk"]').forEach(cb => cb.checked = false);
 
       // Update UI
-      updateFilterLabels();
       updateFilterCount();
       updateURL();
 
@@ -1015,143 +823,6 @@
     });
   }
 
-  // Handle time filter selection (instant apply)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#timeFilterDropdown .rm-dropdown-option');
-    if (!btn) return;
-
-    e.stopPropagation();
-
-    const daysStr = btn.getAttribute('data-days');
-
-    if (daysStr === '') {
-      // Clear selection
-      sessionStorage.removeItem('rm_days');
-    } else {
-      // Apply selection instantly
-      sessionStorage.setItem('rm_days', daysStr);
-    }
-
-    // Update UI and re-render
-    updateFilterLabels();
-    updateFilterCount();
-    updateURL();
-    closeAllDropdowns();
-    renderResults();
-  });
-
-  // Handle platform filter selection (instant apply)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#platformFilterDropdown .rm-dropdown-option');
-    if (!btn) return;
-
-    e.stopPropagation(); // Keep dropdown open for multi-select
-
-    const platformStr = btn.getAttribute('data-platform');
-    let currentPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
-
-    if (platformStr === '') {
-      // Clear all selections
-      sessionStorage.removeItem('rm_platforms');
-
-      // Update UI and close dropdown
-      updateFilterLabels();
-      updateFilterCount();
-      updateURL();
-      closeAllDropdowns();
-      renderResults();
-    } else {
-      // Toggle platform in array
-      const idx = currentPlatforms.indexOf(platformStr);
-      if (idx > -1) {
-        currentPlatforms.splice(idx, 1); // Remove
-      } else {
-        currentPlatforms.push(platformStr); // Add
-      }
-
-      if (currentPlatforms.length > 0) {
-        sessionStorage.setItem('rm_platforms', JSON.stringify(currentPlatforms));
-      } else {
-        sessionStorage.removeItem('rm_platforms');
-      }
-
-      // Update visual highlighting and UI (keep dropdown open)
-      highlightSelectedOption(platformFilterDropdown);
-      updateFilterLabels();
-      updateFilterCount();
-      updateURL();
-      renderResults();
-    }
-  });
-
-  // Handle sentiment filter selection (instant apply)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#sentimentFilterDropdown .rm-dropdown-option');
-    if (!btn) return;
-
-    e.stopPropagation(); // Keep dropdown open for multi-select
-
-    const sentimentStr = btn.getAttribute('data-sentiment');
-    let currentSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
-
-    if (sentimentStr === '') {
-      // Clear all selections
-      sessionStorage.removeItem('rm_sentiments');
-
-      // Update UI and close dropdown
-      updateFilterLabels();
-      updateFilterCount();
-      updateURL();
-      closeAllDropdowns();
-      renderResults();
-    } else {
-      // Toggle sentiment in array
-      const idx = currentSentiments.indexOf(sentimentStr);
-      if (idx > -1) {
-        currentSentiments.splice(idx, 1); // Remove
-      } else {
-        currentSentiments.push(sentimentStr); // Add
-      }
-
-      if (currentSentiments.length > 0) {
-        sessionStorage.setItem('rm_sentiments', JSON.stringify(currentSentiments));
-      } else {
-        sessionStorage.removeItem('rm_sentiments');
-      }
-
-      // Update visual highlighting and UI (keep dropdown open)
-      highlightSelectedOption(sentimentFilterDropdown);
-      updateFilterLabels();
-      updateFilterCount();
-      updateURL();
-      renderResults();
-    }
-  });
-
-  // Handle influencers filter selection (instant apply)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#influencersFilterDropdown .rm-dropdown-option');
-    if (!btn) return;
-
-    e.stopPropagation();
-
-    const influencersStr = btn.getAttribute('data-influencers');
-
-    if (influencersStr === '') {
-      // Clear selection
-      sessionStorage.removeItem('rm_influencers');
-    } else {
-      // Apply selection
-      sessionStorage.setItem('rm_influencers', influencersStr);
-    }
-
-    // Update UI and re-render
-    updateFilterLabels();
-    updateFilterCount();
-    updateURL();
-    closeAllDropdowns();
-    renderResults();
-  });
 
   /**
    * Initiate a brand new search (POST to /api/search/)
@@ -1210,7 +881,6 @@
       sessionStorage.removeItem('rm_days');
       sessionStorage.removeItem('rm_platforms');
       sessionStorage.removeItem('rm_sentiments');
-      sessionStorage.removeItem('rm_influencers');
 
       // Update URL to include loading flag (prevent re-triggering search on refresh)
       const newURL = `${window.location.pathname}?subject=${encodeURIComponent(searchSubject)}&loading=1`;
@@ -1353,6 +1023,13 @@
 
       if (data.results && data.results.length > 0) {
         console.log('🔍 First result sample:', data.results[0]);
+        console.log('📊 First result fields:', {
+          sentiment: data.results[0].sentiment,
+          sentiment_score: data.results[0].sentiment_score,
+          engagement: data.results[0].engagement,
+          relevance_score: data.results[0].relevance_score,
+          insight: data.results[0].insight
+        });
       }
 
       const resultsArray = data.results || [];
@@ -1375,6 +1052,34 @@
       console.log('✅ Deduplicated results count:', allResults.length);
       if (allResults.length > 0) {
         console.log('📝 First normalized result:', allResults[0]);
+
+        // Check data completeness across all results
+        let missingSentiment = 0;
+        let missingEngagement = 0;
+        let missingRelevance = 0;
+        let redditCount = 0;
+
+        allResults.forEach(item => {
+          if (!item.sentiment && !item.sentiment_score && !item.insight) missingSentiment++;
+
+          // Only count missing engagement for Reddit posts
+          const isReddit = item.source && (
+            item.source.toLowerCase().includes('reddit_official') ||
+            item.source.toLowerCase().includes('reddit_rss') ||
+            item.source.toLowerCase().includes('official_reddit')
+          );
+          if (isReddit) {
+            redditCount++;
+            if (item.engagement == null) missingEngagement++;
+          }
+
+          if (item.relevance_score == null && item.score == null) missingRelevance++;
+        });
+
+        console.log('📊 Data Completeness Summary:');
+        console.log(`   Missing Sentiment: ${missingSentiment}/${allResults.length} (${Math.round(missingSentiment / allResults.length * 100)}%)`);
+        console.log(`   Missing Engagement (Reddit only): ${missingEngagement}/${redditCount} (${redditCount > 0 ? Math.round(missingEngagement / redditCount * 100) : 0}%)`);
+        console.log(`   Missing Relevance: ${missingRelevance}/${allResults.length} (${Math.round(missingRelevance / allResults.length * 100)}%)`);
       }
 
       if (!allResults || allResults.length === 0) {
@@ -1383,13 +1088,16 @@
         return;
       }
 
-      populateTimeFilterDropdown();
-      populatePlatformDropdown();
-      updateFilterLabels();
+      populateTimeFilterCheckboxes();
+      populatePlatformCheckboxes();
+      populateSentimentCheckboxes();
       updateFilterCount();
 
       isLoading = false;
       renderResults();
+
+      // Load trending topics after results are loaded
+      loadTrendingTopics();
 
     } catch (error) {
       console.error('Error loading results:', error);
@@ -1406,9 +1114,60 @@
     }
   }
 
+  /**
+   * Load trending topics from the trends API
+   */
+  async function loadTrendingTopics() {
+    const topicsList = document.getElementById('trendingTopicsList');
+    if (!topicsList || !historyId) return;
+
+    try {
+      console.log('🔥 Fetching trending topics for history_id:', historyId);
+
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/trends/?history_id=${historyId}&days=30`,
+        {},
+        30000  // 30 seconds timeout
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('📊 Trends data received:', data);
+
+      // Extract top_tags from the response
+      const topTags = data.top_tags || [];
+
+      if (topTags.length === 0) {
+        topicsList.innerHTML = '<li style="color: #999; font-style: italic;">No trending topics found</li>';
+        return;
+      }
+
+      // Display only first 4-5 topics
+      const displayLimit = 5;
+      const topicsToShow = topTags.slice(0, displayLimit);
+
+      // Build the HTML for topics list
+      const topicsHTML = topicsToShow.map(topic => {
+        const tagName = topic._id || 'Unknown';
+        const count = topic.count || 0;
+        return `<li>${tagName} <span style="color: #999; font-size: 12px;">(${count})</span></li>`;
+      }).join('');
+
+      topicsList.innerHTML = topicsHTML;
+      console.log('✅ Displayed', topicsToShow.length, 'trending topics');
+
+    } catch (error) {
+      console.error('❌ Error loading trending topics:', error);
+      topicsList.innerHTML = '<li style="color: #dc3545; font-style: italic;">Failed to load topics</li>';
+    }
+  }
+
   // Helper functions
   function normalizeItem(item, subj) {
-    // API returns: ai_title, ai_summary, relevance_score, published_ts, source, url, tags, rank, status
+    // API returns: ai_title, ai_summary, relevance_score, published_ts, source, url, tags, rank, status, sentiment, sentiment_score, engagement, insight
     let title = item.ai_title || item.title || item.headline || item.name || 'Untitled';
     let text = item.ai_summary || item.summary || item.text || item.description || 'No description available.';
 
@@ -1446,15 +1205,41 @@
       text = `⚠️ AI processing incomplete. Click the link to view the full article on ${item.source || 'the source website'}.`;
     }
 
-    // Convert relevance_score (0-1) to percentage (0-100)
-    let score = item.score;
+    // Normalize score: prefer relevance_score from backend
+    let score = item.relevance_score;
     if (score == null || score === undefined) {
-      const relevance = item.relevance_score;
-      if (typeof relevance === 'number' && !Number.isNaN(relevance)) {
-        score = Math.round(relevance * 100);
-      } else {
-        score = 50; // default fallback
+      score = item.score;
+    }
+    // Ensure it's in 0-1 range for consistency
+    if (score != null && score > 1) {
+      score = score / 100; // Convert percentage back to 0-1 range
+    }
+    // NO DEFAULT - Keep as null if missing
+    if (score == null) {
+      console.warn('⚠️ Missing relevance_score for item:', item.url || item.ai_title);
+      score = null;
+    }
+
+    // Normalize engagement: ensure it's a number (only expected for Reddit posts)
+    let engagement = item.engagement;
+    const isReddit = item.source && (
+      item.source.toLowerCase().includes('reddit_official') ||
+      item.source.toLowerCase().includes('reddit_rss') ||
+      item.source.toLowerCase().includes('official_reddit')
+    );
+
+    if (engagement != null) {
+      if (typeof engagement === 'object') {
+        engagement = engagement.score || engagement.num_comments || 0;
       }
+      engagement = Number(engagement);
+    } else if (isReddit) {
+      // Only warn if this is a Reddit post (engagement is expected)
+      console.warn('⚠️ Reddit post missing engagement:', item.url || item.ai_title);
+      engagement = null;
+    } else {
+      // Non-Reddit posts: engagement not expected, set to null
+      engagement = null;
     }
 
     // Log each item for debugging (only in development)
@@ -1465,7 +1250,10 @@
         had_placeholder: isPlaceholderTitle || isPlaceholderSummary,
         normalized_title: title,
         normalized_text: text,
-        score: score,
+        relevance_score: score,
+        sentiment: item.sentiment,
+        sentiment_score: item.sentiment_score,
+        engagement: engagement,
         url: item.url,
         source: item.source
       });
@@ -1478,14 +1266,30 @@
       text,
       summary: text, // alias for compatibility
       score,
+      relevance_score: score, // ensure this field exists
+      engagement,
+      sentiment: item.sentiment,
+      sentiment_score: item.sentiment_score,
+      insight: item.insight,
       hasPlaceholder: isPlaceholderTitle || isPlaceholderSummary
     };
   }
-  function formatEngagement(engagement) {
+  function formatEngagement(engagement, source) {
+    // Only show engagement for Reddit sources
+    const isReddit = source && (
+      source.toLowerCase().includes('reddit_official') ||
+      source.toLowerCase().includes('reddit_rss') ||
+      source.toLowerCase().includes('official_reddit')
+    );
+
+    if (!isReddit || engagement == null) {
+      return 'N/A';
+    }
+
     let num = 0;
-    if (engagement && typeof engagement === 'object') {
+    if (typeof engagement === 'object') {
       num = engagement.score || engagement.num_comments || 0;
-    } else if (engagement) {
+    } else {
       num = engagement;
     }
 
@@ -1510,94 +1314,63 @@
   }
 
   function getRelevancePercent(score) {
-    if (score == null) return 0;
+    if (score == null) {
+      return null; // Return null to indicate missing data
+    }
     const num = Number(score);
-    if (!Number.isFinite(num)) return 0;
+    if (!Number.isFinite(num)) return null;
     if (num <= 1) return Math.round(num * 100);
     return Math.min(100, Math.max(0, Math.round(num)));
   }
 
   function getInsightBadge(item) {
+    // Check explicit insight field first
     const insight = item.insight || item.sentiment;
     if (insight) {
-      const upper = insight.toUpperCase();
-      if (upper.includes('SPIKE')) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
-      if (upper.includes('POSITIVE')) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
-      if (upper.includes('NEGATIVE')) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+      const upper = String(insight).toUpperCase();
+      if (upper.includes('SPIKE') || upper.includes('HIGH')) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
+      if (upper.includes('POSITIVE') || upper.includes('POS')) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
+      if (upper.includes('NEGATIVE') || upper.includes('NEG')) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+      if (upper.includes('NEUTRAL')) return { text: 'NEUTRAL', color: '#6b7280', type: 'neutral' };
     }
 
-    const score = getRelevancePercent(item.score);
-    if (score >= 80) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
-    if (score >= 50) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
-    return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
-  }
-
-  // Extract raw engagement number
-  function getEngagementRaw(item) {
-    if (!item.engagement) return 0;
-    if (typeof item.engagement === 'number') return item.engagement;
-    if (typeof item.engagement === 'object') {
-      return item.engagement.score || item.engagement.num_comments || 0;
+    // Use sentiment_score if available (0-1 range)
+    const sentimentScore = item.sentiment_score;
+    if (sentimentScore != null && typeof sentimentScore === 'number') {
+      if (sentimentScore >= 0.7) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
+      if (sentimentScore <= 0.3) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+      return { text: 'NEUTRAL', color: '#6b7280', type: 'neutral' };
     }
-    return 0;
+
+    // NO FALLBACK - Show missing data
+    console.warn('⚠️ Missing sentiment data for item:', item.url || item.ai_title);
+    return { text: 'NO DATA', color: '#dc2626', type: 'missing' };
   }
 
-  // Calculate age in days from timestamp
-  function getAgeDays(item) {
-    const timestamp = item.published_ts || item.published || item.date;
-    if (!timestamp) return 999; // Very old if no date
-
-    try {
-      const ts = String(timestamp).length > 10 ? timestamp : timestamp * 1000;
-      const itemDate = new Date(ts);
-      const now = new Date();
-      const ageMs = now - itemDate;
-      return Math.max(0, ageMs / (1000 * 60 * 60 * 24)); // Convert to days
-    } catch (e) {
-      return 999;
-    }
-  }
-
-  // Map insight/sentiment to score
-  function getSentimentScore(item) {
-    const insight = item.insight || item.sentiment || '';
-    const upper = insight.toUpperCase();
-    if (upper.includes('SPIKE')) return 1.0;
-    if (upper.includes('POSITIVE')) return 0.7;
-    if (upper.includes('NEGATIVE')) return 0.5;
-    return 0.6; // Neutral default
-  }
-
-  // Compute composite priority score and label
+  // Compute priority based on relevance score only
   function getPriority(item) {
     // Return cached result if available
     if (item.__priorityLabel) return item.__priorityLabel;
 
-    // Normalize relevance (0..1)
-    const R = Math.max(0, Math.min(1, getRelevancePercent(item.score) / 100));
+    // Get relevance score (0-100 range)
+    const relevancePercent = getRelevancePercent(item.score || item.relevance_score);
 
-    // Normalize engagement (log scale, 100k ≈ 1.0)
-    const engagementRaw = getEngagementRaw(item);
-    const E = Math.max(0, Math.min(1, Math.log10(engagementRaw + 1) / 5));
+    // Handle missing relevance score
+    if (relevancePercent == null) {
+      console.warn('⚠️ Missing relevance score for priority calculation:', item.url || item.ai_title);
+      item.__priorityLabel = 'low';
+      return 'low';
+    }
 
-    // Normalize recency (14-day half-life)
-    const ageDays = getAgeDays(item);
-    const T = Math.pow(0.5, ageDays / 14);
-
-    // Sentiment score
-    const S = getSentimentScore(item);
-
-    // Composite score: 45% relevance, 30% engagement, 15% recency, 10% sentiment
-    const P = 0.45 * R + 0.30 * E + 0.15 * T + 0.10 * S;
-
-    // Cache the score
-    item.__priorityScore = P;
-
-    // Bucket into labels
+    // Bucket into labels based on relevance score thresholds
     let label;
-    if (P >= 0.70) label = 'high';
-    else if (P >= 0.45) label = 'medium';
-    else label = 'low';
+    if (relevancePercent >= 70) {
+      label = 'high';      // 70-100% = High Priority
+    } else if (relevancePercent >= 40) {
+      label = 'medium';    // 40-69% = Medium Priority
+    } else {
+      label = 'low';       // 0-39% = Low Priority
+    }
 
     // Cache the label
     item.__priorityLabel = label;
@@ -1724,8 +1497,8 @@
       const source = item.source || item.platform || 'Unknown Source';
       const date = formatDate(item.published_ts || item.published || item.date);
       const url = item.url || '#';
-      const engagement = formatEngagement(item.engagement || 0);
-      const relevance = getRelevancePercent(item.score || item.relevance_score || 0);
+      const engagement = formatEngagement(item.engagement, source);
+      const relevance = getRelevancePercent(item.score || item.relevance_score);
       const insight = getInsightBadge(item);
       const priority = getPriority(item); // Compute and cache priority for filtering
 
@@ -1747,21 +1520,23 @@
                 <div class="rm-result-meta-row">
                   <span class="rm-result-meta-label">Insights:</span>
                   <span class="rm-result-insight-badge">
-                    <span class="rm-result-insight-dot" style="background:${insight.type === 'positive' ? '#16a34a' : insight.type === 'spike' ? '#e11d2e' : '#111'}"></span>
+                    <span class="rm-result-insight-dot" style="background:${insight.type === 'positive' ? '#16a34a' : insight.type === 'spike' ? '#e11d2e' : insight.type === 'negative' ? '#dc2626' : '#6b7280'}"></span>
                     ${insight.text}
                   </span>
                 </div>
                 <div class="rm-result-meta-row">
                   <span class="rm-result-meta-label">Engagement:</span>
                   <span class="rm-result-engagement">
-                    <span class="rm-result-engagement-icon">▲</span> ${engagement}
+                    ${engagement !== 'N/A' ? '<span class="rm-result-engagement-icon">▲</span> ' : ''}${engagement}
                   </span>
                 </div>
                 <div class="rm-result-meta-row">
                   <span class="rm-result-meta-label">Relevance:</span>
+                  ${relevance != null ? `
                   <div class="rm-result-relevance-bar">
                     <div class="rm-result-relevance-fill" style="width:${relevance}%;"></div>
                   </div>
+                  ` : '<span style="color: #999;">N/A</span>'}
                 </div>
               </div>
             </header>
@@ -1783,9 +1558,9 @@
     container.innerHTML = html;
 
     // Scroll to top of results on page change (smooth)
-    const resultsMain = document.querySelector('.rm-results-main');
-    if (resultsMain && currentPage > 1) {
-      resultsMain.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const resultsContainer = document.getElementById('results-container');
+    if (resultsContainer && currentPage > 1) {
+      resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
@@ -1937,7 +1712,6 @@
         sessionStorage.removeItem('rm_days');
         sessionStorage.removeItem('rm_platforms');
         sessionStorage.removeItem('rm_sentiments');
-        sessionStorage.removeItem('rm_influencers');
 
         // Update URL with loading flag
         const newURL = `${window.location.pathname}?subject=${encodeURIComponent(newSubject)}&loading=1`;
