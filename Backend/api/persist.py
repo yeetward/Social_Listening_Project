@@ -283,9 +283,11 @@ def upsert_company_profile(profile: dict):
                 "name": name,
                 "description": desc,
                 "competitors": comps,
-                "cards": cards,
             },
-            "$setOnInsert": {"created_at": now},
+            "$setOnInsert": {
+                "created_at": now,
+                "cards": cards,  # only on first insert
+            },
         },
         upsert=True
     )

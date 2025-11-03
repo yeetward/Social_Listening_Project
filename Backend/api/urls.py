@@ -7,7 +7,8 @@ from .views import get_top_topics
 from .views import get_company
 from .views import card_trends
 from .views import news_feed
-
+from .views import upsert_company
+from .views import list_companies
 
 urlpatterns = [
     path("health/", health),
@@ -25,8 +26,10 @@ urlpatterns = [
     # for top topic
     path("topics/top/", get_top_topics),
 
-    # for fake company profile
+    # Company profile
     path("company/", get_company),
+    path("company/upsert/", upsert_company),     # POST create/update one profile
+    path("companies/", list_companies),          # GET list/search profiles
 
     # for cards (company-aware) ---
     path("cards/trending/", card_trends),          # NEW: returns [{topic, relevance}, ...]

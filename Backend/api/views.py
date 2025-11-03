@@ -1861,6 +1861,125 @@ def ai_opportunities(request):
     return _read_schema_and_respond()
 
 
+# --- Company profiles: create/update one ---
+@api_view(["POST"])
+def upsert_company(request):
+    """
+    POST /api/company/upsert/
+    Body JSON:
+    {
+      "name": "EcoDrive Motors",               # required, unique by name
+      "description": "EV manufacturer...",     # optional
+      "competitors": ["Tesla", "BYD"]          # optional list[str]
+    }
+
+    Returns: the stored document (id, name, description, competitors, cards, created_at)
+    """
+    try:
+        data = request.data or {}
+        name = (data.get("name") or "").strip()
+        desc = (data.get("description") or "").strip()
+        comps = data.get("competitors", []) or []
+
+        if not name:
+            return Response({"error": "name is required"}, status=400)
+        if not isinstance(comps, list):
+            return Response({"error": "competitors must be a list of strings"}, status=400)
+
+        # Re-use your existing helper (creates default cards & next_refresh_at)
+        from .persist import upsert_company_profile, get_mongo_db
+        upsert_company_profile({"name": name, "description": desc, "competitors": comps})
+
+        # Read back and return
+        db = get_mongo_db()
+        doc = db["company_profiles"].find_one({"name": name})
+        if not doc:
+            return Response({"error": "failed to read back profile"}, status=500)
+
+        return Response({
+            "id": str(doc.get("_id")),
+            "name": doc.get("name"),
+            "description": doc.get("description"),
+            "competitors": doc.get("competitors", []),
+            "created_at": doc.get("created_at"),
+            "cards": doc.get("cards", {}),
+        }, status=200)
+
+    except Exception as e:
+        logger.exception("upsert_company error: %s", e)
+        return Response({"error": str(e)}, status=500)
+
+
+# --- Company profiles: list/search (frontend paginates UI-side if desired) ---
+@api_view(["GET"])
+def list_companies(request):
+    """
+    GET /api/companies/?q=&page=1&page_size=20&sort=name&order=asc
+
+    - q: optional substring match on name/description (case-insensitive)
+    - page/page_size: basic server-side paging (frontend can ignore and paginate client-side)
+    - sort: one of name, created_at
+    - order: asc|desc
+    """
+    try:
+        db = get_mongo_db()
+
+        q = (request.GET.get("q") or "").strip()
+        try:
+            page = max(1, int(request.GET.get("page", 1)))
+        except Exception:
+            page = 1
+        try:
+            page_size = max(1, min(100, int(request.GET.get("page_size", 20))))
+        except Exception:
+            page_size = 20
+
+        sort_field = (request.GET.get("sort") or "name").strip()
+        if sort_field not in {"name", "created_at"}:
+            sort_field = "name"
+        order = (request.GET.get("order") or "asc").strip().lower()
+        order_val = 1 if order == "asc" else -1
+
+        filt = {}
+        if q:
+            # case-insensitive regex OR on name/description
+            filt = {
+                "$or": [
+                    {"name": {"$regex": q, "$options": "i"}},
+                    {"description": {"$regex": q, "$options": "i"}},
+                ]
+            }
+
+        total = db["company_profiles"].count_documents(filt)
+        cursor = (
+            db["company_profiles"]
+            .find(filt)
+            .sort(sort_field, order_val)
+            .skip((page - 1) * page_size)
+            .limit(page_size)
+        )
+        items = []
+        for d in cursor:
+            items.append({
+                "id": str(d.get("_id")),
+                "name": d.get("name"),
+                "description": d.get("description"),
+                "competitors": d.get("competitors", []),
+                "created_at": d.get("created_at"),
+            })
+
+        return Response({
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": items,
+        }, status=200)
+
+    except Exception as e:
+        logger.exception("list_companies error: %s", e)
+        return Response({"error": str(e)}, status=500)
+
+
 @api_view(["GET"])
 def get_company(request):
     """
