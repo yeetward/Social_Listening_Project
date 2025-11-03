@@ -447,8 +447,16 @@
   const urlParams = new URLSearchParams(window.location.search);
   const subject = (urlParams.get('subject') || sessionStorage.getItem('rm_subject') || '').trim() || 'test';
 
-  // Get history_id from sessionStorage
-  let historyId = sessionStorage.getItem('rm_history_id');
+  // Get history_id - PRIORITY: URL param > sessionStorage
+  // This allows clicking from history page to load specific history_id
+  let historyId = urlParams.get('history_id') || sessionStorage.getItem('rm_history_id');
+  
+  // If history_id came from URL, update sessionStorage
+  if (urlParams.get('history_id')) {
+    sessionStorage.setItem('rm_history_id', historyId);
+    console.log('📌 Using history_id from URL:', historyId);
+  }
+  
   const storedSubject = sessionStorage.getItem('rm_subject');
 
   // State management
@@ -481,9 +489,13 @@
   // 1. No history_id exists
   // 2. Subject in URL doesn't match stored subject (new search)
   // 3. URL has a 'fresh' parameter (forced new search)
-  const needsNewSearch = !historyId ||
+  // BUT: If history_id is in URL params (from history page click), ALWAYS load that existing search
+  const historyIdFromUrl = urlParams.get('history_id');
+  const needsNewSearch = !historyIdFromUrl && (
+    !historyId ||
     storedSubject !== subject ||
-    urlParams.get('fresh') === '1';
+    urlParams.get('fresh') === '1'
+  );
 
   if (needsNewSearch && !urlParams.get('loading')) {
     console.log('🔄 Starting NEW search for:', subject);

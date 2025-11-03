@@ -264,7 +264,7 @@
       const historyId = item.history_id;
 
       return `
-      <tr class="rm-history-row" data-history-id="${historyId}" style="cursor: pointer;">
+      <tr class="rm-history-row" data-history-id="${historyId}" data-subject="${topic}" style="cursor: pointer;">
         <td>${dateSearched}</td>
         <td><strong>${topic}</strong></td>
         <td><span class="rm-engagement-up">▲ ${engagement}</span></td>
@@ -276,9 +276,12 @@
     document.querySelectorAll('.rm-history-row').forEach(row => {
       row.addEventListener('click', function () {
         const historyId = this.getAttribute('data-history-id');
+        const subject = this.getAttribute('data-subject');
         if (historyId) {
-          // Navigate to results page with history_id
-          window.location.href = `{% url 'listening_tool:results' %}?history_id=${historyId}`;
+          // Navigate to results page with history_id and subject
+          // This ensures the specific search instance is loaded, not a new search
+          const url = `{% url 'listening_tool:results' %}?history_id=${historyId}${subject ? '&subject=' + encodeURIComponent(subject) : ''}`;
+          window.location.href = url;
         }
       });
 
