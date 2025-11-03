@@ -1491,13 +1491,7 @@
   margin: 16px 0 32px 0;
 }
 
-/* Top 4 Cards Row */
-#rmtool .rm-top-cards-row {
-  display: grid;
-  grid-template-columns: 240px 1fr 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 24px;
-}
+/* Cards are now in separate container - no global .rm-top-cards-row needed */
 
 #rmtool .rm-filter-card .rm-top-card-list li {
   border-bottom: none;

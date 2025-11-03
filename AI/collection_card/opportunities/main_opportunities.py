@@ -1,64 +1,67 @@
-from AI.collection_card.trending_topics import analyse_relevancy
 from AI.collection_card import company_cards
-from AI.collection_card import fetch_articles
-from AI.collection_card.opportunities import fetch_docs
+from AI.collection_card.opportunities import generate_action_items
 from datetime import datetime
 
 
-# def run(company_id: str):
-def run(company_id: str,history_id: str):
+def run(history_id: str, company_id: str, limit: int = 10):
+    """
+    Generate opportunities from articles for a specific history_id and company.
+
+    Args:
+        history_id: History ID to fetch articles from
+        company_id: Company ID from company_profiles
+        limit: Number of top articles to analyze (default: 10)
+
+    Returns:
+        Dictionary with opportunities
+    """
     try:
-        if not company_id:
-            raise ValueError("Please enter a valid company_id")
-        
         if not history_id:
             raise ValueError("Please enter a valid history_id")
+        if not company_id:
+            raise ValueError("Please enter a valid company_id")
 
-        # Build company context
-        context = fetch_articles.get_company_by_id(company_id)
+        print(f"[INFO] Generating opportunities for history: {history_id}")
+        print(f"[INFO] Company: {company_id}")
+        print(f"[INFO] Analyzing top {limit} articles...\n")
 
-        # Fetch topics from history
-        docs = fetch_docs.fetch_articles(history_id)
+        # Generate opportunities from articles (returns simple list)
+        opportunities_list = generate_action_items.generate_opportunities(
+            history_id=history_id,
+            company_id=company_id,
+            limit=limit
+        )
 
-        print("Fetched Documents:", docs)
-        print("Company Context:", context)
+        # Print results
+        generate_action_items.print_opportunities(opportunities_list)
+        print("\n[INFO] Opportunity generation complete.")
+        print(f"[INFO] Total opportunities found: {len(opportunities_list)}")
+        print(opportunities_list)
 
-        '''
-
-        # Run AI relevance analysis
-        analysis_result = analyse_relevancy.relevancy_rag(context, trending_topics)
-
-        print("Analysis Result:", analysis_result)
-
-        # Filter topics with relevance > 0.5
-        high_relevance_topics = [
-            item["topic"]
-            for item in analysis_result
-                if isinstance(item, dict) and item.get("relevance", 0) > 0.5
-            ]
-
-        
-        # wrap and upsert into MongoDB
         payload = {
-            "data": high_relevance_topics,
+            "history_id": history_id,
+            "opportunities": opportunities_list,
+            "total_opportunities": len(opportunities_list),
             "updated_at": datetime.now(),
             "next_refresh_at": None
         }
 
-        success = company_cards.upsert_company_card(company_id, "trending_topics", payload)
+        success = company_cards.upsert_company_card(company_id, "opportunities", payload)
 
-        # check for success
-        if not success:
-            raise RuntimeError("Failed to upsert trending_topics card")
-        '''
-        
+        if success:
+            print(f"[SUCCESS] Opportunities saved to company card: {company_id}")
+        else:
+            print(f"[WARNING] Failed to save opportunities to company card")
 
+        return opportunities_list
     except Exception as e:
         raise RuntimeError(f"run() failed: {e}")
+        
 
 # ----------- CLI for testing --------------------------------------
 if __name__ == "__main__":
-    company_id = "690531c37c33c037fd2d9bda"  # Example company ID
-    history_id = "6900b9d93b7866e2ec8bdc91"  # Example history ID
-    result = run(company_id,history_id)
+    # Example: Replace with actual history_id and company_id
+    history_id = "68fdda1caf9de874acb5a32a"
+    company_id = "690531c37c33c037fd2d9bda"
+    result = run(history_id, company_id, limit=10)
 

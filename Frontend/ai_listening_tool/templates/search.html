@@ -31,11 +31,7 @@
       <div class="rm-topics">
         <div class="rm-topics-title">Top Topics</div>
         <div class="rm-pills">
-          <button class="rm-pill" data-topic="AI in Healthcare">AI in Healthcare</button>
-          <button class="rm-pill" data-topic="Healthcare Cost">Healthcare Cost</button>
-          <button class="rm-pill" data-topic="Workplace Health">Workplace Health</button>
-          <button class="rm-pill" data-topic="Value Care">Value Care</button>
-          <button class="rm-pill" data-topic="Health Care">Health Care</button>
+          <span class="rm-loading">Loading topics...</span>
         </div>
       </div>
 
@@ -90,19 +86,10 @@
       <div class="rm-empty">Coming Soon...</div>
     </article>
 
-    <article class="rm-card">
+    <article class="rm-card" id="newsFeedCard">
       <h3 class="rm-card-title">News Feed</h3>
-      <ul class="rm-news">
-        <li>
-          <strong>Apple Watch gets FDA clearance for hypertension detection</strong>
-          A new FDA-approved feature that assesses how blood vessels respond to heart beats, helping detect early signs
-          of cardiovascular risk.
-        </li>
-        <li>
-          <strong>Climate & Health Initiatives — Regional heat policy</strong>
-          Hospitals and healthcare systems are launching heat management initiatives aimed at protecting patients from
-          extreme weather.
-        </li>
+      <ul class="rm-news" id="newsFeedList">
+        <li class="rm-loading">Loading news feed...</li>
       </ul>
     </article>
 
