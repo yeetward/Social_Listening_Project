@@ -56,7 +56,7 @@ def sbert_score_one(keyword: str,
 
     if not keyword or not text:
         return 0.0
-
+    print(f"[DEBUG] SBERT scoring doc with text_length={len(text)}")
     m = _get_model()
     q_emb = m.encode(keyword, normalize_embeddings=True)
     d_emb = m.encode(text, normalize_embeddings=True)
