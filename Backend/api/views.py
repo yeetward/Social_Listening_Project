@@ -1804,44 +1804,141 @@ def get_top_topics(request):
         logger.exception("get_top_topics error: %s", e)
         return Response({"error": str(e)}, status=500)
 
+# @api_view(["GET"])
+# def ai_generate_ideas(request):
+#     """
+#     GET /api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10
+
+#     Behavior (same as card_trends):
+#       - Always return what's stored in company_profiles.cards.ideas.
+#       - If today (UTC) >= next_refresh_at.date() OR next_refresh_at missing:
+#           * try ideas_run(...) (best-effort; may persist itself)
+#           * persist manually if ideas_run returns a list
+#           * re-read doc from Mongo and return that.
+#     """
+#     db = get_mongo_db()
+
+#     # inputs
+#     company_id   = (request.GET.get("company_id") or "").strip() or None
+#     company_name = (request.GET.get("company") or "").strip() or None
+#     insight_type = (request.GET.get("type") or "all").lower()
+#     try:
+#         limit = int(request.GET.get("limit", 10))
+#     except Exception:
+#         limit = 10
+#     limit = max(1, min(limit, 100))
+
+#     # resolve company
+#     if not company_id and not company_name:
+#         return Response({"error": "company_id (or company name) is required"}, status=400)
+#     if not company_id and company_name:
+#         doc = get_company_profile(name=company_name)
+#         if not doc:
+#             return Response({"error": f"Company '{company_name}' not found"}, status=404)
+#         company_id = str(doc["_id"])
+#     if company_id and not company_name:
+#         prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
+#         if prof:
+#             company_name = prof.get("name")
+
+#     # helper: read schema + respond
+#     def _read_schema_and_respond():
+#         fresh = db["company_profiles"].find_one(
+#             {"_id": ObjectId(company_id)},
+#             {"name": 1, "cards.ideas": 1}
+#         )
+#         if not fresh:
+#             return Response({"error": "company profile not found"}, status=404)
+#         name = fresh.get("name") or company_name
+#         ideas_card = ((fresh.get("cards") or {}).get("ideas") or {})
+#         data = (ideas_card.get("data") or [])[:limit]
+#         return Response(
+#             {"company": name, "company_id": company_id, "count": len(data), "insights": data},
+#             status=200,
+#         )
+
+#     # freshness check (same logic as trending)
+#     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.ideas": 1})
+#     ideas_card = ((prof or {}).get("cards") or {}).get("ideas") or {}
+#     next_refresh_at = ideas_card.get("next_refresh_at")
+#     next_refresh_date = _parse_iso_to_date(next_refresh_at)
+#     today_utc = datetime.now(timezone.utc).date()
+
+#     if next_refresh_date and today_utc < next_refresh_date and (ideas_card.get("data") or []):
+#         return _read_schema_and_respond()
+
+#     # refresh path
+#     if ideas_run is None:
+#         # no runner → fall back to whatever is stored
+#         return _read_schema_and_respond()
+
+#     try:
+#         insights = ideas_run(
+#             company_id=company_id,
+#             company_name=company_name,
+#             insight_type=insight_type,
+#             limit=limit,
+#             verbose=False,
+#         )
+
+#         # If runner returned data but didn't persist, we persist here.
+#         if isinstance(insights, list):
+#             now = datetime.now(timezone.utc)
+#             new_block = {
+#                 "data": insights[:limit],                 # list[dict] from ideas_run
+#                 "updated_at": _iso_z(now),
+#                 "next_refresh_at": _iso_z(now + timedelta(days=7)),  # same +7d rule
+#             }
+#             db["company_profiles"].update_one(
+#                 {"_id": ObjectId(company_id)},
+#                 {"$set": {"cards.ideas": new_block}}
+#             )
+#     except Exception as e:
+#         logger.warning("ideas_run failed; returning schema as-is. %s", e)
+
+#     # re-read and return schema value
+#     return _read_schema_and_respond()
+
 @api_view(["GET"])
 def ai_generate_ideas(request):
     """
-    GET /api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10
+    GET /api/ai/ideas/?company_id=<id>&limit=10&force=0
+      Optional:
+        - &company=<name> (resolve to id if you prefer names)
+        - &limit=10 (response trim only)
+        - &force=1 (ignore freshness and recompute)
 
-    Behavior (same as card_trends):
-      - Always return what's stored in company_profiles.cards.ideas.
-      - If today (UTC) >= next_refresh_at.date() OR next_refresh_at missing:
-          * try ideas_run(...) (best-effort; may persist itself)
-          * persist manually if ideas_run returns a list
-          * re-read doc from Mongo and return that.
+    Source of truth: company_profiles.cards.ideas
+    - If today (UTC) < next_refresh_at.date() and data exists -> return schema
+    - Else:
+        * call ideas_run(company_id=...)
+        * re-read schema and return
+        * (safety) if next_refresh_at missing, set to now+7d
     """
     db = get_mongo_db()
 
-    # inputs
+    # ----- inputs -----
     company_id   = (request.GET.get("company_id") or "").strip() or None
     company_name = (request.GET.get("company") or "").strip() or None
-    insight_type = (request.GET.get("type") or "all").lower()
+    force        = str(request.GET.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+
     try:
         limit = int(request.GET.get("limit", 10))
     except Exception:
         limit = 10
     limit = max(1, min(limit, 100))
 
-    # resolve company
-    if not company_id and not company_name:
-        return Response({"error": "company_id (or company name) is required"}, status=400)
+    # ----- resolve company -----
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
             return Response({"error": f"Company '{company_name}' not found"}, status=404)
         company_id = str(doc["_id"])
-    if company_id and not company_name:
-        prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
-        if prof:
-            company_name = prof.get("name")
 
-    # helper: read schema + respond
+    if not company_id:
+        return Response({"error": "company_id (or company name) is required"}, status=400)
+
+    # ----- helper: read schema + respond -----
     def _read_schema_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
@@ -1857,47 +1954,39 @@ def ai_generate_ideas(request):
             status=200,
         )
 
-    # freshness check (same logic as trending)
-    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.ideas": 1})
-    ideas_card = ((prof or {}).get("cards") or {}).get("ideas") or {}
+    # ----- freshness check (skip if force) -----
+    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1})
+    cards = (prof or {}).get("cards") or {}
+    ideas_card = cards.get("ideas") or {}
     next_refresh_at = ideas_card.get("next_refresh_at")
     next_refresh_date = _parse_iso_to_date(next_refresh_at)
     today_utc = datetime.now(timezone.utc).date()
 
-    if next_refresh_date and today_utc < next_refresh_date and (ideas_card.get("data") or []):
+    if not force and next_refresh_date and today_utc < next_refresh_date and (ideas_card.get("data") or []):
         return _read_schema_and_respond()
 
-    # refresh path
-    if ideas_run is None:
-        # no runner → fall back to whatever is stored
-        return _read_schema_and_respond()
+    # ----- call AI runner (authoritative persister) -----
+    # Only pass company_id, per your requirement.
+    if ideas_run is not None:
+        try:
+            ideas_run(company_id=company_id)
+        except Exception as e:
+            logger.warning("ideas_run failed; returning schema as-is. %s", e)
+            return _read_schema_and_respond()
 
-    try:
-        insights = ideas_run(
-            company_id=company_id,
-            company_name=company_name,
-            insight_type=insight_type,
-            limit=limit,
-            verbose=False,
+    # ----- safety: ensure next_refresh_at exists (+7d) -----
+    fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.ideas": 1}) or {}
+    cur = ((fresh.get("cards") or {}).get("ideas") or {})
+    if not cur.get("next_refresh_at"):
+        now = datetime.now(timezone.utc)
+        db["company_profiles"].update_one(
+            {"_id": ObjectId(company_id)},
+            {"$set": {"cards.ideas.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
 
-        # If runner returned data but didn't persist, we persist here.
-        if isinstance(insights, list):
-            now = datetime.now(timezone.utc)
-            new_block = {
-                "data": insights[:limit],                 # list[dict] from ideas_run
-                "updated_at": _iso_z(now),
-                "next_refresh_at": _iso_z(now + timedelta(days=7)),  # same +7d rule
-            }
-            db["company_profiles"].update_one(
-                {"_id": ObjectId(company_id)},
-                {"$set": {"cards.ideas": new_block}}
-            )
-    except Exception as e:
-        logger.warning("ideas_run failed; returning schema as-is. %s", e)
-
-    # re-read and return schema value
+    # ----- final: re-read and return -----
     return _read_schema_and_respond()
+
 
 # @api_view(["POST"])
 # def ai_competitors(request):
