@@ -4,28 +4,32 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import gpt
 import json
 
-def news_relevancy_rag(context: dict, news_articles: list[dict]):
-    """
-    Analyze relevance of news articles to a company
-    Args:
-        context: Company context with description, competitors, etc.
-        news_articles: List of dicts with 'title', 'description', 'url', etc.
-    Returns:
-        List of articles with relevance scores
-    """
-    company = context["company"]
+import json
+from math import ceil
+
+def news_relevancy_rag(context: dict, news_articles: list[dict], batch_size: int = 25):
+    company = context["name"]
     description = context["description"]
     competitors = ", ".join(context["competitors"])
-    
-    # Format news articles for the prompt
-    articles_text = ""
-    for idx, article in enumerate(news_articles):
-        title = article.get("title", "Untitled")
-        desc = article.get("description", "No description")
-        source = article.get("source", "Unknown")
-        articles_text += f"{idx + 1}. [{source}] {title}\n   {desc}\n\n"
 
-    prompt = f"""
+    all_results = []
+
+    # Split articles into batches
+    num_batches = ceil(len(news_articles) / batch_size)
+
+    for batch_index in range(num_batches):
+        batch = news_articles[batch_index * batch_size : (batch_index + 1) * batch_size]
+
+        # Format news articles for this batch
+        articles_text = ""
+        for idx, article in enumerate(batch):
+            title = article.get("title", "Untitled")
+            desc = article.get("description", "No description")
+            source = article.get("source", "Unknown")
+            articles_text += f"{idx + 1}. [{source}] {title}\n   {desc}\n\n"
+
+        # Create the analysis prompt
+        prompt = f"""
 You are an AI market analyst. Your job is to assess which news articles are most relevant to {company}.
 
 Company description:
@@ -44,6 +48,18 @@ For each article, determine its relevance to {company} based on:
 - Market conditions impacting the business
 - Technology or regulatory changes relevant to operations
 
+You MUST score STRICTLY. If a news is vague, random, unrelated to  the company's industry, or you cannot determine relevance from the company description, give it a LOW score (≤ 0.30).
+
+Scoring rubric:
+- 0.80 to 1.00 → very clearly about this company, its product space, its competitors, or a market force that directly affects it.
+- 0.50 to 0.79 → possibly relevant but not certain, or only partially overlapping.
+- 0.20 to 0.49 → weak / indirect relevance.
+- 0.00 to 0.19 → unrelated, nonsense, too short, or insufficient information.
+
+Important rules:
+- Do NOT invent relevance.
+- News that look like placeholders (e.g. "a", "b", "c", "test", "sample") MUST get ≤ 0.10.
+
 Return ONLY a valid JSON array with NO additional text. Each article should have:
 - "index": the article number (1-based)
 - "relevance": score between 0.0 and 1.0
@@ -56,32 +72,30 @@ Format:
 ]
 """
 
-    try:
-        analysis = gpt.load_model(prompt, max_tokens=3000, temperature=0.2, stream=False)
-        
-        # Parse the JSON string into a Python list
-        result = json.loads(analysis)
-        
-        # Validate it's actually a list
-        if not isinstance(result, list):
-            raise ValueError(f"Expected list, got {type(result)}")
-        
-        # Merge analysis with original article data
-        enriched_results = []
-        for item in result:
-            idx = item.get("index", 0) - 1  # Convert to 0-based
-            if 0 <= idx < len(news_articles):
-                article = news_articles[idx].copy()
-                article["relevance"] = item.get("relevance", 0.0)
-                article["reasoning"] = item.get("reasoning", "")
-                enriched_results.append(article)
-        
-        # Sort by relevance score (highest first)
-        enriched_results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
-        
-        return enriched_results
-        
-    except json.JSONDecodeError as e:
-        raise ValueError(f"GPT returned invalid JSON: {e}\nResponse: {analysis}")
-    except Exception as e:
-        raise RuntimeError(f"Error during analysis: {e}")
+        try:
+            # Run GPT/Groq call for this batch
+            analysis = gpt.load_model(prompt, max_tokens=3000, temperature=0.2, stream=False)
+            result = json.loads(analysis)
+
+            if not isinstance(result, list):
+                raise ValueError(f"Expected list, got {type(result)}")
+
+            # Merge analysis with original article data
+            for item in result:
+                idx = item.get("index", 0) - 1
+                if 0 <= idx < len(batch):
+                    article = batch[idx].copy()
+                    article["relevance"] = item.get("relevance", 0.0)
+                    article["reasoning"] = item.get("reasoning", "")
+                    all_results.append(article)
+
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON decoding failed for batch {batch_index + 1}: {e}")
+            print(f"Raw response: {analysis}")
+        except Exception as e:
+            print(f"❌ Error during batch {batch_index + 1}: {e}")
+
+    # Sort all results by relevance
+    all_results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
+    return all_results
+    

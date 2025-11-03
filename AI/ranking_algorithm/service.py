@@ -1,0 +1,63 @@
+# AI/ranking_algorithm/service.py
+from __future__ import annotations
+from typing import Dict, Any, List
+from pymongo import MongoClient
+import os
+
+# Reuse your existing modules
+from AI.ranking_algorithm.seed_ai_results import main as seed_ai_results
+from AI.ranking_algorithm.main import run as run_pipeline
+from AI.ranking_algorithm.check_history import clauses as build_history_clauses
+
+MONGO_URI = os.getenv(
+    "MONGO_URI",
+    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+)
+db = MongoClient(MONGO_URI)["pace_database"]
+
+def run_full_pipeline(history_id: str, keyword: str) -> Dict[str, Any]:
+    """
+    1) Seed queued rows (robust fallback inside seed_ai_results)
+    2) Run ranking pipeline (summarize + topic detection + write ai_results)
+    3) Return a structured summary for the frontend
+    """
+    # Seed (no raise if nothing to seed)
+    seed_ai_results(history_id)
+
+    # Run main pipeline (returns rows for debugging; writes ai_results)
+    rows = run_pipeline(history_id, keyword) or []
+
+    # Recount
+    cl = build_history_clauses(history_id)
+    raw_cnt = db.raw_insights.count_documents(cl)
+    queued  = db.ai_results.count_documents({**cl, "status": "queued"})
+    done    = db.ai_results.count_documents({**cl, "status": "done"})
+
+    # Fetch top results to display immediately
+    top = list(db.ai_results.find({**cl, "status": "done"})
+               .sort([("relevance_score", -1)])
+               .limit(25))
+
+    # Clean up a bit for API response
+    def _trim(doc):
+        return {
+            "url": doc.get("url"),
+            "rank": doc.get("rank"),
+            "relevance_score": doc.get("relevance_score"),
+            "ai_title": doc.get("ai_title"),
+            "ai_summary": doc.get("ai_summary"),
+            "tags": doc.get("tags") or [],
+            "source": doc.get("source"),
+            "published_ts": doc.get("published_ts"),
+        }
+
+    return {
+        "history_id": history_id,
+        "keyword": keyword,
+        "counts": {
+            "raw_insights": raw_cnt,
+            "ai_results": {"queued": queued, "done": done},
+        },
+        "processed": len(rows),
+        "top_results": [_trim(t) for t in top],
+    }

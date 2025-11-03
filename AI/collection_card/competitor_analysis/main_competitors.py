@@ -263,7 +263,7 @@ def run(
         if persist_card and upsert_company_card:
             try:
                 payload = {"items": results}
-                ok = upsert_company_card(company_id, "competitors", payload)
+                ok = upsert_company_card(company_id, "new_competitors", payload)
                 log(f"Persisted competitors card: {ok}", verbose)
             except Exception as e:
                 # Do not fail the request if write is not permitted
