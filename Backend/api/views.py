@@ -804,14 +804,14 @@ def _kick_external_ai(history_id: ObjectId, subject: str):
 @api_view(["POST"])
 def search_posts(request):
     """
-    Pipeline:
+    Pipeline (no preview in response):
       - Create a history record.
       - For each selected source, fetch (default 120).
       - Interleave, dedupe by URL, apply freshness window.
       - Persist up to persist_pool_limit into raw_insights (global cache).
       - Seed ai_results stubs (status='queued') for this history_id.
       - Kick external AI (or fallback worker) in a thread.
-      - Return preview (first 10) + history_id for FE.
+      - Return ONLY history_id + counts (no preview).
     """
     data = request.data or {}
     subject  = (data.get("subject")  or "").strip()
@@ -820,13 +820,6 @@ def search_posts(request):
 
     if not subject:
         return Response({"error": "subject is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # display preview cap (1..100)
-    try:
-        preview_limit = int(data.get("limit") or 10)
-    except Exception:
-        preview_limit = 10
-    preview_limit = max(1, min(preview_limit, 100))
 
     # per-source fetch amount (increase pool)
     try:
@@ -924,28 +917,10 @@ def search_posts(request):
         daemon=True
     ).start()
 
-    # Simple relevance gate for preview: must contain subject in title/body
-    subj_l = subject.lower()
-    def score_row(p):
-        title = (p.get("title") or "").lower()
-        body  = (p.get("text")  or "").lower()
-        hay   = f"{title} {body}"
-        if subj_l and subj_l not in hay:
-            return None
-        score = 3 if subj_l in title else (1 if subj_l in body else 0)
-        return (score, p.get("published_ts") or 0)
-
-    scored = []
-    for p in fresh:
-        s = score_row(p)
-        if s is not None:
-            scored.append((s[0], s[1], p))
-    scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
-    preview = [p for (_s, _ts, p) in scored][:preview_limit]
-
+    # Return ONLY the identifiers and counts (no preview)
     resp = Response({
         "history_id": str(history_id),
-        "preview": preview,
+        "message": "Search queued. Poll /api/search/status and then fetch /api/results when ai_ready=true.",
         "counts": {
             "per_source": per_source_counts,
             "fetched_total": sum(per_source_counts.values()),
@@ -1046,31 +1021,49 @@ def get_trends(request):
 
 @api_view(["GET"])
 def get_results(request):
-    hid = request.GET.get("history_id")
+    """
+    GET /api/results?history_id=<id>&status=done&sort=rank&order=asc
+
+    Returns ALL results for a history in a single array (no backend pagination).
+    Frontend is responsible for slicing/pagination/display.
+
+    Query params:
+      - history_id (required) : ObjectId string for the run
+      - status (optional)     : defaults to "done" (e.g., queued|processing|done)
+      - sort   (optional)     : "rank" (default) | "published_ts" | "relevance_score"
+      - order  (optional)     : "asc" (default) | "desc"
+    """
+    hid = (request.GET.get("history_id") or "").strip()
     if not hid:
         return Response({"error": "history_id is required"}, status=400)
-    try:
-        status_filter = (request.GET.get("status") or "done").strip().lower()
-        page = int(request.GET.get("page", 1))
-        page_size = int(request.GET.get("page_size", 10))
-        page = max(1, page)
-        page_size = max(1, min(page_size, 50))
-    except Exception:
-        status_filter = "done"
-        page, page_size = 1, 10
+
+    # filters
+    status_filter = (request.GET.get("status") or "done").strip().lower()
+
+    # sorting options
+    sort_key = (request.GET.get("sort") or "rank").strip()
+    order = (request.GET.get("order") or "asc").strip().lower()
+    order_val = 1 if order in ("asc", "ascending") else -1
+
+    # validate sort field
+    valid_sort_fields = {"rank", "published_ts", "relevance_score"}
+    if sort_key not in valid_sort_fields:
+        sort_key = "rank"
 
     try:
         db = get_mongo_db()
+
         q = {"history_id": ObjectId(hid)}
         if status_filter:
             q["status"] = status_filter
 
-        cursor = db["ai_results"].find(q).sort("rank", 1).skip((page - 1) * page_size).limit(page_size)
+        # Pull ALL matching docs; frontend handles pagination
+        cursor = db["ai_results"].find(q).sort(sort_key, order_val)
         docs = list(cursor)
-        total = db["ai_results"].count_documents(q)
-        out = []
+
+        results = []
         for d in docs:
-            out.append({
+            results.append({
                 "rank": d.get("rank"),
                 "url": d.get("url"),
                 "ai_title": d.get("ai_title"),
@@ -1081,15 +1074,15 @@ def get_results(request):
                 "source": d.get("source"),
                 "status": d.get("status"),
             })
+
         return Response({
             "history_id": hid,
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "results": out
+            "total": len(results),
+            "results": results
         }, status=200)
+
     except Exception as e:
-        logger.exception("get_results error: %s", e)
+        logger.exception("get_results (no-pagination) error: %s", e)
         return Response({"error": str(e)}, status=500)
 
 
