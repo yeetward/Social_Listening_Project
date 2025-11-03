@@ -148,6 +148,100 @@ async function fetchIdeas(company = DEFAULT_COMPANY) {
 }
 
 /**
+ * Fetch news feed from the API
+ */
+async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
+  const newsFeedList = document.getElementById("newsFeedList");
+  if (!newsFeedList) return;
+
+  try {
+    // Show loading state
+    newsFeedList.innerHTML = '<li class="rm-loading">Loading news feed...</li>';
+
+    const params = new URLSearchParams({
+      company_id: companyId,
+      limit: "2",
+      max_age_days: "7"
+    });
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/cards/newsfeed/?${params}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const items = data.items || [];
+
+    // Clear loading and populate
+    newsFeedList.innerHTML = "";
+
+    if (items.length === 0) {
+      newsFeedList.innerHTML = '<li class="rm-empty">No news feed items available at this time.</li>';
+      return;
+    }
+
+    items.forEach(item => {
+      const li = document.createElement("li");
+
+      const title = item.title || "Untitled";
+      const description = item.description || "";
+      const url = item.url || "";
+
+      // Make the title clickable if URL exists
+      if (url) {
+        const titleLink = document.createElement("a");
+        titleLink.href = url;
+        titleLink.target = "_blank";
+        titleLink.rel = "noopener noreferrer";
+        titleLink.style.textDecoration = "none";
+        
+        const strong = document.createElement("strong");
+        strong.textContent = title;
+        strong.style.cursor = "pointer";
+        strong.style.transition = "color 0.2s ease";
+        
+        // Add hover effect - red highlight like top topics pills
+        titleLink.addEventListener("mouseenter", () => {
+          strong.style.color = "#e63946";
+        });
+        titleLink.addEventListener("mouseleave", () => {
+          strong.style.color = "";
+        });
+        
+        titleLink.appendChild(strong);
+        li.appendChild(titleLink);
+      } else {
+        const strong = document.createElement("strong");
+        strong.textContent = title;
+        li.appendChild(strong);
+      }
+
+      if (description) {
+        li.appendChild(document.createTextNode(" " + description));
+      }
+
+      newsFeedList.appendChild(li);
+    });
+
+  } catch (error) {
+    console.error("Error fetching news feed:", error);
+    // Show fallback content
+    newsFeedList.innerHTML = `
+      <li><strong>Apple Watch gets FDA clearance for hypertension detection</strong> A new FDA-approved feature that assesses how blood vessels respond to heart beats, helping detect early signs of cardiovascular risk.</li>
+      <li><strong>Climate & Health Initiatives — Regional heat policy</strong> Hospitals and healthcare systems are launching heat management initiatives aimed at protecting patients from extreme weather.</li>
+    `;
+    // Add a subtle note
+    const note = document.createElement("li");
+    note.style.fontSize = "12px";
+    note.style.color = "#999";
+    note.style.fontStyle = "italic";
+    note.textContent = "(Using cached data - API unavailable)";
+    newsFeedList.appendChild(note);
+  }
+}
+
+/**
  * Handle search form submission
  */
 async function handleSearch(subject) {
@@ -261,6 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     fetchTrendingTopics().catch(err => console.error("Failed to load trending topics:", err));
     fetchIdeas().catch(err => console.error("Failed to load ideas:", err));
+    fetchNewsFeed().catch(err => console.error("Failed to load news feed:", err));
   }, 0);
 });
 
