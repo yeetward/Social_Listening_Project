@@ -4,6 +4,8 @@ from typing import Dict, Any, List, Tuple
 from bson import ObjectId
 from pymongo import MongoClient
 import os
+import re
+
 
 # --- Mongo Setup ---
 MONGO_URI = os.getenv(
@@ -22,6 +24,8 @@ from AI.ranking_algorithm.engagement_scorer import engagement_score
 # --- Summarization + Topic Detection ---
 from AI.Topic_detection.Topic_detection import detect_topic_simple
 from AI.Text_summarisation.main_summaries import run as generate_summary
+from AI.ranking_algorithm.check_history import clauses
+
 
 # --- Write Results to ai_results ---
 from AI.ranking_algorithm.mongo import write_ai_results_batch
@@ -45,24 +49,11 @@ DEFAULT_WEIGHTS = {
 # RAW lookups
 # ---------------------------------------------------------------------------
 RAW_COLLECTIONS = [
-    "raw_insights",
-    "raw_articles",
-    "crawler_pages",
-    "content_cache",
-    "pages",
-    "articles_raw",
+    "raw_insights", "raw_articles", "crawler_pages",
+    "content_cache", "pages", "articles_raw",
 ]
 
-def _hid_clause(hid: str) -> Dict[str, Any]:
-    ors = [{"history_id": hid}]
-    try:
-        ors.append({"history_id": ObjectId(hid)})
-    except Exception:
-        pass
-    return {"$or": ors}
-
-def _get_raw_doc_by_ref(raw_id, url):
-    """Try to fetch a doc with 'text' from any raw-* collection by raw_id then url."""
+def _get_raw_doc_by_ref(db, raw_id, url):
     proj = {"text": 1, "engagement": 1}
     for coll in RAW_COLLECTIONS:
         if raw_id:
@@ -78,85 +69,106 @@ def _get_raw_doc_by_ref(raw_id, url):
                 return doc
     return None
 
-def _fallback_ai_text(q):
-    """If no raw doc, try to reconstruct text from existing ai_results fields."""
-    ai = db.ai_results.find_one({"_id": q["_id"]}, {"ai_summary": 1, "ai_title": 1, "text": 1})
-    if not ai:
-        return None
-    parts = [ai.get("ai_title", ""), ai.get("ai_summary", ""), ai.get("text", "")]
-    text = "\n".join(p for p in parts if p).strip()
-    return text or None
 
 
-# ---------------------------------------------------------------------------
-# FETCH DOCUMENTS FOR THIS HISTORY
-# ---------------------------------------------------------------------------
-def fetch_docs(history_id: str) -> List[Dict[str, Any]]:
-    # IMPORTANT: include _id in projection (used in fallback)
+def fetch_docs(history_id: str):
     queued = list(db.ai_results.find(
-        {**_hid_clause(history_id), "status": {"$in": ["queued", "done"]}},
-        {"_id": 1, "url": 1, "raw_id": 1, "source": 1, "published_ts": 1}
+        {"$or":[{"history_id":history_id},{"history_id":ObjectId(history_id)}], "status":"queued"},
+        {"url":1,"raw_id":1,"source":1,"published_ts":1}
     ))
     print(f"[INFO] Found {len(queued)} ai_results rows to process for history_id={history_id}")
 
-    docs: List[Dict[str, Any]] = []
-    misses_by_raw = 0
-    hits = 0
-
+    docs, hits, misses = [], 0, 0
     for q in queued:
         raw_id = q.get("raw_id")
-        url    = q.get("url") or ""  # be safe
+        url    = q.get("url")
+        raw_doc = _get_raw_doc_by_ref(db, raw_id, url)
 
-        raw_doc = _get_raw_doc_by_ref(raw_id, url)
-
-        # if not raw_doc:
-        #     # Fallback: if ai_results already has ai_summary/ai_title, use them as text
-        #     ai = db.ai_results.find_one({"_id": q["_id"]}, {"ai_summary":1, "ai_title":1})
-        #     if ai and (ai.get("ai_summary") or ai.get("ai_title")):
-        #         text_fallback = f"{ai.get('ai_title','')}\n{ai.get('ai_summary','')}".strip()
-        #         if text_fallback:
-        #             hits += 1
-        #             docs.append({
-        #                 "_id": raw_id or url or q["_id"],   # stable key
-        #                 "text": text_fallback,
-        #                 "engagement": {},
-        #                 "source": q.get("source"),
-        #                 "published_ts": q.get("published_ts"),
-        #                 "url": url,
-        #             })
-        #             continue
-
-        #     misses_by_raw += 1
-        #     continue
         if not raw_doc:
-            text_fallback = _fallback_ai_text(q)
+            ai = db.ai_results.find_one({"_id": q["_id"]}, {"ai_summary":1, "ai_title":1})
+            text_fallback = ((ai or {}).get("ai_title","") + "\n" + (ai or {}).get("ai_summary","")).strip()
             if text_fallback:
                 hits += 1
+
+                # merge engagement from multiple containers
+                eng = (
+                    raw_doc.get("engagement")
+                    or raw_doc.get("stats")
+                    or raw_doc.get("metrics")
+                    or {}
+                )
+
+                # fallback: look into ai_results for any stored engagement/meta
+                ai_meta = db.ai_results.find_one(
+                    {"_id": q.get("_id")},
+                    {"engagement": 1, "stats": 1, "metrics": 1, "meta.engagement": 1}
+                ) or {}
+
+                if not eng:
+                    eng = (
+                        ai_meta.get("engagement")
+                        or ai_meta.get("stats")
+                        or ai_meta.get("metrics")
+                        or (ai_meta.get("meta") or {}).get("engagement")
+                        or {}
+                    )
+
                 docs.append({
-                    "_id": raw_id or url or q["_id"],
-                    "text": text_fallback,
-                    "engagement": {},
+                    "_id": raw_id or url,             # stable key for scoring maps
+                    "text": raw_doc.get("text", ""),
+                    "engagement": eng,
                     "source": q.get("source"),
                     "published_ts": q.get("published_ts"),
                     "url": url,
                 })
-                continue
-            misses_by_raw += 1
-            continue
 
+                continue
+            misses += 1
+            continue
 
         hits += 1
         docs.append({
-            "_id": raw_id or url,  # stable key for scoring
-            "text": raw_doc.get("text", ""),
+            "_id": raw_id or url,
+            "text": raw_doc.get("text",""),
             "engagement": raw_doc.get("engagement", {}),
             "source": q.get("source"),
             "published_ts": q.get("published_ts"),
             "url": url,
         })
 
-    print(f"[INFO] Joined {hits} raw docs with text (misses: {misses_by_raw})")
+    print(f"[INFO] Joined {hits} docs with text (misses: {misses})")
     return docs
+
+def _first_sentences(text: str, max_chars: int = 280) -> str:
+    sents = re.split(r'(?<=[.!?])\s+', (text or "").strip())
+    out = []
+    total = 0
+    for s in sents:
+        if not s: 
+            continue
+        if total + len(s) > max_chars and out:
+            break
+        out.append(s)
+        total += len(s) + 1
+    return (" ".join(out)).strip()[:max_chars]
+
+def safe_summarize(text: str) -> str:
+    try:
+        summ = (generate_summary(text) or "").strip()
+    except Exception:
+        summ = ""
+    if len(summ) < 40:
+        summ = _first_sentences(text, 320)
+    return summ
+
+def safe_topic(text: str, fallback_tag: str = "Topic"):
+    try:
+        t = (detect_topic_simple(text) or "").strip()
+    except Exception:
+        t = ""
+    return t if t else fallback_tag
+
+
 
 # ---------------------------------------------------------------------------
 # MAIN AI PIPELINE
@@ -190,21 +202,23 @@ def run(history_id: str, keyword: str):
 
         # BM25 (already normalized 0..1)
         per_algo["bm25"] = float(bm25_scores.get(d["_id"], 0.0))
-
-        # TF-IDF / SBERT / engagement
+        
+        # TF-IDF / SBERT / Engagement
         for a in ["tfidf", "sbert", "engagement"]:
             try:
                 if a == "sbert":
-                    raw_score = ALGORITHMS["sbert"](keyword, d["text"]) if d["_id"] in top_ids else 0.0
+                    raw_score = ALGORITHMS["sbert"](keyword, d) if d["_id"] in top_ids else 0.0
                 elif a == "tfidf":
-                    raw_score = ALGORITHMS["tfidf"](keyword, d["text"])
+                    raw_score = ALGORITHMS["tfidf"](keyword, d)
                 elif a == "engagement":
-                    raw_score = ALGORITHMS["engagement"](d)
+                    raw_score = ALGORITHMS["engagement"](keyword, d)
                 else:
                     raw_score = 0.0
             except Exception:
                 raw_score = 0.0
             per_algo[a] = max(0.0, min(1.0, float(raw_score)))
+
+
 
         final_score = sum(per_algo.get(name, 0.0) * weights.get(name, 0.0) for name in use_algos)
         rows.append((final_score, d, per_algo))
@@ -214,8 +228,47 @@ def run(history_id: str, keyword: str):
     # Summarize + Topic + Write back
     items = []
     for rank, (score, d, per_algo) in enumerate(rows, start=1):
-        summary = generate_summary(d["text"])
-        topic = detect_topic_simple(d["text"])
+        # ... inside for rank, (score, d, per_algo) in enumerate(rows, start=1):
+
+        summary = generate_summary(d["text"]) or ""
+        topic   = detect_topic_simple(d["text"]) or ""
+        
+                # Preserve existing ai_title / ai_summary if blank
+        hid_q = clauses(history_id)
+        existing = db.ai_results.find_one(
+            {"$and": [{"url": d["url"]}, hid_q]},
+            {"ai_title": 1, "ai_summary": 1}
+        )
+        if existing:
+            if not topic and existing.get("ai_title"):
+                topic = existing["ai_title"]
+            if not summary and existing.get("ai_summary"):
+                summary = existing["ai_summary"]
+
+        # Fallbacks if both still empty
+        if not summary:
+            summary = (d["text"][:400] + "…") if len(d["text"]) > 400 else d["text"]
+        if not topic:
+            topic = "General"
+
+
+        # If we still got blanks, try to keep any existing ai_title/ai_summary (don’t overwrite with empties)
+        # existing = db.ai_results.find_one({"url": d["url"], **_hid_clause(history_id)},
+        #                                 {"ai_title":1,"ai_summary":1})
+        if existing:
+            if not topic and existing.get("ai_title"):      # keep old title
+                topic = existing["ai_title"]
+            if not summary and existing.get("ai_summary"):  # keep old summary
+                summary = existing["ai_summary"]
+
+        # as a final fallback, create a tiny lead-1 “summary” from the text
+        if not summary:
+            summary = (d["text"][:400] + "…") if len(d["text"]) > 400 else d["text"]
+
+        if not topic:
+            topic = "General"
+
+
         items.append({
             "url": d["url"],
             "raw_id": d["_id"],
@@ -228,7 +281,8 @@ def run(history_id: str, keyword: str):
             "source": d["source"],
             "published_ts": d["published_ts"],
             "status": "done",
-        })
+        #     "has_placeholder": has_placeholder,
+         })
 
     write_ai_results_batch(history_id, items)
     print(f"[SUCCESS] Processed & saved {len(items)} AI-ranked articles.")
