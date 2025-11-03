@@ -4,20 +4,32 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import gpt
 import json
 
-def news_relevancy_rag(context: dict, news_articles: list[dict]):
+import json
+from math import ceil
+
+def news_relevancy_rag(context: dict, news_articles: list[dict], batch_size: int = 25):
     company = context["name"]
     description = context["description"]
     competitors = ", ".join(context["competitors"])
-    
-    # Format news articles for the prompt
-    articles_text = ""
-    for idx, article in enumerate(news_articles):
-        title = article.get("title", "Untitled")
-        desc = article.get("description", "No description")
-        source = article.get("source", "Unknown")
-        articles_text += f"{idx + 1}. [{source}] {title}\n   {desc}\n\n"
 
-    prompt = f"""
+    all_results = []
+
+    # Split articles into batches
+    num_batches = ceil(len(news_articles) / batch_size)
+
+    for batch_index in range(num_batches):
+        batch = news_articles[batch_index * batch_size : (batch_index + 1) * batch_size]
+
+        # Format news articles for this batch
+        articles_text = ""
+        for idx, article in enumerate(batch):
+            title = article.get("title", "Untitled")
+            desc = article.get("description", "No description")
+            source = article.get("source", "Unknown")
+            articles_text += f"{idx + 1}. [{source}] {title}\n   {desc}\n\n"
+
+        # Create the analysis prompt
+        prompt = f"""
 You are an AI market analyst. Your job is to assess which news articles are most relevant to {company}.
 
 Company description:
@@ -60,32 +72,30 @@ Format:
 ]
 """
 
-    try:
-        analysis = gpt.load_model(prompt, max_tokens=3000, temperature=0.2, stream=False)
-        
-        # Parse the JSON string into a Python list
-        result = json.loads(analysis)
-        
-        # Validate it's actually a list
-        if not isinstance(result, list):
-            raise ValueError(f"Expected list, got {type(result)}")
-        
-        # Merge analysis with original article data
-        enriched_results = []
-        for item in result:
-            idx = item.get("index", 0) - 1  # Convert to 0-based
-            if 0 <= idx < len(news_articles):
-                article = news_articles[idx].copy()
-                article["relevance"] = item.get("relevance", 0.0)
-                article["reasoning"] = item.get("reasoning", "")
-                enriched_results.append(article)
-        
-        # Sort by relevance score (highest first)
-        enriched_results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
-        
-        return enriched_results
-        
-    except json.JSONDecodeError as e:
-        raise ValueError(f"GPT returned invalid JSON: {e}\nResponse: {analysis}")
-    except Exception as e:
-        raise RuntimeError(f"Error during analysis: {e}")
+        try:
+            # Run GPT/Groq call for this batch
+            analysis = gpt.load_model(prompt, max_tokens=3000, temperature=0.2, stream=False)
+            result = json.loads(analysis)
+
+            if not isinstance(result, list):
+                raise ValueError(f"Expected list, got {type(result)}")
+
+            # Merge analysis with original article data
+            for item in result:
+                idx = item.get("index", 0) - 1
+                if 0 <= idx < len(batch):
+                    article = batch[idx].copy()
+                    article["relevance"] = item.get("relevance", 0.0)
+                    article["reasoning"] = item.get("reasoning", "")
+                    all_results.append(article)
+
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON decoding failed for batch {batch_index + 1}: {e}")
+            print(f"Raw response: {analysis}")
+        except Exception as e:
+            print(f"❌ Error during batch {batch_index + 1}: {e}")
+
+    # Sort all results by relevance
+    all_results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
+    return all_results
+    
