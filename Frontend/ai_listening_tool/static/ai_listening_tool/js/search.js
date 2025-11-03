@@ -19,6 +19,77 @@ function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
 }
 
 /**
+ * Fetch top topics from the API and populate the pills
+ */
+async function fetchTopTopics() {
+  const pillsContainer = document.querySelector(".rm-pills");
+  if (!pillsContainer) return;
+
+  try {
+    const params = new URLSearchParams({
+      days: "30",
+      limit: "5"
+    });
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/topics/top/?${params}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const topics = data.topics || [];
+
+    // Clear loading state and populate with API data
+    pillsContainer.innerHTML = "";
+
+    if (topics.length === 0) {
+      // Show message if no topics available
+      pillsContainer.innerHTML = '<span style="color: #999; font-size: 14px;">No topics available</span>';
+    } else {
+      // Only show exactly 5 topics
+      const topicsToShow = topics.slice(0, 5);
+      topicsToShow.forEach(topic => {
+        const button = document.createElement("button");
+        button.className = "rm-pill";
+        button.setAttribute("data-topic", topic);
+        button.textContent = topic;
+        pillsContainer.appendChild(button);
+      });
+    }
+
+    // Re-attach click handlers to the new pills
+    attachPillClickHandlers();
+
+  } catch (error) {
+    console.error("Error fetching top topics:", error);
+    // Show fallback pills if API fails
+    pillsContainer.innerHTML = `
+      <button class="rm-pill" data-topic="AI in Healthcare">AI in Healthcare</button>
+      <button class="rm-pill" data-topic="Healthcare Cost">Healthcare Cost</button>
+      <button class="rm-pill" data-topic="Workplace Health">Workplace Health</button>
+      <button class="rm-pill" data-topic="Value Care">Value Care</button>
+      <button class="rm-pill" data-topic="Health Care">Health Care</button>
+    `;
+    attachPillClickHandlers();
+  }
+}
+
+/**
+ * Attach click handlers to pill buttons
+ */
+function attachPillClickHandlers() {
+  const input = document.querySelector('#searchForm input[name="subject"]:not([type="hidden"])');
+  document.querySelectorAll(".rm-pill[data-topic]").forEach(b => {
+    b.addEventListener("click", () => {
+      if (!input) return;
+      input.value = b.dataset.topic || "";
+      handleSearch(b.dataset.topic || "");
+    });
+  });
+}
+
+/**
  * Fetch trending topics from the API
  */
 async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
@@ -341,18 +412,10 @@ document.addEventListener("DOMContentLoaded", () => {
     handleSearch(subject);
   });
 
-  // Optional: pills auto-fill and submit
-  document.querySelectorAll(".rm-pill[data-topic]").forEach(b => {
-    b.addEventListener("click", () => {
-      if (!input) return;
-      input.value = b.dataset.topic || "";
-      handleSearch(b.dataset.topic || "");
-    });
-  });
-
   // Load data from API endpoints on page load (non-blocking)
   // Wrap in setTimeout to ensure it doesn't block page rendering
   setTimeout(() => {
+    fetchTopTopics().catch(err => console.error("Failed to load top topics:", err));
     fetchTrendingTopics().catch(err => console.error("Failed to load trending topics:", err));
     fetchIdeas().catch(err => console.error("Failed to load ideas:", err));
     fetchNewsFeed().catch(err => console.error("Failed to load news feed:", err));
