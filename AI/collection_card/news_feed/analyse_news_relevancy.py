@@ -5,15 +5,7 @@ import gpt
 import json
 
 def news_relevancy_rag(context: dict, news_articles: list[dict]):
-    """
-    Analyze relevance of news articles to a company
-    Args:
-        context: Company context with description, competitors, etc.
-        news_articles: List of dicts with 'title', 'description', 'url', etc.
-    Returns:
-        List of articles with relevance scores
-    """
-    company = context["company"]
+    company = context["name"]
     description = context["description"]
     competitors = ", ".join(context["competitors"])
     
@@ -43,6 +35,18 @@ For each article, determine its relevance to {company} based on:
 - Competitor activities
 - Market conditions impacting the business
 - Technology or regulatory changes relevant to operations
+
+You MUST score STRICTLY. If a news is vague, random, unrelated to  the company's industry, or you cannot determine relevance from the company description, give it a LOW score (≤ 0.30).
+
+Scoring rubric:
+- 0.80 to 1.00 → very clearly about this company, its product space, its competitors, or a market force that directly affects it.
+- 0.50 to 0.79 → possibly relevant but not certain, or only partially overlapping.
+- 0.20 to 0.49 → weak / indirect relevance.
+- 0.00 to 0.19 → unrelated, nonsense, too short, or insufficient information.
+
+Important rules:
+- Do NOT invent relevance.
+- News that look like placeholders (e.g. "a", "b", "c", "test", "sample") MUST get ≤ 0.10.
 
 Return ONLY a valid JSON array with NO additional text. Each article should have:
 - "index": the article number (1-based)
