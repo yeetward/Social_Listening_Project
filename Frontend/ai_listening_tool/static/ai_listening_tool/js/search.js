@@ -152,7 +152,7 @@ async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
 /**
  * Fetch AI-generated ideas from the API
  */
-async function fetchIdeas(company = DEFAULT_COMPANY) {
+async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
   const ideasList = document.getElementById("ideasList");
   if (!ideasList) return;
 
@@ -161,33 +161,80 @@ async function fetchIdeas(company = DEFAULT_COMPANY) {
     ideasList.innerHTML = '<li class="rm-loading">Loading ideas...</li>';
 
     const params = new URLSearchParams({
-      company: company,
-      type: "all",
-      limit: "10"
+      company_id: companyId,
+      limit: "3"
     });
 
-    const response = await fetchWithTimeout(`${API_BASE_URL}/ai/ideas/?${params}`);
+    const apiUrl = `${API_BASE_URL}/ai/ideas/?${params}`;
+    console.log('🎯 Ideas API: Calling URL:', apiUrl);
+
+    const response = await fetchWithTimeout(apiUrl);
+
+    console.log('📡 Ideas API: Response status:', response.status, response.statusText);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('📦 IDEAS API - FULL RESPONSE:', JSON.stringify(data, null, 2));
+    console.log('📊 IDEAS API - Response structure:', {
+      company: data.company,
+      company_id: data.company_id,
+      count: data.count,
+      insights_exists: !!data.insights,
+      insights_type: Array.isArray(data.insights) ? 'array' : typeof data.insights,
+      insights_length: (data.insights || []).length
+    });
+
     const insights = data.insights || [];
+
+    if (insights.length > 0) {
+      console.log('💡 IDEAS API - First insight FULL DATA:', JSON.stringify(insights[0], null, 2));
+      console.log('💡 IDEAS API - First insight TYPE:', typeof insights[0]);
+      console.log('💡 IDEAS API - Is it a string?', typeof insights[0] === 'string');
+      console.log('💡 IDEAS API - Is it an object?', typeof insights[0] === 'object');
+      console.log('📝 IDEAS API - ALL insights:', JSON.stringify(insights, null, 2));
+    }
 
     // Clear loading and populate
     ideasList.innerHTML = "";
 
     if (insights.length === 0) {
-      ideasList.innerHTML = '<li class="rm-empty">No ideas available at this time.</li>';
+      console.warn('⚠️ IDEAS API: No insights returned');
+      console.warn('⚠️ Full data object keys:', Object.keys(data));
+      ideasList.innerHTML = '<li class="rm-empty">No ideas available. Check console for API response details.</li>';
       return;
     }
 
-    insights.forEach(insight => {
+    console.log(`✅ IDEAS API: Rendering ${insights.length} ideas`);
+
+    // Handle BOTH string array and object array formats
+    insights.forEach((insight, index) => {
       const li = document.createElement("li");
 
-      const title = insight.title || insight.idea || "Untitled";
-      const description = insight.description || insight.summary || insight.explanation || "";
+      let title, description;
+
+      // If insight is a string, display it as-is
+      if (typeof insight === 'string') {
+        console.log(`  Idea ${index + 1} (STRING):`, insight);
+        title = insight;
+        description = "";
+      }
+      // If insight is an object, extract fields
+      else if (typeof insight === 'object' && insight !== null) {
+        console.log(`  Idea ${index + 1} (OBJECT):`, JSON.stringify(insight, null, 2));
+        title = insight.title || insight.idea || insight.name || "Untitled";
+        description = insight.description || insight.summary || insight.explanation || insight.text || "";
+      }
+      // Fallback for unexpected types
+      else {
+        console.warn(`  Idea ${index + 1} (UNEXPECTED TYPE):`, typeof insight, insight);
+        title = String(insight);
+        description = "";
+      }
+
+      console.log(`  → Displaying: Title="${title}", Description="${description}"`);
 
       const strong = document.createElement("strong");
       strong.textContent = title;
@@ -201,7 +248,13 @@ async function fetchIdeas(company = DEFAULT_COMPANY) {
     });
 
   } catch (error) {
-    console.error("Error fetching ideas:", error);
+    console.error("❌ Ideas API: Error occurred:", error);
+    console.error("❌ Ideas API: Error details:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
     // Show fallback content
     ideasList.innerHTML = `
       <li><strong>Community Health Data Hubs</strong> — open dashboards tracking local health metrics, setting benchmark data, allowing policy and practice decisions....</li>
@@ -213,7 +266,7 @@ async function fetchIdeas(company = DEFAULT_COMPANY) {
     note.style.fontSize = "12px";
     note.style.color = "#999";
     note.style.fontStyle = "italic";
-    note.textContent = "(Using cached data - API unavailable)";
+    note.textContent = `(Using cached data - API error: ${error.message})`;
     ideasList.appendChild(note);
   }
 }
@@ -266,12 +319,12 @@ async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
         titleLink.target = "_blank";
         titleLink.rel = "noopener noreferrer";
         titleLink.style.textDecoration = "none";
-        
+
         const strong = document.createElement("strong");
         strong.textContent = title;
         strong.style.cursor = "pointer";
         strong.style.transition = "color 0.2s ease";
-        
+
         // Add hover effect - red highlight like top topics pills
         titleLink.addEventListener("mouseenter", () => {
           strong.style.color = "#e63946";
@@ -279,7 +332,7 @@ async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
         titleLink.addEventListener("mouseleave", () => {
           strong.style.color = "";
         });
-        
+
         titleLink.appendChild(strong);
         li.appendChild(titleLink);
       } else {

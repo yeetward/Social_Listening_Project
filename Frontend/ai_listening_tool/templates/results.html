@@ -95,18 +95,8 @@
           <!-- Opportunities -->
           <div class="rm-top-card rm-top-card-fixed-height">
             <h3 class="rm-top-card-title is-normal">Opportunities</h3>
-            <ul class="rm-top-card-list rm-opportunities-list">
-              <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in
-                  Healthcare</span>
-              </li>
-              <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare
-                  Costs
-                  & Affordability Pressures</span></li>
-              <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate
-                  healthcare plans</span></li>
-              <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around
-                  clinical
-                  burnout</span></li>
+            <ul class="rm-top-card-list rm-opportunities-list" id="opportunitiesList">
+              <li style="color: #999; font-style: italic;">Loading opportunities...</li>
             </ul>
           </div>
 
@@ -437,6 +427,7 @@
   const TOTAL_PAGES = 10; // force max 10 pages
   let isLoading = false;
   let pollingInterval = null;
+  let currentSearchButton = null; // Track the current search button
 
   // Populate header search input with current search term
   const headerSearchInput = document.getElementById('headerSearchInput');
@@ -831,6 +822,9 @@
     const container = document.getElementById('results-container');
     isLoading = true;
 
+    // Reset to page 1 for new search
+    currentPage = 1;
+
     // Show loading state
     container.innerHTML = `
       <div class="rm-loading-skeleton">
@@ -904,6 +898,9 @@
         </div>
       `;
       isLoading = false;
+
+      // Reset search button on error
+      resetSearchButton();
     }
   }
 
@@ -993,6 +990,9 @@
         </div>
       `;
       isLoading = false;
+
+      // Reset search button on error
+      resetSearchButton();
     }
   }
 
@@ -1096,8 +1096,12 @@
       isLoading = false;
       renderResults();
 
-      // Load trending topics after results are loaded
+      // Load trending topics and opportunities after results are loaded
       loadTrendingTopics();
+      loadOpportunities();
+
+      // Reset search button if it exists
+      resetSearchButton();
 
     } catch (error) {
       console.error('Error loading results:', error);
@@ -1111,6 +1115,20 @@
         </div>
       `;
       isLoading = false;
+
+      // Reset search button on error too
+      resetSearchButton();
+    }
+  }
+
+  /**
+   * Reset search button to original state
+   */
+  function resetSearchButton() {
+    if (currentSearchButton) {
+      currentSearchButton.disabled = false;
+      currentSearchButton.textContent = 'Search';
+      currentSearchButton = null;
     }
   }
 
@@ -1165,9 +1183,124 @@
     }
   }
 
+  /**
+   * Load opportunities from the AI API
+   */
+  async function loadOpportunities(companyId = "69072b397c33c037fd2da784") {
+    const opportunitiesList = document.getElementById('opportunitiesList');
+    if (!opportunitiesList || !historyId) {
+      console.warn('⚠️ OPPORTUNITIES: Missing list element or history_id');
+      return;
+    }
+
+    try {
+      const apiUrl = `${API_BASE_URL}/ai/opportunities/?company_id=${companyId}&history_id=${historyId}&limit=4`;
+      console.log('🎯 OPPORTUNITIES API: Calling URL:', apiUrl);
+
+      const response = await fetchWithTimeout(apiUrl, {}, 30000); // 30 seconds timeout
+
+      console.log('📡 OPPORTUNITIES API: Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('📦 OPPORTUNITIES API - FULL RESPONSE:', JSON.stringify(data, null, 2));
+      console.log('📊 OPPORTUNITIES API - Response structure:', {
+        company: data.company,
+        company_id: data.company_id,
+        history_id: data.history_id,
+        count: data.count,
+        opportunities_exists: !!data.opportunities,
+        opportunities_type: Array.isArray(data.opportunities) ? 'array' : typeof data.opportunities,
+        opportunities_length: (data.opportunities || []).length,
+        has_message: !!data.message
+      });
+
+      const opportunities = data.opportunities || [];
+
+      if (data.message) {
+        console.log('💬 OPPORTUNITIES API - Message:', data.message);
+      }
+
+      if (opportunities.length === 0) {
+        console.warn('⚠️ OPPORTUNITIES API: No opportunities returned');
+        opportunitiesList.innerHTML = '<li style="color: #999; font-style: italic;">No opportunities available yet.</li>';
+        return;
+      }
+
+      console.log('💡 OPPORTUNITIES API - First opportunity:', JSON.stringify(opportunities[0], null, 2));
+      console.log('📝 OPPORTUNITIES API - All opportunities:', JSON.stringify(opportunities, null, 2));
+
+      // Clear loading and populate - limit to 4
+      opportunitiesList.innerHTML = "";
+      const displayOpportunities = opportunities.slice(0, 4);
+
+      console.log(`✅ OPPORTUNITIES API: Rendering ${displayOpportunities.length} opportunities`);
+
+      displayOpportunities.forEach((opp, index) => {
+        const li = document.createElement("li");
+
+        // Handle both string and object formats
+        let oppText;
+        if (typeof opp === 'string') {
+          console.log(`  Opportunity ${index + 1} (STRING):`, opp);
+          oppText = opp;
+        } else if (typeof opp === 'object' && opp !== null) {
+          console.log(`  Opportunity ${index + 1} (OBJECT):`, JSON.stringify(opp, null, 2));
+          // Try multiple field names
+          oppText = opp.opportunity || opp.text || opp.description || opp.title || opp.idea || JSON.stringify(opp);
+        } else {
+          console.warn(`  Opportunity ${index + 1} (UNEXPECTED TYPE):`, typeof opp, opp);
+          oppText = String(opp);
+        }
+
+        console.log(`  → Displaying: "${oppText}"`);
+
+        // Create bullet and text spans
+        const bullet = document.createElement("span");
+        bullet.className = "rm-opportunity-bullet";
+        bullet.textContent = ">";
+
+        const text = document.createElement("span");
+        text.textContent = oppText;
+
+        li.appendChild(bullet);
+        li.appendChild(text);
+        opportunitiesList.appendChild(li);
+      });
+
+    } catch (error) {
+      console.error('❌ OPPORTUNITIES API: Error occurred:', error);
+      console.error('❌ OPPORTUNITIES API: Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+
+      // Show fallback content
+      opportunitiesList.innerHTML = `
+        <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in Healthcare</span></li>
+        <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare Costs</span></li>
+        <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate healthcare plans</span></li>
+        <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around clinical burnout</span></li>
+      `;
+
+      // Add error note
+      const note = document.createElement("li");
+      note.style.fontSize = "11px";
+      note.style.color = "#999";
+      note.style.fontStyle = "italic";
+      note.textContent = `(Error: ${error.message})`;
+      opportunitiesList.appendChild(note);
+    }
+  }
+
   // Helper functions
   function normalizeItem(item, subj) {
-    // API returns: ai_title, ai_summary, relevance_score, published_ts, source, url, tags, rank, status, sentiment, sentiment_score, engagement, insight
+    // API returns ONLY: rank, url, ai_title, ai_summary, tags, relevance_score, published_ts, source, status
+    // Backend does NOT return: original_ai_title, original_ai_summary, sentiment, sentiment_score, engagement, insight
     let title = item.ai_title || item.title || item.headline || item.name || 'Untitled';
     let text = item.ai_summary || item.summary || item.text || item.description || 'No description available.';
 
@@ -1245,17 +1378,18 @@
     // Log each item for debugging (only in development)
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       console.log('Normalizing item:', {
-        original_ai_title: item.ai_title,
-        original_ai_summary: item.ai_summary,
+        ai_title: item.ai_title,
+        ai_summary: item.ai_summary,
         had_placeholder: isPlaceholderTitle || isPlaceholderSummary,
         normalized_title: title,
         normalized_text: text,
         relevance_score: score,
-        sentiment: item.sentiment,
-        sentiment_score: item.sentiment_score,
-        engagement: engagement,
         url: item.url,
-        source: item.source
+        source: item.source,
+        // These fields are NOT returned by backend currently:
+        has_sentiment: !!item.sentiment,
+        has_sentiment_score: !!item.sentiment_score,
+        has_engagement: !!item.engagement
       });
     }
 
@@ -1671,65 +1805,20 @@
         return;
       }
 
-      // Disable button during search
-      const submitBtn = headerSearchForm.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Searching...';
-      }
+      // Reset to page 1 for new search
+      currentPage = 1;
 
-      try {
-        // POST to /api/search/ to initiate new search
-        const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject: newSubject,
-            limit: 100,
-            fetch_limit: 120,
-            persist_pool_limit: 500,
-            days: 7,
-          }),
-        }, 120000); // 2 minutes for search initiation
+      // Update subject in sessionStorage
+      sessionStorage.setItem("rm_subject", newSubject);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+      // Update URL
+      const params = new URLSearchParams(window.location.search);
+      params.set('subject', newSubject);
+      const newURL = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newURL);
 
-        const data = await response.json();
-        const newHistoryId = data.history_id;
-
-        if (!newHistoryId) {
-          throw new Error("No history_id returned from API");
-        }
-
-        // Store new history_id and subject
-        sessionStorage.setItem("rm_history_id", newHistoryId);
-        sessionStorage.setItem("rm_subject", newSubject);
-        historyId = newHistoryId;
-
-        // Clear filters for new search
-        sessionStorage.removeItem('rm_days');
-        sessionStorage.removeItem('rm_platforms');
-        sessionStorage.removeItem('rm_sentiments');
-
-        // Update URL with loading flag
-        const newURL = `${window.location.pathname}?subject=${encodeURIComponent(newSubject)}&loading=1`;
-        window.history.replaceState({}, '', newURL);
-
-        // Restart workflow with new search
-        startSearchWorkflow();
-
-      } catch (error) {
-        console.error('Header search error:', error);
-        alert(`Search failed: ${error.message}`);
-
-        // Reset button
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Search';
-        }
-      }
+      // Just re-render with existing results (filters will still apply)
+      renderResults();
     });
   }
 

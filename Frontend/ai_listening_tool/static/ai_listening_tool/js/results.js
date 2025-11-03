@@ -145,11 +145,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function card(p) {
     console.log("Creating card for:", p);
 
-    // Simplify data extraction
-    const title = p.title || "Untitled";
-    const summary = p.summary || p.text || "No description available.";
+    // Backend only returns: ai_title, ai_summary, relevance_score
+    const title = p.ai_title || p.title || "Untitled";
+    const summary = p.ai_summary || p.summary || p.text || "No description available.";
     const source = p.source || "Unknown Source";
-    const score = Math.round(p.score || 0);
+    const score = Math.round((p.relevance_score || 0) * 100);
     const url = p.url || "";
     const tags = Array.isArray(p.tags) ? p.tags.slice(0, 3) : []; // Limit to 3 tags
 
@@ -175,7 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cardHTML = `
       <article class="rm-card">
         <header class="rm-card-h">
-          <h4>${title}</h4>
+          <h4>${url ? `<a href="${url}" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">${title}</a>` : title}</h4>
           <div class="rm-meta">
             <div><span class="rm-badge">TRENDING</span></div>
             <div>Score: ${score}%</div>
