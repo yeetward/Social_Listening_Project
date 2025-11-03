@@ -17,7 +17,7 @@ from AI.ranking_algorithm.engagement_scorer import engagement_score
 
 # --- Summarization + Topic Detection ---
 from AI.Topic_detection.Topic_detection import detect_topic_simple
-from AI.Text_summarisation.Text_summariser import generate_summary
+from AI.Text_summarisation.main_summaries import run as generate_summary
 
 # --- Write Results to ai_results ---
 from AI.ranking_algorithm.mongo import write_ai_results_batch
