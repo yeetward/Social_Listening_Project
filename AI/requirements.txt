@@ -6,6 +6,7 @@ transformers
 sentence-transformers
 torch
 spacy
+nltk
 
 # Vector/embedding / similarity / ML
 numpy

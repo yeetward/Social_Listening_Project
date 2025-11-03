@@ -33,3 +33,4 @@ htmlcov/
 Frontend/__pycache__/
 Frontend/*.pyc
 Frontend/.env
+AI/ranking_algorithm/main.py

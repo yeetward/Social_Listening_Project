@@ -15,11 +15,16 @@ MONGO_URI = os.getenv(
 )
 db = MongoClient(MONGO_URI)["pace_database"]
 
-def run_full_pipeline(history_id: str, keyword: str) -> Dict[str, Any]:
+def run_full_pipeline(history_id: str, keyword: str, sentiment_filter: str = None) -> Dict[str, Any]:
     """
     1) Seed queued rows (robust fallback inside seed_ai_results)
     2) Run ranking pipeline (summarize + topic detection + write ai_results)
     3) Return a structured summary for the frontend
+
+    Args:
+        history_id: The search history ID
+        keyword: Search keyword
+        sentiment_filter: Optional - filter results by 'positive', 'negative', 'neutral'
     """
     # Seed (no raise if nothing to seed)
     seed_ai_results(history_id)
@@ -34,7 +39,13 @@ def run_full_pipeline(history_id: str, keyword: str) -> Dict[str, Any]:
     done    = db.ai_results.count_documents({**cl, "status": "done"})
 
     # Fetch top results to display immediately
-    top = list(db.ai_results.find({**cl, "status": "done"})
+    top_query = {**cl, "status": "done"}
+
+    # Optional sentiment filter
+    if sentiment_filter and sentiment_filter in ['positive', 'negative', 'neutral']:
+        top_query["sentiment"] = sentiment_filter
+
+    top = list(db.ai_results.find(top_query)
                .sort([("relevance_score", -1)])
                .limit(25))
 
@@ -47,6 +58,7 @@ def run_full_pipeline(history_id: str, keyword: str) -> Dict[str, Any]:
             "ai_title": doc.get("ai_title"),
             "ai_summary": doc.get("ai_summary"),
             "tags": doc.get("tags") or [],
+            "sentiment": doc.get("sentiment") or "unknown",  # Default to "unknown" for old docs
             "source": doc.get("source"),
             "published_ts": doc.get("published_ts"),
         }

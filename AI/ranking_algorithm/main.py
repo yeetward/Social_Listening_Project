@@ -23,6 +23,9 @@ from AI.ranking_algorithm.engagement_scorer import engagement_score
 from AI.Topic_detection.Topic_detection import detect_topic_simple
 from AI.Text_summarisation.main_summaries import run as generate_summary
 
+# --- Sentiment Analysis ---
+from AI.sentiment_analysis.sentiment_analyzer import quick_sentiment
+
 # --- Write Results to ai_results ---
 from AI.ranking_algorithm.mongo import write_ai_results_batch
 
@@ -174,7 +177,6 @@ def run(history_id: str, keyword: str):
     if not docs:
         print("[INFO] No articles waiting for AI processing.")
         return []
-
     use_algos = ["tfidf", "bm25", "sbert", "engagement"]
     weights = DEFAULT_WEIGHTS
 
@@ -211,11 +213,12 @@ def run(history_id: str, keyword: str):
 
     rows.sort(key=lambda x: x[0], reverse=True)
 
-    # Summarize + Topic + Write back
+    # Summarize + Topic + Sentiment + Write back
     items = []
     for rank, (score, d, per_algo) in enumerate(rows, start=1):
         summary = generate_summary(d["text"])
         topic = detect_topic_simple(d["text"])
+        sentiment = quick_sentiment(d["text"], method='vader')  # 'positive', 'negative', or 'neutral'
         items.append({
             "url": d["url"],
             "raw_id": d["_id"],
@@ -225,6 +228,7 @@ def run(history_id: str, keyword: str):
             "ai_title": topic,
             "ai_summary": summary,
             "tags": [topic],
+            "sentiment": sentiment,  # <-- Sentiment analysis result
             "source": d["source"],
             "published_ts": d["published_ts"],
             "status": "done",
@@ -233,13 +237,12 @@ def run(history_id: str, keyword: str):
     write_ai_results_batch(history_id, items)
     print(f"[SUCCESS] Processed & saved {len(items)} AI-ranked articles.")
     return rows
+    
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run AI scoring + summarization pipeline.")
-    parser.add_argument("history_id", type=str)
-    parser.add_argument("keyword", type=str)
-    args = parser.parse_args()
-    run(args.history_id, args.keyword)
+    history_id = "68fdda1caf9de874acb5a32a"  # Example history ID
+    keyword = "artificial intelligence"
+    run(history_id, keyword)

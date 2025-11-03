@@ -49,6 +49,7 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
             "ai_title": it.get("ai_title"),
             "ai_summary": it.get("ai_summary"),
             "tags": it.get("tags"),
+            "sentiment": it.get("sentiment"),  # <-- Sentiment analysis result
             "influencer_mentions": it.get("influencer_mentions"),
             "backlinks": it.get("backlinks"),
 
