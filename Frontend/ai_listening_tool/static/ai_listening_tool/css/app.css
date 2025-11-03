@@ -1478,6 +1478,9 @@
   padding: 24px 20px 24px 20px;
   background: #fff;
   border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #rmtool .rm-results-page-title {
@@ -1772,6 +1775,8 @@
 /* Main Results Area */
 #rmtool .rm-results-main {
   min-height: 400px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 #rmtool .rm-result-items {
@@ -1782,6 +1787,7 @@
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
+  max-width: 100%;
 }
 
 /* Pager below results */
@@ -1789,33 +1795,66 @@
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin-top: 16px;
+  align-items: center;
+  margin: 32px 0;
+  padding: 20px 0;
 }
 
 #rmtool .rm-results-pager button {
-  min-width: 36px;
-  height: 36px;
+  min-width: 40px;
+  height: 40px;
   padding: 0 12px;
   background: #fff;
   border: 1px solid var(--rm-border);
   border-radius: 6px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#rmtool .rm-results-pager button:hover:not(:disabled):not(.rm-page-active) {
+  border-color: var(--rm-red);
+  color: var(--rm-red);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(225, 29, 46, 0.2);
 }
 
 #rmtool .rm-results-pager button.rm-page-active {
   background: var(--rm-red);
   color: #fff;
   border-color: var(--rm-red);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(225, 29, 46, 0.3);
+}
+
+#rmtool .rm-results-pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 #rmtool .rm-results-pager .rm-page-arrow {
-  background: transparent;
-  border: none;
-  font-size: 24px;
-  font-weight: 400;
+  background: #f9fafb;
+  border: 1px solid var(--rm-border);
+  font-size: 20px;
+  font-weight: 700;
   color: #000;
+  padding: 0 12px;
+  min-width: 40px;
+  height: 40px;
+}
+
+#rmtool .rm-results-pager .rm-page-arrow:hover:not(:disabled) {
+  background: var(--rm-red);
+  border-color: var(--rm-red);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+#rmtool .rm-results-pager .rm-page-ellipsis {
   padding: 0 8px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 /* Result Card Items - New Style */
@@ -1824,6 +1863,10 @@
   border: none;
   padding: 12px 20px 20px;
   transition: none;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 #rmtool .rm-result-item+.rm-result-item {
@@ -1839,6 +1882,7 @@
   padding-bottom: 0;
   border-bottom: none;
   align-items: flex-start;
+  max-width: 100%;
 }
 
 #rmtool .rm-result-item-meta {
@@ -1851,17 +1895,25 @@
   font-weight: 700;
   color: #111;
   line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 #rmtool .rm-result-title-link {
   color: #111;
   text-decoration: none;
   cursor: pointer;
+  word-break: break-word;
 }
 
 #rmtool .rm-result-title-link:hover {
   color: var(--rm-red);
   text-decoration: underline;
+}
+
+#rmtool .rm-result-title-text {
+  word-break: break-word;
 }
 
 #rmtool .rm-result-item-meta {
@@ -1949,10 +2001,13 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 #rmtool .rm-result-item-body {
   margin-top: 0;
+  max-width: 100%;
 }
 
 #rmtool .rm-result-item-text {
@@ -1960,6 +2015,8 @@
   font-size: 13px;
   color: #4a5568;
   line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 #rmtool .rm-result-item-bullets {

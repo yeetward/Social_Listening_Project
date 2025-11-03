@@ -15,7 +15,7 @@
           class="rm-logo-img">
       </a>
       <div class="rm-topbar-right">
-        <form id="headerSearchForm" class="rm-header-search" method="get" action="{% url 'listening_tool:results' %}">
+        <form id="headerSearchForm" class="rm-header-search" method="get">
           <input type="text" name="subject" id="headerSearchInput" placeholder="Search" class="rm-header-input">
           <button type="submit" class="rm-header-btn-search">Search</button>
         </form>
@@ -427,9 +427,29 @@
 
 {% block pagescripts %}
 <script>
+  // API Configuration
+  const API_BASE_URL = window.RM_TOOL_CONFIG?.API_BASE || "http://127.0.0.1:8000/api";
+  const API_TIMEOUT = 60000; // 60 seconds timeout for API calls
+
+  /**
+   * Fetch with timeout wrapper
+   */
+  function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
+    return Promise.race([
+      fetch(url, options),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout - the server is taking too long to respond')), timeout)
+      )
+    ]);
+  }
+
   // Get search term from URL
   const urlParams = new URLSearchParams(window.location.search);
   const subject = (urlParams.get('subject') || sessionStorage.getItem('rm_subject') || '').trim() || 'test';
+
+  // Get history_id from sessionStorage
+  let historyId = sessionStorage.getItem('rm_history_id');
+  const storedSubject = sessionStorage.getItem('rm_subject');
 
   // State management
   let allResults = [];
@@ -437,6 +457,7 @@
   const PAGE_SIZE = 10;
   const TOTAL_PAGES = 10; // force max 10 pages
   let isLoading = false;
+  let pollingInterval = null;
 
   // Populate header search input with current search term
   const headerSearchInput = document.getElementById('headerSearchInput');
@@ -455,8 +476,26 @@
   // Initialize filters from URL
   initializeFiltersFromURL();
 
-  // Immediately start loading
-  loadData();
+  // Check if we need a fresh search
+  // Trigger new search if:
+  // 1. No history_id exists
+  // 2. Subject in URL doesn't match stored subject (new search)
+  // 3. URL has a 'fresh' parameter (forced new search)
+  const needsNewSearch = !historyId ||
+    storedSubject !== subject ||
+    urlParams.get('fresh') === '1';
+
+  if (needsNewSearch && !urlParams.get('loading')) {
+    console.log('🔄 Starting NEW search for:', subject);
+    console.log('   Reason: ' + (!historyId ? 'No history_id' :
+      storedSubject !== subject ? 'Subject changed' :
+        'Fresh search requested'));
+    initiateNewSearch(subject);
+  } else {
+    console.log('📂 Loading existing search results for history_id:', historyId);
+    // Start loading with existing history_id
+    startSearchWorkflow();
+  }
 
   // --- Filter dropdowns ---
   const timeFilterLabel = document.getElementById('timeFilterLabel');
@@ -1102,51 +1141,229 @@
     renderResults();
   });
 
-  async function loadData() {
+  /**
+   * Initiate a brand new search (POST to /api/search/)
+   */
+  async function initiateNewSearch(searchSubject) {
     const container = document.getElementById('results-container');
     isLoading = true;
 
+    // Show loading state
+    container.innerHTML = `
+      <div class="rm-loading-skeleton">
+        <div style="text-align:center; padding:40px; color:#666;">
+          <div class="rm-spinner" style="display:inline-block; width:40px; height:40px; border:4px solid #e5e7eb; border-top-color:#e11d2e; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+          <p style="margin-top:20px; font-size:16px; font-weight:500;">Starting new search for "${searchSubject}"...</p>
+          <p id="search-status" style="margin-top:10px; font-size:14px; color:#999;"></p>
+        </div>
+      </div>
+    `;
+
     try {
-      // Show loading skeleton
+      console.log('🚀 POST to /api/search/ with subject:', searchSubject);
+
+      // POST to /api/search/ to create new search
+      const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: searchSubject.trim(),
+          limit: 100,
+          fetch_limit: 120,
+          persist_pool_limit: 500,
+          days: 7,
+        }),
+      }, 120000); // 2 minutes for search initiation
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const newHistoryId = data.history_id;
+
+      if (!newHistoryId) {
+        throw new Error("No history_id returned from API");
+      }
+
+      console.log('✅ New search created! history_id:', newHistoryId);
+      console.log('📊 Counts:', data.counts);
+
+      // Store new history_id and subject
+      sessionStorage.setItem("rm_history_id", newHistoryId);
+      sessionStorage.setItem("rm_subject", searchSubject.trim());
+      historyId = newHistoryId;
+
+      // Clear filters for new search
+      sessionStorage.removeItem('rm_days');
+      sessionStorage.removeItem('rm_platforms');
+      sessionStorage.removeItem('rm_sentiments');
+      sessionStorage.removeItem('rm_influencers');
+
+      // Update URL to include loading flag (prevent re-triggering search on refresh)
+      const newURL = `${window.location.pathname}?subject=${encodeURIComponent(searchSubject)}&loading=1`;
+      window.history.replaceState({}, '', newURL);
+
+      // Now start polling for this new search
+      startSearchWorkflow();
+
+    } catch (error) {
+      console.error('❌ Failed to initiate new search:', error);
       container.innerHTML = `
-        <div class="rm-loading-skeleton">
-          <div class="rm-skeleton-item">
-            <div class="rm-skeleton-header">
-              <div class="rm-skeleton-title"></div>
-              <div class="rm-skeleton-meta"></div>
-            </div>
-            <div class="rm-skeleton-text"></div>
-            <div class="rm-skeleton-text"></div>
-          </div>
-          <div class="rm-skeleton-item">
-            <div class="rm-skeleton-header">
-              <div class="rm-skeleton-title"></div>
-              <div class="rm-skeleton-meta"></div>
-            </div>
-            <div class="rm-skeleton-text"></div>
-            <div class="rm-skeleton-text"></div>
-          </div>
-          <div class="rm-skeleton-item">
-            <div class="rm-skeleton-header">
-              <div class="rm-skeleton-title"></div>
-              <div class="rm-skeleton-meta"></div>
-            </div>
-            <div class="rm-skeleton-text"></div>
-            <div class="rm-skeleton-text"></div>
-          </div>
+        <div style="text-align:center; padding:40px; color:#dc3545; border: 1px solid #f5c6cb; background: #f8d7da; border-radius: 8px;">
+          ❌ Failed to start search: ${error.message}
+          <br><br>
+          <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Try Again
+          </button>
+          <button onclick="window.location.href='/tool/'" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;">
+            Back to Search
+          </button>
         </div>
       `;
+      isLoading = false;
+    }
+  }
 
-      // Don't set a default days filter - let backend use its default
-      const data = await window.apiPost('/search/', {
-        subject: subject,
-        limit: 100,
-        priority: 'all'
-      });
+  /**
+   * Start the search workflow: poll for status, then load results
+   */
+  async function startSearchWorkflow() {
+    const container = document.getElementById('results-container');
+    isLoading = true;
 
-      // Extract results array - API returns {history_id, preview, counts} structure
-      const resultsArray = Array.isArray(data) ? data : (data.preview || []);
-      allResults = resultsArray.map(d => normalizeItem(d, subject));
+    // Check if we have a history_id
+    if (!historyId) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:40px; color:#dc3545; border: 1px solid #f5c6cb; background: #f8d7da; border-radius: 8px;">
+          ❌ No search history found. Please start a new search.
+          <br><br>
+          <button onclick="window.location.href='/tool/'" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Back to Search
+          </button>
+        </div>
+      `;
+      isLoading = false;
+      return;
+    }
+
+    // Show loading state with progress message
+    container.innerHTML = `
+      <div class="rm-loading-skeleton">
+        <div style="text-align:center; padding:40px; color:#666;">
+          <div class="rm-spinner" style="display:inline-block; width:40px; height:40px; border:4px solid #e5e7eb; border-top-color:#e11d2e; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+          <p style="margin-top:20px; font-size:16px; font-weight:500;">Processing your search...</p>
+          <p id="polling-status" style="margin-top:10px; color:#999; font-size:14px;">Analyzing content from multiple sources</p>
+        </div>
+      </div>
+    `;
+
+    // Start polling for search status
+    pollSearchStatus();
+  }
+
+  /**
+   * Poll the search status endpoint every 2 seconds until ai_ready is true
+   */
+  async function pollSearchStatus() {
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/search/status/?history_id=${historyId}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const status = await response.json();
+      console.log('Search status:', status);
+
+      // Update progress message
+      const statusEl = document.getElementById('polling-status');
+      if (statusEl) {
+        const count = status.ai_count || 0;
+        const target = status.ai_target || 100;
+        statusEl.textContent = `Processing: ${count} of ${target} items analyzed...`;
+      }
+
+      // Check if AI processing is ready
+      if (status.ai_ready === true) {
+        console.log('Search is ready! Loading results...');
+        clearInterval(pollingInterval);
+        await loadResults();
+      } else {
+        // Continue polling every 2 seconds
+        if (!pollingInterval) {
+          pollingInterval = setInterval(() => pollSearchStatus(), 2000);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error polling search status:', error);
+      clearInterval(pollingInterval);
+
+      const container = document.getElementById('results-container');
+      container.innerHTML = `
+        <div style="text-align:center; padding:40px; color:#dc3545; border: 1px solid #f5c6cb; background: #f8d7da; border-radius: 8px;">
+          ❌ Error checking search status: ${error.message}
+          <br><br>
+          <button onclick="startSearchWorkflow()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Try Again
+          </button>
+        </div>
+      `;
+      isLoading = false;
+    }
+  }
+
+  /**
+   * Load the final results once AI processing is complete
+   */
+  async function loadResults() {
+    const container = document.getElementById('results-container');
+
+    try {
+      console.log('Fetching results for history_id:', historyId);
+
+      // Use longer timeout for results loading
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/results/?history_id=${historyId}&status=done&sort=rank&order=asc`,
+        {},
+        90000  // 90 seconds for loading potentially large result sets
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Results data received:', data);
+      console.log('📊 Total results:', data.total);
+      console.log('📋 Results array length:', (data.results || []).length);
+
+      if (data.results && data.results.length > 0) {
+        console.log('🔍 First result sample:', data.results[0]);
+      }
+
+      const resultsArray = data.results || [];
+      const normalizedResults = resultsArray.map(d => normalizeItem(d, subject));
+
+      // DEDUPLICATION: Remove duplicate URLs (safety measure)
+      const seenUrls = new Set();
+      allResults = [];
+      for (const item of normalizedResults) {
+        const url = (item.url || '').trim();
+        if (!url || seenUrls.has(url)) {
+          console.warn('⚠️ Duplicate URL detected and removed:', url);
+          continue;
+        }
+        seenUrls.add(url);
+        allResults.push(item);
+      }
+
+      console.log('✨ Normalized results count:', normalizedResults.length);
+      console.log('✅ Deduplicated results count:', allResults.length);
+      if (allResults.length > 0) {
+        console.log('📝 First normalized result:', allResults[0]);
+      }
 
       if (!allResults || allResults.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No results found for "${subject}"</div>`;
@@ -1168,7 +1385,7 @@
         <div style="text-align:center; padding:40px; color:#dc3545; border: 1px solid #f5c6cb; background: #f8d7da; border-radius: 8px;">
           ❌ Error loading results: ${error.message}
           <br><br>
-          <button onclick="loadData()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          <button onclick="loadResults()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
             Try Again
           </button>
         </div>
@@ -1179,27 +1396,77 @@
 
   // Helper functions
   function normalizeItem(item, subj) {
-    const title = item.title || item.headline || item.name || '';
-    const text = item.summary || item.text || item.description || '';
-    let score = item.score;
-    if (score == null) {
-      const ai = item.ai_score;
-      if (typeof ai === 'number' && !Number.isNaN(ai)) {
-        score = Math.round(ai * 100);
+    // API returns: ai_title, ai_summary, relevance_score, published_ts, source, url, tags, rank, status
+    let title = item.ai_title || item.title || item.headline || item.name || 'Untitled';
+    let text = item.ai_summary || item.summary || item.text || item.description || 'No description available.';
+
+    // WORKAROUND: Detect AI placeholder values (backend AI processing incomplete)
+    const isPlaceholderTitle = title === 'topic' || title === 'Topic' || title === 'TOPIC';
+    const isPlaceholderSummary = text === 'summary' || text === 'Summary' || text === 'SUMMARY';
+
+    if (isPlaceholderTitle || isPlaceholderSummary) {
+      // Try to extract meaningful info from URL
+      if (item.url) {
+        try {
+          const url = new URL(item.url);
+          const pathname = url.pathname;
+          // Extract last part of path and clean it up
+          const urlParts = pathname.split('/').filter(p => p.length > 0);
+          const lastPart = urlParts[urlParts.length - 1] || '';
+          const cleanTitle = lastPart
+            .replace(/[-_]/g, ' ')
+            .replace(/\.(html|htm|php|aspx)$/i, '')
+            .replace(/\d{4,}/g, '') // Remove long numbers (IDs)
+            .trim();
+
+          if (cleanTitle && cleanTitle.length > 3) {
+            title = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1);
+          } else {
+            title = `Article from ${item.source || 'Unknown Source'}`;
+          }
+        } catch (e) {
+          title = `Article from ${item.source || 'Unknown Source'}`;
+        }
       } else {
-        const hay = (title + ' ' + text).toLowerCase();
-        const q = String(subj || '').toLowerCase();
-        if (q && title.toLowerCase().includes(q)) score = 80;
-        else if (q && hay.includes(q)) score = 55;
-        else score = 25;
+        title = `Article from ${item.source || 'Unknown Source'}`;
+      }
+
+      text = `⚠️ AI processing incomplete. Click the link to view the full article on ${item.source || 'the source website'}.`;
+    }
+
+    // Convert relevance_score (0-1) to percentage (0-100)
+    let score = item.score;
+    if (score == null || score === undefined) {
+      const relevance = item.relevance_score;
+      if (typeof relevance === 'number' && !Number.isNaN(relevance)) {
+        score = Math.round(relevance * 100);
+      } else {
+        score = 50; // default fallback
       }
     }
-    // keep original fields + normalized fallbacks
+
+    // Log each item for debugging (only in development)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('Normalizing item:', {
+        original_ai_title: item.ai_title,
+        original_ai_summary: item.ai_summary,
+        had_placeholder: isPlaceholderTitle || isPlaceholderSummary,
+        normalized_title: title,
+        normalized_text: text,
+        score: score,
+        url: item.url,
+        source: item.source
+      });
+    }
+
+    // Keep original fields + normalized fallbacks
     return {
       ...item,
       title,
       text,
-      score
+      summary: text, // alias for compatibility
+      score,
+      hasPlaceholder: isPlaceholderTitle || isPlaceholderSummary
     };
   }
   function formatEngagement(engagement) {
@@ -1347,8 +1614,14 @@
     const container = document.getElementById('results-container');
 
     if (isLoading) {
+      console.log('⏳ Still loading, skipping render...');
       return;
     }
+
+    console.log('🎨 Rendering results...', {
+      totalResults: allResults.length,
+      currentPage: currentPage
+    });
 
     const selectedPriorities = Array.from(document.querySelectorAll('input[name="priorityChk"]:checked')).map(cb => cb.value);
 
@@ -1416,17 +1689,31 @@
     const start = (currentPage - 1) * PAGE_SIZE;
     const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
+    console.log('📄 Rendering page items:', {
+      filteredCount: filtered.length,
+      pageItemsCount: pageItems.length,
+      currentPage: currentPage,
+      pageSize: PAGE_SIZE,
+      firstItem: pageItems[0] || null
+    });
+
+    // Calculate results range for display
+    const startItem = start + 1;
+    const endItem = Math.min(start + pageItems.length, filtered.length);
+
     // Create HTML for results
     const html = `
     <div class="rm-result-items">
       ${pageItems.map(item => {
-      const title = item.title || 'Untitled';
-      const content = processContent(item.summary || item.text);
-      const source = item.source || item.author || item.platform || 'Deloitte';
+      // Use normalized fields with proper fallbacks
+      const title = item.title || item.ai_title || item.headline || 'Untitled';
+      const summaryText = item.summary || item.ai_summary || item.text || item.description || 'No description available.';
+      const content = processContent(summaryText);
+      const source = item.source || item.platform || 'Unknown Source';
       const date = formatDate(item.published_ts || item.published || item.date);
-      const url = item.url || '';
-      const engagement = formatEngagement(item.engagement);
-      const relevance = getRelevancePercent(item.score);
+      const url = item.url || '#';
+      const engagement = formatEngagement(item.engagement || 0);
+      const relevance = getRelevancePercent(item.score || item.relevance_score || 0);
       const insight = getInsightBadge(item);
       const priority = getPriority(item); // Compute and cache priority for filtering
 
@@ -1434,7 +1721,7 @@
           <article class="rm-result-item" data-priority="${priority}">
             <header class="rm-result-item-header">
               <div class="rm-result-item-header-left">
-                <h3 class="rm-result-item-title"><a href="${url}" target="_blank" class="rm-result-title-link">${title}</a></h3>
+                <h3 class="rm-result-item-title">${url !== '#' ? `<a href="${url}" target="_blank" rel="noopener" class="rm-result-title-link">${title}</a>` : `<span class="rm-result-title-text">${title}</span>`}</h3>
                 <div class="rm-result-item-body">
                   <p class="rm-result-item-text">${content.text}</p>
                   ${content.bullets.length > 0 ? `
@@ -1475,61 +1762,79 @@
         `;
     }).join('')}
     </div>
+    <div style="text-align: center; padding: 16px 0; color: #6b7280; font-size: 14px;">
+      Showing ${startItem}-${endItem} of ${filtered.length} results
+    </div>
     ${renderPager(Math.ceil(filtered.length / PAGE_SIZE))}
   `;
 
     container.innerHTML = html;
+
+    // Scroll to top of results on page change (smooth)
+    const resultsMain = document.querySelector('.rm-results-main');
+    if (resultsMain && currentPage > 1) {
+      resultsMain.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   function renderPager(totalPages) {
+    // Force exactly 10 pages max
     const pages = Math.min(totalPages, TOTAL_PAGES);
-    let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹</button>';
 
-    // Smart pagination: show max 5 page buttons with ellipsis
-    const maxVisible = 5;
-    let startPage = 1;
-    let endPage = pages;
+    if (pages === 0) return '';
 
-    if (pages > maxVisible) {
-      const halfVisible = Math.floor(maxVisible / 2);
+    let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹ Prev</button>';
 
-      if (currentPage <= halfVisible + 1) {
-        // Near the start
-        startPage = 1;
-        endPage = maxVisible;
-      } else if (currentPage >= pages - halfVisible) {
-        // Near the end
-        startPage = pages - maxVisible + 1;
-        endPage = pages;
-      } else {
-        // In the middle
-        startPage = currentPage - halfVisible;
-        endPage = currentPage + halfVisible;
+    // Show all pages if 10 or fewer, otherwise show smart pagination
+    if (pages <= 10) {
+      // Show all page buttons
+      for (let p = 1; p <= pages; p++) {
+        btns += `<button class="${p === currentPage ? 'rm-page-active' : ''}" data-page="${p}">${p}</button>`;
+      }
+    } else {
+      // Smart pagination with ellipsis (shouldn't happen with TOTAL_PAGES=10, but just in case)
+      const maxVisible = 7;
+      let startPage = 1;
+      let endPage = pages;
+
+      if (pages > maxVisible) {
+        const halfVisible = Math.floor(maxVisible / 2);
+
+        if (currentPage <= halfVisible + 1) {
+          startPage = 1;
+          endPage = maxVisible;
+        } else if (currentPage >= pages - halfVisible) {
+          startPage = pages - maxVisible + 1;
+          endPage = pages;
+        } else {
+          startPage = currentPage - halfVisible;
+          endPage = currentPage + halfVisible;
+        }
+      }
+
+      // Add first page if not in range
+      if (startPage > 1) {
+        btns += `<button data-page="1">1</button>`;
+        if (startPage > 2) {
+          btns += '<span class="rm-page-ellipsis">...</span>';
+        }
+      }
+
+      // Add visible page buttons
+      for (let p = startPage; p <= endPage; p++) {
+        btns += `<button class="${p === currentPage ? 'rm-page-active' : ''}" data-page="${p}">${p}</button>`;
+      }
+
+      // Add last page if not in range
+      if (endPage < pages) {
+        if (endPage < pages - 1) {
+          btns += '<span class="rm-page-ellipsis">...</span>';
+        }
+        btns += `<button data-page="${pages}">${pages}</button>`;
       }
     }
 
-    // Add first page if not in range
-    if (startPage > 1) {
-      btns += `<button data-page="1">1</button>`;
-      if (startPage > 2) {
-        btns += '<span class="rm-page-ellipsis">...</span>';
-      }
-    }
-
-    // Add visible page buttons
-    for (let p = startPage; p <= endPage; p++) {
-      btns += `<button class="${p === currentPage ? 'rm-page-active' : ''}" data-page="${p}">${p}</button>`;
-    }
-
-    // Add last page if not in range
-    if (endPage < pages) {
-      if (endPage < pages - 1) {
-        btns += '<span class="rm-page-ellipsis">...</span>';
-      }
-      btns += `<button data-page="${pages}">${pages}</button>`;
-    }
-
-    btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>›</button>';
+    btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>Next ›</button>';
     return `<div class="rm-results-pager">${btns}</div>`;
   }
 
@@ -1565,6 +1870,82 @@
       }
     });
   });
+
+  // Handle header search form submission
+  const headerSearchForm = document.getElementById('headerSearchForm');
+  if (headerSearchForm) {
+    headerSearchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const headerInput = document.getElementById('headerSearchInput');
+      const newSubject = (headerInput?.value || "").trim();
+
+      if (!newSubject) {
+        alert('Please enter a search term');
+        return;
+      }
+
+      // Disable button during search
+      const submitBtn = headerSearchForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Searching...';
+      }
+
+      try {
+        // POST to /api/search/ to initiate new search
+        const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: newSubject,
+            limit: 100,
+            fetch_limit: 120,
+            persist_pool_limit: 500,
+            days: 7,
+          }),
+        }, 120000); // 2 minutes for search initiation
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const newHistoryId = data.history_id;
+
+        if (!newHistoryId) {
+          throw new Error("No history_id returned from API");
+        }
+
+        // Store new history_id and subject
+        sessionStorage.setItem("rm_history_id", newHistoryId);
+        sessionStorage.setItem("rm_subject", newSubject);
+        historyId = newHistoryId;
+
+        // Clear filters for new search
+        sessionStorage.removeItem('rm_days');
+        sessionStorage.removeItem('rm_platforms');
+        sessionStorage.removeItem('rm_sentiments');
+        sessionStorage.removeItem('rm_influencers');
+
+        // Update URL with loading flag
+        const newURL = `${window.location.pathname}?subject=${encodeURIComponent(newSubject)}&loading=1`;
+        window.history.replaceState({}, '', newURL);
+
+        // Restart workflow with new search
+        startSearchWorkflow();
+
+      } catch (error) {
+        console.error('Header search error:', error);
+        alert(`Search failed: ${error.message}`);
+
+        // Reset button
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Search';
+        }
+      }
+    });
+  }
 
   // end page script
 </script>

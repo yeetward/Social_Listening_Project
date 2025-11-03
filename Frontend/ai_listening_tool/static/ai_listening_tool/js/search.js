@@ -4,7 +4,7 @@ import "./config.js";
 // Configuration
 const API_BASE_URL = RM_TOOL_CONFIG.API_BASE;
 const DEFAULT_COMPANY = "EcoDrive Motors";
-const API_TIMEOUT = 5000; // 5 second timeout
+const API_TIMEOUT = 60000; // 60 seconds timeout - AI operations can take time
 
 /**
  * Fetch with timeout
@@ -21,7 +21,7 @@ function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
 /**
  * Fetch trending topics from the API
  */
-async function fetchTrendingTopics(company = DEFAULT_COMPANY) {
+async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
   const trendingList = document.getElementById("trendingTopicsList");
   if (!trendingList) return;
 
@@ -30,7 +30,7 @@ async function fetchTrendingTopics(company = DEFAULT_COMPANY) {
     trendingList.innerHTML = '<li class="rm-loading">Loading trending topics...</li>';
 
     const params = new URLSearchParams({
-      company: company,
+      company_id: companyId,
       threshold: "0.5",
       limit: "10",
       full: "0"
@@ -148,6 +148,87 @@ async function fetchIdeas(company = DEFAULT_COMPANY) {
 }
 
 /**
+ * Handle search form submission
+ */
+async function handleSearch(subject) {
+  if (!subject || !subject.trim()) {
+    const errEl = document.getElementById("err");
+    if (errEl) errEl.textContent = "Please enter a search term";
+    return;
+  }
+
+  // Get button reference outside try block for proper scope
+  const submitBtn = document.querySelector("#searchForm button[type='submit']");
+  const originalText = submitBtn?.textContent || "Search";
+
+  try {
+    // Show loading state
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Searching...";
+    }
+
+    // POST to /api/search/ to initiate search
+    // Use extra long timeout since this fetches from multiple sources
+    const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: subject.trim(),
+        limit: 100,
+        fetch_limit: 120,
+        persist_pool_limit: 500,
+        days: 7,
+      }),
+    }, 120000); // 2 minutes for search initiation
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const historyId = data.history_id;
+
+    if (!historyId) {
+      throw new Error("No history_id returned from API");
+    }
+
+    // Log the counts to diagnose data fetching issues
+    console.log("Search initiated:", {
+      history_id: historyId,
+      counts: data.counts,
+      message: data.message
+    });
+
+    // Warn if no data was fetched
+    if (data.counts && data.counts.fetched_total === 0) {
+      console.warn("⚠️ Warning: No data was fetched from sources. Check your API keys or source configuration.");
+    }
+
+    // Store history_id and subject for the results page
+    sessionStorage.setItem("rm_history_id", historyId);
+    sessionStorage.setItem("rm_subject", subject.trim());
+    sessionStorage.setItem("rm_days", "7");
+    sessionStorage.setItem("rm_priority", "all");
+
+    // Redirect to results page with loading flag (note: app is under /tool/ prefix)
+    // The 'loading=1' parameter tells results page to use existing history_id instead of creating new one
+    window.location.href = `/tool/results/?subject=${encodeURIComponent(subject.trim())}&loading=1`;
+
+  } catch (error) {
+    console.error("Search error:", error);
+    const errEl = document.getElementById("err");
+    if (errEl) errEl.textContent = `Error: ${error.message}`;
+
+    // Reset button
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+    }
+  }
+}
+
+/**
  * Initialize the page
  */
 document.addEventListener("DOMContentLoaded", () => {
@@ -159,12 +240,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Pick the visible text input only
   const input = form.querySelector('input[name="subject"]:not([type="hidden"])');
 
-  // Persist defaults; do NOT call preventDefault
-  form.addEventListener("submit", () => {
+  // Intercept form submission to use our API workflow
+  form.addEventListener("submit", (e) => {
+    e.preventDefault(); // Prevent default form submission
     const subject = (input?.value || "").trim();
-    sessionStorage.setItem("rm_subject", subject);
-    sessionStorage.setItem("rm_days", "7");
-    sessionStorage.setItem("rm_priority", "all");
+    handleSearch(subject);
   });
 
   // Optional: pills auto-fill and submit
@@ -172,7 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
     b.addEventListener("click", () => {
       if (!input) return;
       input.value = b.dataset.topic || "";
-      form.requestSubmit?.() || form.submit();
+      handleSearch(b.dataset.topic || "");
     });
   });
 
