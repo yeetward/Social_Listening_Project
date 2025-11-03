@@ -34,7 +34,7 @@ def run(company_id: str,news_articles: dict[str,str]):
             "next_refresh_at": None
         }
 
-        success = company_cards.upsert_company_card(company_id, "news_feed", payload)
+        success = company_cards.upsert_company_card(company_id, "newsfeed", payload)
 
         # check for success
         if not success:

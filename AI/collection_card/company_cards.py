@@ -14,7 +14,7 @@ db = client["pace_database"]
 
 # Keep this in one place so FE/BE stay consistent
 ALLOWED_CARD_NAMES: set[str] = {
-    "competitors", "backlinks", "ideas", "opportunities", "trending_topics", "news_feed"
+    "competitors", "backlinks", "ideas", "opportunities", "trending", "newsfeed"
 }
 
 def _normalize_card_name(card_name: str) -> Optional[str]:

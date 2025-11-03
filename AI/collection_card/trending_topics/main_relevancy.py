@@ -33,7 +33,7 @@ def run(company_id: str,trending_topics: list):
             "next_refresh_at": None
         }
 
-        success = company_cards.upsert_company_card(company_id, "trending_topics", payload)
+        success = company_cards.upsert_company_card(company_id, "trending", payload)
 
         # check for success
         if not success:
