@@ -1667,8 +1667,9 @@ def news_feed(request):
     # ----- build local raw article pool from raw_insights -----
     now_ts   = int(time.time())
     cutoff   = now_ts - max_age_days * 86400
-    pool_cap = 200
-    pool_min = max(3 * limit, 60)  # aim for enough for AI to filter
+    pool_cap = 100
+    # pool_min = max(3 * limit, 2)  # aim for enough for AI to filter
+    pool_min = 50
 
     def _ts_to_iso_z(ts: int | None):
         if not ts:
@@ -1767,6 +1768,7 @@ def news_feed(request):
             {"_id": ObjectId(company_id)},
             {"$set": {"cards.newsfeed.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
+
 
         # ----- final: re-read schema -----
     return _read_from_db_and_respond()
@@ -2232,122 +2234,213 @@ def ai_backlinks(request):
     return _read_schema_and_respond()
 
 
+# @api_view(["GET"])
+# def ai_opportunities(request):
+#     """
+#     GET /api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4&verbose=0
+
+#     Behavior (same as trending/ideas):
+#       - Always return what's stored in company_profiles.cards.opportunities.
+#       - If today (UTC) >= next_refresh_at.date() OR next_refresh_at missing:
+#           * try opportunities_run(...) (best-effort; may persist itself)
+#           * if it returns a list, manually persist into cards.opportunities
+#             with updated_at and next_refresh_at = now + 7 days
+#           * re-read from Mongo and return that.
+#     """
+#     if opportunities_run is None:
+#         return Response({"error": "opportunities.run not available"}, status=500)
+
+#     db = get_mongo_db()
+
+#     # --- Inputs ---
+#     company_id   = (request.GET.get("company_id") or "").strip() or None
+#     company_name = (request.GET.get("company") or "").strip() or None
+#     industry     = (request.GET.get("industry") or "").strip()
+
+#     if not industry:
+#         return Response({"error": "industry is required"}, status=400)
+#     if not company_id and not company_name:
+#         return Response({"error": "company_id (or company name) is required"}, status=400)
+
+#     # Resolve company (support name or id)
+#     if not company_id and company_name:
+#         doc = get_company_profile(name=company_name)
+#         if not doc:
+#             return Response({"error": f"Company '{company_name}' not found"}, status=404)
+#         company_id = str(doc["_id"])
+
+#     if company_id and not company_name:
+#         prof_name = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
+#         if prof_name:
+#             company_name = prof_name.get("name")
+
+#     # ints/floats
+#     try:
+#         limit = int(request.GET.get("limit", 20))
+#     except Exception:
+#         limit = 20
+#     limit = max(1, min(limit, 200))
+
+#     try:
+#         min_relevance = float(request.GET.get("min_relevance", 0.4))
+#     except Exception:
+#         min_relevance = 0.4
+
+#     # bool
+#     verbose = str(request.GET.get("verbose", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+
+#     # --- Helper: read schema + respond ---
+#     def _read_schema_and_respond():
+#         fresh = db["company_profiles"].find_one(
+#             {"_id": ObjectId(company_id)},
+#             {"name": 1, "cards.opportunities": 1}
+#         )
+#         if not fresh:
+#             return Response({"error": "company profile not found"}, status=404)
+#         name = fresh.get("name") or company_name
+#         opp_card = ((fresh.get("cards") or {}).get("opportunities") or {})
+#         data = (opp_card.get("data") or [])[:limit]
+#         return Response(
+#             {
+#                 "company": name,
+#                 "company_id": company_id,
+#                 "industry": industry,
+#                 "count": len(data),
+#                 "opportunities": data
+#             },
+#             status=200,
+#         )
+
+#     # --- Freshness check (same logic as trending/ideas) ---
+#     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.opportunities": 1})
+#     opp_card = ((prof or {}).get("cards") or {}).get("opportunities") or {}
+#     next_refresh_at = opp_card.get("next_refresh_at")
+#     next_refresh_date = _parse_iso_to_date(next_refresh_at)
+#     today_utc = datetime.now(timezone.utc).date()
+
+#     # If still fresh and has data → return schema
+#     if next_refresh_date and today_utc < next_refresh_date and (opp_card.get("data") or []):
+#         return _read_schema_and_respond()
+
+#     # --- Refresh path: call AI runner (best-effort) ---
+#     try:
+#         # opportunities_run signature expects name, not id
+#         results = opportunities_run(
+#             company_name=company_name,
+#             industry_name=industry,
+#             limit=limit,
+#             min_relevance=min_relevance,
+#             verbose=verbose,
+#         ) or []
+
+#         # If the runner returned data but didn't persist, we persist here
+#         if isinstance(results, list):
+#             now = datetime.now(timezone.utc)
+#             new_block = {
+#                 "data": results[:limit],                  # list[dict] of opportunities
+#                 "updated_at": _iso_z(now),
+#                 "next_refresh_at": _iso_z(now + timedelta(days=7)),  # +7 days
+#             }
+#             db["company_profiles"].update_one(
+#                 {"_id": ObjectId(company_id)},
+#                 {"$set": {"cards.opportunities": new_block}}
+#             )
+#     except Exception as e:
+#         logger.warning("opportunities_run failed; returning schema as-is. %s", e)
+
+#     # --- Re-read schema and return source of truth ---
+#     return _read_schema_and_respond()
+
+
 @api_view(["GET"])
 def ai_opportunities(request):
     """
-    GET /api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4&verbose=0
+    GET /api/ai/opportunities/?company_id=<id>&history_id=<id>&limit=20
 
-    Behavior (same as trending/ideas):
-      - Always return what's stored in company_profiles.cards.opportunities.
-      - If today (UTC) >= next_refresh_at.date() OR next_refresh_at missing:
-          * try opportunities_run(...) (best-effort; may persist itself)
-          * if it returns a list, manually persist into cards.opportunities
-            with updated_at and next_refresh_at = now + 7 days
-          * re-read from Mongo and return that.
+    Behavior:
+      1) Validate params; call AI.collection_card.opportunities.main_opportunities.run(company_id, history_id).
+      2) If the runner persisted a card at company_profiles.cards.opportunities, read it back and return it.
+      3) Otherwise return an acknowledgement that the run completed (or was invoked) with empty items.
     """
+    # Ensure the runner is importable
     if opportunities_run is None:
         return Response({"error": "opportunities.run not available"}, status=500)
 
     db = get_mongo_db()
 
-    # --- Inputs ---
-    company_id   = (request.GET.get("company_id") or "").strip() or None
-    company_name = (request.GET.get("company") or "").strip() or None
-    industry     = (request.GET.get("industry") or "").strip()
+    company_id = (request.GET.get("company_id") or "").strip()
+    history_id = (request.GET.get("history_id") or "").strip()
 
-    if not industry:
-        return Response({"error": "industry is required"}, status=400)
-    if not company_id and not company_name:
-        return Response({"error": "company_id (or company name) is required"}, status=400)
+    if not company_id:
+        return Response({"error": "company_id is required"}, status=400)
+    if not history_id:
+        return Response({"error": "history_id is required"}, status=400)
 
-    # Resolve company (support name or id)
-    if not company_id and company_name:
-        doc = get_company_profile(name=company_name)
-        if not doc:
-            return Response({"error": f"Company '{company_name}' not found"}, status=404)
-        company_id = str(doc["_id"])
-
-    if company_id and not company_name:
-        prof_name = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
-        if prof_name:
-            company_name = prof_name.get("name")
-
-    # ints/floats
+    # basic limit guard (only used when reading back any persisted data)
     try:
         limit = int(request.GET.get("limit", 20))
     except Exception:
         limit = 20
     limit = max(1, min(limit, 200))
 
+    # Validate ObjectId shape early for clearer errors
     try:
-        min_relevance = float(request.GET.get("min_relevance", 0.4))
+        _ = ObjectId(company_id)
+        _ = ObjectId(history_id)
     except Exception:
-        min_relevance = 0.4
+        return Response({"error": "company_id and history_id must be valid ObjectId strings"}, status=400)
 
-    # bool
-    verbose = str(request.GET.get("verbose", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+    # Optional: get name for nice response payloads
+    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1}) or {}
+    company_name = prof.get("name")
 
-    # --- Helper: read schema + respond ---
-    def _read_schema_and_respond():
-        fresh = db["company_profiles"].find_one(
-            {"_id": ObjectId(company_id)},
-            {"name": 1, "cards.opportunities": 1}
-        )
-        if not fresh:
-            return Response({"error": "company profile not found"}, status=404)
-        name = fresh.get("name") or company_name
-        opp_card = ((fresh.get("cards") or {}).get("opportunities") or {})
-        data = (opp_card.get("data") or [])[:limit]
+    # ---- Call the AI runner (authoritative business logic) ----
+    try:
+        # Your runner signature: run(company_id: str, history_id: str)
+        opportunities_run(company_id=company_id, history_id=history_id)
+    except Exception as e:
+        logger.exception("opportunities_run failed: %s", e)
+        # Even if AI fails, fall through to attempt reading whatever exists
+        # (keeps the endpoint resilient)
+
+    # ---- Read back (if the runner persisted a card) ----
+    fresh = db["company_profiles"].find_one(
+        {"_id": ObjectId(company_id)},
+        {"name": 1, "cards.opportunities": 1}
+    ) or {}
+
+    name = fresh.get("name") or company_name or None
+    opp_card = ((fresh.get("cards") or {}).get("opportunities") or {})
+    data = (opp_card.get("data") or [])[:limit]
+
+    # If we have persisted data, return it; otherwise return an ack
+    if data:
         return Response(
             {
                 "company": name,
                 "company_id": company_id,
-                "industry": industry,
+                "history_id": history_id,
                 "count": len(data),
-                "opportunities": data
+                "opportunities": data,
+                "updated_at": opp_card.get("updated_at"),
+                "next_refresh_at": opp_card.get("next_refresh_at"),
             },
             status=200,
         )
 
-    # --- Freshness check (same logic as trending/ideas) ---
-    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.opportunities": 1})
-    opp_card = ((prof or {}).get("cards") or {}).get("opportunities") or {}
-    next_refresh_at = opp_card.get("next_refresh_at")
-    next_refresh_date = _parse_iso_to_date(next_refresh_at)
-    today_utc = datetime.now(timezone.utc).date()
+    # No persisted data yet (runner printed/processed but didn’t write)
+    return Response(
+        {
+            "company": name,
+            "company_id": company_id,
+            "history_id": history_id,
+            "count": 0,
+            "opportunities": [],
+            "message": "opportunities.run invoked. No card data found yet.",
+        },
+        status=200,
+    )
 
-    # If still fresh and has data → return schema
-    if next_refresh_date and today_utc < next_refresh_date and (opp_card.get("data") or []):
-        return _read_schema_and_respond()
-
-    # --- Refresh path: call AI runner (best-effort) ---
-    try:
-        # opportunities_run signature expects name, not id
-        results = opportunities_run(
-            company_name=company_name,
-            industry_name=industry,
-            limit=limit,
-            min_relevance=min_relevance,
-            verbose=verbose,
-        ) or []
-
-        # If the runner returned data but didn't persist, we persist here
-        if isinstance(results, list):
-            now = datetime.now(timezone.utc)
-            new_block = {
-                "data": results[:limit],                  # list[dict] of opportunities
-                "updated_at": _iso_z(now),
-                "next_refresh_at": _iso_z(now + timedelta(days=7)),  # +7 days
-            }
-            db["company_profiles"].update_one(
-                {"_id": ObjectId(company_id)},
-                {"$set": {"cards.opportunities": new_block}}
-            )
-    except Exception as e:
-        logger.warning("opportunities_run failed; returning schema as-is. %s", e)
-
-    # --- Re-read schema and return source of truth ---
-    return _read_schema_and_respond()
 
 
 # --- Company profiles: create/update one ---
