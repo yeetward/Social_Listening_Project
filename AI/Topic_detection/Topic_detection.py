@@ -1,9 +1,5 @@
-"""
-Topic Detection Module
-Identifies main topics, subtopics, and keywords from large text documents
-Supports multiple detection strategies: LLM-based, NLP-based, and hybrid
-"""
-
+# AI/Topic_detection/Topic_detection.py
+from __future__ import annotations
 import sys
 import os
 import json
@@ -15,14 +11,6 @@ from collections import Counter
 current_dir = os.path.dirname(os.path.abspath(__file__))
 ai_dir = os.path.dirname(current_dir)
 sys.path.insert(0, ai_dir)
-
-# from collection_card.gpt import load_model
-
-# def detect_topic_simple(text:str) -> str:
-#     return "topic"# AI/Topic_detection/Topic_detection.py
-from __future__ import annotations
-import re
-from collections import Counter
 
 _WORD = re.compile(r"[A-Za-z0-9]+")
 
@@ -524,11 +512,3 @@ def detect_topics_json(text: str, strategy: str = "nlp", use_topic_modeling: boo
     """
     result = detect_topics(text, strategy, use_topic_modeling)
     return json.dumps(result, indent=2)
-
-
-# Legacy function for compatibility
-def detect_topic_simple(text: str) -> str:
-    """Simple topic detection (returns first main topic)"""
-    result = detect_topics(text, strategy="nlp")
-    topics = result.get("main_topics", [])
-    return topics[0] if topics else "general"

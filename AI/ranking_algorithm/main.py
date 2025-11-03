@@ -23,13 +23,8 @@ from AI.ranking_algorithm.engagement_scorer import engagement_score
 
 # --- Summarization + Topic Detection ---
 from AI.Topic_detection.Topic_detection import detect_topic_simple
-<<<<<<< Updated upstream
-from AI.Text_summarisation.main_summaries import run as generate_summary
-from AI.ranking_algorithm.check_history import clauses
-
-=======
 from AI.Text_summarisation.main_summaries import generate_summary
->>>>>>> Stashed changes
+from AI.ranking_algorithm.check_history import clauses
 
 # --- Sentiment Analysis ---
 from AI.sentiment_analysis.sentiment_analyzer import quick_sentiment
@@ -40,8 +35,8 @@ from AI.ranking_algorithm.mongo import write_ai_results_batch
 TOPK = 200
 
 ALGORITHMS = {
-    "tfidf": lambda keyword, doc: score_tfidf_simple(keyword, doc["text"]),
-    "sbert": lambda keyword, doc: sbert_score_one(keyword, doc["text"]),
+    "tfidf": lambda keyword, doc: score_tfidf_simple(keyword, doc),
+    "sbert": lambda keyword, doc: sbert_score_one(keyword, doc),
     "engagement": lambda keyword, doc: engagement_score(doc),
 }
 
@@ -97,32 +92,23 @@ def fetch_docs(history_id: str):
             if text_fallback:
                 hits += 1
 
-                # merge engagement from multiple containers
-                eng = (
-                    raw_doc.get("engagement")
-                    or raw_doc.get("stats")
-                    or raw_doc.get("metrics")
-                    or {}
-                )
-
                 # fallback: look into ai_results for any stored engagement/meta
                 ai_meta = db.ai_results.find_one(
                     {"_id": q.get("_id")},
                     {"engagement": 1, "stats": 1, "metrics": 1, "meta.engagement": 1}
                 ) or {}
 
-                if not eng:
-                    eng = (
-                        ai_meta.get("engagement")
-                        or ai_meta.get("stats")
-                        or ai_meta.get("metrics")
-                        or (ai_meta.get("meta") or {}).get("engagement")
-                        or {}
-                    )
+                eng = (
+                    ai_meta.get("engagement")
+                    or ai_meta.get("stats")
+                    or ai_meta.get("metrics")
+                    or (ai_meta.get("meta") or {}).get("engagement")
+                    or {}
+                )
 
                 docs.append({
-                    "_id": raw_id or url,             # stable key for scoring maps
-                    "text": raw_doc.get("text", ""),
+                    "_id": raw_id or url,
+                    "text": text_fallback,
                     "engagement": eng,
                     "source": q.get("source"),
                     "published_ts": q.get("published_ts"),
@@ -217,12 +203,6 @@ def run(history_id: str, keyword: str):
             try:
                 if a == "sbert":
                     raw_score = ALGORITHMS["sbert"](keyword, d) if d["_id"] in top_ids else 0.0
-<<<<<<< Updated upstream
-                elif a == "tfidf":
-                    raw_score = ALGORITHMS["tfidf"](keyword, d)
-                elif a == "engagement":
-                    raw_score = ALGORITHMS["engagement"](keyword, d)
-=======
                     print(f"[DEBUG] SBERT score for doc {d['_id']}: {raw_score}")
                 elif a == "tfidf":
                     raw_score = ALGORITHMS["tfidf"](keyword, d)
@@ -230,7 +210,6 @@ def run(history_id: str, keyword: str):
                 elif a == "engagement":
                     raw_score = ALGORITHMS["engagement"](keyword, d)
                     print(f"[DEBUG] Engagement score for doc {d['_id']}: {raw_score}")
->>>>>>> Stashed changes
                 else:
                     raw_score = 0.0
             except Exception:
@@ -247,12 +226,11 @@ def run(history_id: str, keyword: str):
     # Summarize + Topic + Sentiment + Write back
     items = []
     for rank, (score, d, per_algo) in enumerate(rows, start=1):
-        # ... inside for rank, (score, d, per_algo) in enumerate(rows, start=1):
-
+        # Generate new summary/topic
         summary = generate_summary(d["text"]) or ""
         topic   = detect_topic_simple(d["text"]) or ""
-        
-                # Preserve existing ai_title / ai_summary if blank
+
+        # Preserve existing ai_title / ai_summary if blank
         hid_q = clauses(history_id)
         existing = db.ai_results.find_one(
             {"$and": [{"url": d["url"]}, hid_q]},
@@ -270,27 +248,7 @@ def run(history_id: str, keyword: str):
         if not topic:
             topic = "General"
 
-
-        # If we still got blanks, try to keep any existing ai_title/ai_summary (don’t overwrite with empties)
-        # existing = db.ai_results.find_one({"url": d["url"], **_hid_clause(history_id)},
-        #                                 {"ai_title":1,"ai_summary":1})
-        if existing:
-            if not topic and existing.get("ai_title"):      # keep old title
-                topic = existing["ai_title"]
-            if not summary and existing.get("ai_summary"):  # keep old summary
-                summary = existing["ai_summary"]
-
-        # as a final fallback, create a tiny lead-1 “summary” from the text
-        if not summary:
-            summary = (d["text"][:400] + "…") if len(d["text"]) > 400 else d["text"]
-
-        if not topic:
-            topic = "General"
-
-
-        summary = generate_summary(d["text"])
-        topic = detect_topic_simple(d["text"])
-        sentiment = quick_sentiment(d["text"], method='vader')  # 'positive', 'negative', or 'neutral'
+        sentiment = quick_sentiment(d["text"], method='vader')
         items.append({
             "url": d["url"],
             "raw_id": d["_id"],
@@ -300,17 +258,11 @@ def run(history_id: str, keyword: str):
             "ai_title": topic,
             "ai_summary": summary,
             "tags": [topic],
-            "sentiment": sentiment,  
+            "sentiment": sentiment,
             "source": d["source"],
             "published_ts": d["published_ts"],
             "status": "done",
-<<<<<<< Updated upstream
-        #     "has_placeholder": has_placeholder,
-         })
-
-=======
         })
->>>>>>> Stashed changes
     write_ai_results_batch(history_id, items)
     print(f"[SUCCESS] Processed & saved {len(items)} AI-ranked articles.")
     return rows
