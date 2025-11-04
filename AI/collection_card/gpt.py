@@ -36,7 +36,7 @@ def load_model(prompt, max_tokens=256, temperature=1.0, stream=True):
     """
     
     # Initialize Groq client
-    api_key = os.getenv("GROQ_API_KEY", "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")  # Replace with your key
+    api_key = os.getenv("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")  # Replace with your key
     client = Groq(api_key=api_key)
     
     # Model selection (equivalent to your 120B model)
