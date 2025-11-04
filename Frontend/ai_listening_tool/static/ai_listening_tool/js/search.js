@@ -172,6 +172,42 @@ async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
 }
 
 /**
+ * Format description with last sentence in bold
+ */
+function formatDescriptionWithBoldLastSentence(description) {
+  if (!description || !description.trim()) return null;
+  
+  // Split by sentence-ending punctuation (., !, ?)
+  const sentences = description.match(/[^.!?]+[.!?]+/g) || [description];
+  
+  if (sentences.length === 0) return null;
+  
+  const div = document.createElement("div");
+  div.style.fontWeight = "normal";
+  
+  if (sentences.length === 1) {
+    // Only one sentence, make it bold
+    const bold = document.createElement("strong");
+    bold.textContent = sentences[0].trim();
+    div.appendChild(bold);
+  } else {
+    // Multiple sentences: normal text for all but last, bold for last
+    const allButLast = sentences.slice(0, -1).join(' ').trim();
+    const lastSentence = sentences[sentences.length - 1].trim();
+    
+    if (allButLast) {
+      div.appendChild(document.createTextNode(allButLast + ' '));
+    }
+    
+    const bold = document.createElement("strong");
+    bold.textContent = lastSentence;
+    div.appendChild(bold);
+  }
+  
+  return div;
+}
+
+/**
  * Fetch AI-generated ideas from the API
  */
 async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
@@ -184,7 +220,7 @@ async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
 
     const params = new URLSearchParams({
       company_id: companyId,
-      limit: "3"
+      limit: "2"
     });
 
     const apiUrl = `${API_BASE_URL}/ai/ideas/?${params}`;
@@ -237,17 +273,33 @@ async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
 
       let title, description;
 
-      // If insight is a string, display it as-is
+      // If insight is a string, parse "Action: ..." format
       if (typeof insight === 'string') {
         console.log(`  Idea ${index + 1} (STRING):`, insight);
-        title = insight;
-        description = "";
+        
+        // Check if string contains "Action:" format
+        const actionMatch = insight.match(/^(Action:[^\n]*)\n?([\s\S]*)?$/i);
+        if (actionMatch) {
+          title = actionMatch[1].trim(); // "Action: ..."
+          description = actionMatch[2]?.trim() || "";
+        } else {
+          // If no "Action:" format, use the whole string as title
+          title = insight;
+          description = "";
+        }
       }
       // If insight is an object, extract fields
       else if (typeof insight === 'object' && insight !== null) {
         console.log(`  Idea ${index + 1} (OBJECT):`, JSON.stringify(insight, null, 2));
-        title = insight.title || insight.idea || insight.name || "Untitled";
-        description = insight.description || insight.summary || insight.explanation || insight.text || "";
+        
+        // Check for action field first
+        if (insight.action) {
+          title = `Action: ${insight.action}`;
+          description = insight.description || insight.summary || insight.explanation || insight.text || "";
+        } else {
+          title = insight.title || insight.idea || insight.name || "Untitled";
+          description = insight.description || insight.summary || insight.explanation || insight.text || "";
+        }
       }
       // Fallback for unexpected types
       else {
@@ -263,7 +315,10 @@ async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
       li.appendChild(strong);
 
       if (description) {
-        li.appendChild(document.createTextNode(" — " + description));
+        const descDiv = formatDescriptionWithBoldLastSentence(description);
+        if (descDiv) {
+          li.appendChild(descDiv);
+        }
       }
 
       ideasList.appendChild(li);
@@ -277,12 +332,28 @@ async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
       stack: error.stack
     });
 
-    // Show fallback content
-    ideasList.innerHTML = `
-      <li><strong>Community Health Data Hubs</strong> — open dashboards tracking local health metrics, setting benchmark data, allowing policy and practice decisions....</li>
-      <li><strong>Climate & Health Initiatives</strong> — hospital heat index programs and air quality monitoring with alerts focused on vulnerable patient populations....</li>
-      <li><strong>Health Literacy Campaigns</strong> — workshops and digital resources helping patients understand treatment options, insurance terms, and preventive care measures....</li>
-    `;
+    // Show fallback content (2 ideas only)
+    ideasList.innerHTML = '';
+    
+    const fallbackIdea1 = document.createElement("li");
+    const strong1 = document.createElement("strong");
+    strong1.textContent = "Action: Community Health Data Hubs";
+    fallbackIdea1.appendChild(strong1);
+    const desc1 = formatDescriptionWithBoldLastSentence("Open dashboards tracking local health metrics, setting benchmark data, allowing policy and practice decisions.");
+    if (desc1) {
+      fallbackIdea1.appendChild(desc1);
+    }
+    ideasList.appendChild(fallbackIdea1);
+    
+    const fallbackIdea2 = document.createElement("li");
+    const strong2 = document.createElement("strong");
+    strong2.textContent = "Action: Climate & Health Initiatives";
+    fallbackIdea2.appendChild(strong2);
+    const desc2 = formatDescriptionWithBoldLastSentence("Hospital heat index programs and air quality monitoring with alerts focused on vulnerable patient populations.");
+    if (desc2) {
+      fallbackIdea2.appendChild(desc2);
+    }
+    ideasList.appendChild(fallbackIdea2);
     // Add a subtle note
     const note = document.createElement("li");
     note.style.fontSize = "12px";

@@ -406,10 +406,11 @@
 }
 
 #rmtool .rm-list--links a {
-  color: var(--rm-link);
+  color: var(--rm-text);
   text-decoration: none;
   font-weight: 400;
   word-break: break-all;
+  transition: color 0.2s ease;
 }
 
 #rmtool .rm-list--links a:hover {
