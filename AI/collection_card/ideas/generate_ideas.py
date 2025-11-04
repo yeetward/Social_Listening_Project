@@ -77,6 +77,7 @@ REQUIREMENTS:
 3. DO NOT reference specific articles or sources in the idea text
 4. Mix different categories - don't focus on just one type
 5. Be creative but practical based on the industry trends you see
+6. Remove all the AI markers
 
 IMPORTANT: Return a MINIMUM of 2 ideas and a MAXIMUM of 6 ideas.
 
