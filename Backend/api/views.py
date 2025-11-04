@@ -882,19 +882,33 @@ def search_posts(request):
     if not subject:
         return Response({"error": "subject is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # per-source fetch amount (increase pool)
-    try:
-        fetch_limit = int(data.get("fetch_limit") or 120)
-    except Exception:
-        fetch_limit = 120
-    fetch_limit = max(10, min(fetch_limit, 200))
+    # # per-source fetch amount (increase pool)
+    # try:
+    #     fetch_limit = int(data.get("fetch_limit") or 120)
+    # except Exception:
+    #     fetch_limit = 120
+    # fetch_limit = max(10, min(fetch_limit, 200))
 
-    # total to persist into raw_insights
+    # # total to persist into raw_insights
+    # try:
+    #     persist_pool_limit = int(data.get("persist_pool_limit") or 500)
+    # except Exception:
+    #     persist_pool_limit = 500
+    # persist_pool_limit = max(50, min(persist_pool_limit, 2000))
+
+    # per-source fetch amount (reduce network/CPU)
     try:
-        persist_pool_limit = int(data.get("persist_pool_limit") or 500)
+        fetch_limit = int(data.get("fetch_limit") or 60)   # was 120
     except Exception:
-        persist_pool_limit = 500
-    persist_pool_limit = max(50, min(persist_pool_limit, 2000))
+        fetch_limit = 60
+    fetch_limit = max(5, min(fetch_limit, 100))            # was 10..200
+
+    # total to persist into raw_insights (reduce DB + AI load)
+    try:
+        persist_pool_limit = int(data.get("persist_pool_limit") or 300)  # was 500
+    except Exception:
+        persist_pool_limit = 300
+    persist_pool_limit = max(50, min(persist_pool_limit, 800))           # was 50..2000
 
     # freshness window
     try:
