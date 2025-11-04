@@ -2006,34 +2006,45 @@ def ai_generate_ideas(request):
     return _read_schema_and_respond()
 
 
-@api_view(["POST"])
+@api_view(["GET", "POST"])
 def ai_competitors(request):
     """
+    GET  /api/ai/competitors/?company_id=<id>
     POST /api/ai/competitors/
-    Body:
-      { "company": "EcoDrive Motors" }
+         { "company_id": "<id>" }
 
     Returns:
       [ "Tesla Motors", "BYD Auto", "Rivian Automotive" ]
     """
     try:
         db = get_mongo_db()
-        data = request.data or {}
-        company_name = (data.get("company") or "").strip()
 
-        if not company_name:
-            return Response({"error": "company name required"}, status=400)
+        # Accept both GET or POST input
+        data = request.data if request.method == "POST" else request.GET
+        company_id = (data.get("company_id") or "").strip()
 
-        doc = db["company_profiles"].find_one({"name": company_name})
+        if not company_id:
+            return Response({"error": "company_id is required"}, status=400)
+
+        # Validate ObjectId format
+        try:
+            oid = ObjectId(company_id)
+        except Exception:
+            return Response({"error": "invalid company_id (must be 24-character ObjectId)"}, status=400)
+
+        # Find company document
+        doc = db["company_profiles"].find_one({"_id": oid})
         if not doc:
             return Response({"error": "company not found"}, status=404)
 
+        # Return competitors field
         competitors = doc.get("competitors", [])
         return Response(competitors, status=200)
 
     except Exception as e:
-        logger.exception("ai_competitors simple error: %s", e)
+        logger.exception("ai_competitors error: %s", e)
         return Response({"error": str(e)}, status=500)
+
 
 
 # Accept GET to match your cards pattern (keeps POST body fallback for compatibility)
