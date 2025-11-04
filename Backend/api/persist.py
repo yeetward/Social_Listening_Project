@@ -184,10 +184,50 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
     return len(ops)
 
 
+# def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
+#     """
+#     Upsert a batch of ai_results for a given history_id.
+#     Each item should include at least: url, rank, ai_title, ai_summary.
+#     """
+#     db = get_mongo_db()
+#     col = db["ai_results"]
+
+#     ops = []
+#     now = datetime.now(timezone.utc)
+#     for it in items:
+#         url = (it.get("url") or "").strip()
+#         if not url:
+#             continue
+
+#         selector = {"history_id": ObjectId(history_id), "url": url}
+#         docset = {
+#             "history_id": ObjectId(history_id),
+#             "url": url,
+#             "raw_id": it.get("raw_id"),
+#             "rank": it.get("rank"),
+#             "relevance_score": it.get("relevance_score"),
+#             "ai_title": it.get("ai_title"),
+#             "ai_summary": it.get("ai_summary"),
+#             "tags": it.get("tags"),
+#             "influencer_mentions": it.get("influencer_mentions"),
+#             "backlinks": it.get("backlinks"),
+#             "source": it.get("source"),
+#             "published_ts": it.get("published_ts"),
+#             "status": it.get("status") or "done",
+#             "finished_at": now,
+#         }
+#         ops.append(UpdateOne(selector, {"$set": docset, "$setOnInsert": {"created_at": now}}, upsert=True))
+
+#     result = col.bulk_write(ops) if ops else None
+#     upserts = getattr(result, "upserted_count", 0) if result else 0
+#     updates = getattr(result, "modified_count", 0) if result else 0
+#     return upserts, updates
+
 def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
     """
     Upsert a batch of ai_results for a given history_id.
     Each item should include at least: url, rank, ai_title, ai_summary.
+    Optionally may include: sentiment, engagement metrics (likes, shares, comments, etc.)
     """
     db = get_mongo_db()
     col = db["ai_results"]
@@ -215,8 +255,19 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
             "published_ts": it.get("published_ts"),
             "status": it.get("status") or "done",
             "finished_at": now,
+
+            # 🆕 New optional AI fields
+            "sentiment": it.get("sentiment"),
+            "engagement_metrics": it.get("engagement_metrics"),  # dict like {"likes": 20, "shares": 5}
         }
-        ops.append(UpdateOne(selector, {"$set": docset, "$setOnInsert": {"created_at": now}}, upsert=True))
+
+        ops.append(
+            UpdateOne(
+                selector,
+                {"$set": docset, "$setOnInsert": {"created_at": now}},
+                upsert=True
+            )
+        )
 
     result = col.bulk_write(ops) if ops else None
     upserts = getattr(result, "upserted_count", 0) if result else 0
