@@ -3,7 +3,7 @@ from AI.collection_card.ideas import generate_ideas
 from datetime import datetime
 
 
-def run(company_id: str, num_searches: int = 10, articles_per_search: int = 10):
+def run(company_id: str, num_searches: int = 5, articles_per_search: int = 5):
     """
     Generate ideas from articles across recent searches.
     Does NOT require a history_id - analyzes the last N searches automatically.

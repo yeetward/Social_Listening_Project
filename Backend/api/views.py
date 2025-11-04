@@ -752,7 +752,7 @@ except Exception as e:
 
 
 try:
-    from AI.collection_card.ideas.main_insights import run as ideas_run
+    from AI.collection_card.ideas.main_ideas import run as ideas_run
 except Exception as e:
     ideas_run = None
     logger.warning("Failed to import ideas.run(): %s", e)
@@ -1945,16 +1945,32 @@ def ai_generate_ideas(request):
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
             {"name": 1, "cards.ideas": 1}
-        )
-        if not fresh:
-            return Response({"error": "company profile not found"}, status=404)
+        ) or {}
         name = fresh.get("name") or company_name
+
         ideas_card = ((fresh.get("cards") or {}).get("ideas") or {})
-        data = (ideas_card.get("data") or [])[:limit]
+
+        # --- compatibility: accept legacy keys ---
+        data = ideas_card.get("data")
+        if not data:
+            # legacy shapes we’ve seen in runner code
+            data = ideas_card.get("ideas") or ideas_card.get("items") or []
+
+            # optional: migrate to normalized key so next read is clean
+            if data:
+                db["company_profiles"].update_one(
+                    {"_id": ObjectId(company_id)},
+                    {"$set": {"cards.ideas.data": data}},
+                )
+                ideas_card["data"] = data  # keep local var in sync
+
+        data = (data or [])[:limit]
+
         return Response(
             {"company": name, "company_id": company_id, "count": len(data), "insights": data},
             status=200,
         )
+
 
     # ----- freshness check (skip if force) -----
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1})
@@ -2500,7 +2516,7 @@ def ai_opportunities(request):
 
     name = fresh.get("name") or company_name or None
     opp_card = ((fresh.get("cards") or {}).get("opportunities") or {})
-    data = (opp_card.get("data") or [])[:limit]
+    data = (opp_card.get("opportunities") or [])[:limit]
 
     # If we have persisted data, return it; otherwise return an ack
     if data:
