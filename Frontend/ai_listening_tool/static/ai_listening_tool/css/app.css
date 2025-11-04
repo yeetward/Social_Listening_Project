@@ -1639,7 +1639,7 @@
 #rmtool .rm-top-card-list li {
   padding: 6px 0;
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 400 !important;
   color: var(--rm-text);
   line-height: 1.4;
   border-bottom: 1px solid var(--rm-border-light);
@@ -1657,7 +1657,8 @@
 }
 
 #rmtool .rm-opportunities-list li>span {
-  display: inline-block
+  display: inline-block;
+  font-weight: 400;
 }
 
 #rmtool .rm-opportunity-bullet {
