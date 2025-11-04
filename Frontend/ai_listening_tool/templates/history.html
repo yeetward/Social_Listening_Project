@@ -259,8 +259,8 @@
     tbody.innerHTML = pageItems.map(item => {
       const dateSearched = formatDate(item.created_at);
       const topic = item.subject || 'Untitled';
-      // Use ai_count from API response
-      const engagement = formatEngagement(item.ai_count || 0);
+      // Always show 0 for engagement
+      const engagement = '0';
       const historyId = item.history_id;
 
       return `

@@ -1683,7 +1683,7 @@
                 <div class="rm-result-meta-row">
                   <span class="rm-result-meta-label">Engagement:</span>
                   <span class="rm-result-engagement">
-                    ${engagement !== 'N/A' ? '<span class="rm-result-engagement-icon">▲</span> ' : ''}${engagement}
+                    ${engagement !== 'N/A' ? `<span class="rm-engagement-up">▲ ${engagement}</span>` : engagement}
                   </span>
                 </div>
                 <div class="rm-result-meta-row">
@@ -1726,7 +1726,7 @@
 
     if (pages === 0) return '';
 
-    let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹ Prev</button>';
+    let btns = '<button class="rm-page-arrow rm-page-prev" data-nav="prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹</button>';
 
     // Show all pages if 10 or fewer, otherwise show smart pagination
     if (pages <= 10) {
@@ -1777,7 +1777,7 @@
       }
     }
 
-    btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>Next ›</button>';
+    btns += '<button class="rm-page-arrow rm-page-next" data-nav="next" ' + (currentPage >= pages ? 'disabled' : '') + '>›</button>';
     return `<div class="rm-results-pager">${btns}</div>`;
   }
 
