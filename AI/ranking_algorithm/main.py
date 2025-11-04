@@ -22,7 +22,7 @@ from AI.ranking_algorithm.sbert_scorer import sbert_score_one
 from AI.ranking_algorithm.engagement_scorer import engagement_score
 
 # --- Summarization + Topic Detection ---
-from AI.Topic_detection.Topic_detection import detect_topic_simple
+from AI.Topic_detection.Topic_detection import detect_topic_simple, detect_topics
 from AI.Text_summarisation.main_summaries import generate_summary
 from AI.ranking_algorithm.check_history import clauses
 
@@ -230,6 +230,19 @@ def run(history_id: str, keyword: str):
         summary = generate_summary(d["text"]) or ""
         topic   = detect_topic_simple(d["text"]) or ""
 
+        # Generate tags using advanced topic detection
+        try:
+            topic_result = detect_topics(d["text"], strategy='nlp', use_topic_modeling=True)
+            tags = topic_result.get("main_topics", [])[:5]  # Limit to top 5 tags
+            # Capitalize tags properly
+            tags = [tag.title() if tag else "" for tag in tags]
+            tags = [tag for tag in tags if tag]  # Remove empty strings
+            if not tags:
+                tags = [topic] if topic else ["General"]
+        except Exception as e:
+            print(f"[WARN] Advanced topic detection failed: {e}, falling back to simple")
+            tags = [topic] if topic else ["General"]
+
         # Preserve existing ai_title / ai_summary if blank
         hid_q = clauses(history_id)
         existing = db.ai_results.find_one(
@@ -258,7 +271,7 @@ def run(history_id: str, keyword: str):
             "engagement_score": per_algo.get("engagement", 0.0),  # Extract engagement score for easy access
             "ai_title": topic,
             "ai_summary": summary,
-            "tags": [topic],
+            "tags": tags,  # Now uses proper topic list from advanced detection
             "sentiment": sentiment,
             "source": d["source"],
             "published_ts": d["published_ts"],
