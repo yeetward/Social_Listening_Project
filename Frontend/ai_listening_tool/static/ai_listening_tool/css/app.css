@@ -486,6 +486,7 @@
   font-style: italic;
   font-size: 16px;
   font-weight: 400;
+  grid-column: 1 / -1; /* Span all columns in grid layouts */
 }
 
 #rmtool .rm-loading {
@@ -495,6 +496,7 @@
   font-style: italic;
   font-size: 14px;
   font-weight: 400;
+  grid-column: 1 / -1; /* Span all columns in grid layouts */
 }
 
 /* Results-only minimal styling */
@@ -1889,7 +1891,7 @@
   max-width: 100%;
 }
 
-/* Pager below results */
+/* Pager below results - MATCH HISTORY PAGE STYLE */
 #rmtool .rm-results-pager {
   display: flex;
   gap: 8px;
@@ -1900,60 +1902,72 @@
 }
 
 #rmtool .rm-results-pager button {
-  min-width: 40px;
-  height: 40px;
+  min-width: 36px;
+  height: 36px;
   padding: 0 12px;
   background: #fff;
-  border: 1px solid var(--rm-border);
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
+  color: #374151;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #rmtool .rm-results-pager button:hover:not(:disabled):not(.rm-page-active) {
-  border-color: var(--rm-primary-red);
-  color: var(--rm-primary-red);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(237, 28, 36, 0.2);
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 #rmtool .rm-results-pager button.rm-page-active {
   background: var(--rm-primary-red);
   color: #fff;
   border-color: var(--rm-primary-red);
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(237, 28, 36, 0.3);
 }
 
 #rmtool .rm-results-pager button:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-#rmtool .rm-results-pager .rm-page-arrow {
-  background: var(--rm-pill);
-  border: 1px solid var(--rm-border);
-  font-size: 20px;
+#rmtool .rm-results-pager .rm-page-arrow,
+#rmtool .rm-results-pager .rm-page-prev,
+#rmtool .rm-results-pager .rm-page-next {
+  background: transparent;
+  border: none;
+  font-size: 18px;
   font-weight: 700;
   color: var(--rm-primary-dark);
-  padding: 0 12px;
-  min-width: 40px;
-  height: 40px;
+  cursor: pointer;
+  padding: 0 8px;
+  transition: opacity 0.2s;
 }
 
-#rmtool .rm-results-pager .rm-page-arrow:hover:not(:disabled) {
-  background: var(--rm-primary-red);
-  border-color: var(--rm-primary-red);
-  color: #fff;
-  transform: translateY(-1px);
+#rmtool .rm-results-pager .rm-page-arrow:hover:not(:disabled),
+#rmtool .rm-results-pager .rm-page-prev:hover:not(:disabled),
+#rmtool .rm-results-pager .rm-page-next:hover:not(:disabled) {
+  opacity: 0.7;
+}
+
+#rmtool .rm-results-pager .rm-page-arrow:disabled,
+#rmtool .rm-results-pager .rm-page-prev:disabled,
+#rmtool .rm-results-pager .rm-page-next:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 #rmtool .rm-results-pager .rm-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 8px;
-  color: var(--rm-text-secondary);
-  font-weight: 500;
+  color: #6b7280;
+  font-size: 14px;
+  user-select: none;
 }
 
 /* Result Card Items - New Style */
@@ -2033,7 +2047,8 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--rm-text-secondary);
-  min-width: 75px;
+  min-width: 95px;
+  white-space: nowrap;
 }
 
 /* Insight Badge */
@@ -2065,8 +2080,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--rm-primary-dark);
   background: var(--rm-border-light);
@@ -2074,11 +2089,13 @@
   border-radius: 12px;
   width: var(--rm-relevance-width);
   padding: 4px 8px;
+  white-space: nowrap;
 }
 
 #rmtool .rm-result-engagement-icon {
   color: var(--rm-text-secondary);
-  font-size: 10px;
+  font-size: 9px;
+  flex-shrink: 0;
 }
 
 /* Relevance Bar */
@@ -2278,4 +2295,19 @@
 #rmtool .rm-searchbar input:focus,
 #rmtool .rm-searchbar input:focus-visible {
   background: #fff !important
+}
+
+/* Prevent blue selection in all search inputs */
+#rmtool input[type="text"]::selection,
+#rmtool .rm-header-input::selection,
+#rmtool .rm-searchbar input::selection {
+  background: var(--rm-border-light) !important;
+  color: inherit !important;
+}
+
+#rmtool input[type="text"]::-moz-selection,
+#rmtool .rm-header-input::-moz-selection,
+#rmtool .rm-searchbar input::-moz-selection {
+  background: var(--rm-border-light) !important;
+  color: inherit !important;
 }

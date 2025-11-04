@@ -398,9 +398,28 @@
     }
   }
 
+  // Prevent text selection after autocomplete fills in
+  function preventAutoSelection(inputElement) {
+    if (!inputElement) return;
+    // Remove selection by moving cursor to end
+    const length = inputElement.value.length;
+    inputElement.setSelectionRange(length, length);
+  }
+
   // Initialize on page load
   document.addEventListener("DOMContentLoaded", () => {
     console.log("History page loaded");
+
+    // Prevent auto-selection on header search input
+    const headerSearchInput = document.getElementById('headerSearchInput');
+    if (headerSearchInput) {
+      headerSearchInput.addEventListener('input', () => {
+        setTimeout(() => preventAutoSelection(headerSearchInput), 10);
+      });
+      headerSearchInput.addEventListener('change', () => {
+        setTimeout(() => preventAutoSelection(headerSearchInput), 10);
+      });
+    }
 
     // Filter checkboxes - single select behavior with date filtering
     const filterCheckboxes = document.querySelectorAll('.rm-date-filter input[type="checkbox"]');

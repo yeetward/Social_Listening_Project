@@ -448,6 +448,106 @@ async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
 }
 
 /**
+ * Fetch competitors from the API
+ */
+async function fetchCompetitors(companyId = "69072b397c33c037fd2da784") {
+  const competitorsList = document.getElementById("competitorsList");
+  if (!competitorsList) return;
+
+  try {
+    // Show loading state
+    competitorsList.innerHTML = '<li class="rm-loading">Loading competitors...</li>';
+
+    const params = new URLSearchParams({
+      company_id: companyId,
+      limit: "14"
+    });
+
+    const apiUrl = `${API_BASE_URL}/ai/competitors/?${params}`;
+    console.log('🏢 Competitors API: Calling URL:', apiUrl);
+
+    const response = await fetchWithTimeout(apiUrl, {}, 30000);
+
+    console.log('📡 Competitors API: Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('📦 COMPETITORS API - FULL RESPONSE:', JSON.stringify(data, null, 2));
+
+    const competitors = data.competitors || [];
+
+    // Clear loading and populate
+    competitorsList.innerHTML = "";
+
+    if (competitors.length === 0) {
+      console.warn('⚠️ COMPETITORS API: No competitors returned');
+      competitorsList.innerHTML = '<li class="rm-empty">No competitors available at this time.</li>';
+      return;
+    }
+
+    console.log(`✅ COMPETITORS API: Rendering ${competitors.length} competitors`);
+
+    // Display competitors (handle both string and object formats)
+    competitors.forEach((competitor, index) => {
+      const li = document.createElement("li");
+      
+      // Handle both string and object formats
+      let competitorName;
+      if (typeof competitor === 'string') {
+        competitorName = competitor;
+      } else if (typeof competitor === 'object' && competitor !== null) {
+        // Extract name from various possible fields
+        competitorName = competitor.name || competitor.competitor || competitor.company || JSON.stringify(competitor);
+      } else {
+        competitorName = String(competitor);
+      }
+
+      li.textContent = competitorName;
+      competitorsList.appendChild(li);
+    });
+
+    console.log('✅ Displayed', competitors.length, 'competitors');
+
+  } catch (error) {
+    console.error('❌ Competitors API: Error occurred:', error);
+    console.error('❌ Competitors API: Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Show fallback content
+    competitorsList.innerHTML = `
+      <li>UnitedHealth Group</li>
+      <li>CVS Health</li>
+      <li>Centene</li>
+      <li>Humana</li>
+      <li>Medtronic</li>
+      <li>HCA Healthcare</li>
+      <li>Cerner</li>
+      <li>DaVita</li>
+      <li>Cardinal Health</li>
+      <li>Cigna</li>
+      <li>Roche International</li>
+      <li>Omnicell</li>
+      <li>Elevance Health</li>
+      <li>Kaiser Permanente</li>
+    `;
+    
+    // Add a subtle note
+    const note = document.createElement("li");
+    note.style.fontSize = "12px";
+    note.style.color = "#999";
+    note.style.fontStyle = "italic";
+    note.textContent = `(Using cached data - API error: ${error.message})`;
+    competitorsList.appendChild(note);
+  }
+}
+
+/**
  * Handle search form submission
  */
 async function handleSearch(subject) {
@@ -529,6 +629,17 @@ async function handleSearch(subject) {
 }
 
 /**
+ * Prevent text selection after autocomplete fills in
+ */
+function preventAutoSelection(inputElement) {
+  if (!inputElement) return;
+  
+  // Remove selection by moving cursor to end
+  const length = inputElement.value.length;
+  inputElement.setSelectionRange(length, length);
+}
+
+/**
  * Initialize the page
  */
 document.addEventListener("DOMContentLoaded", () => {
@@ -540,6 +651,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // Pick the visible text input only
   const input = form.querySelector('input[name="subject"]:not([type="hidden"])');
 
+  // Prevent auto-selection after autocomplete
+  if (input) {
+    input.addEventListener('input', () => {
+      // Small delay to let autocomplete finish
+      setTimeout(() => preventAutoSelection(input), 10);
+    });
+    
+    // Also handle on change event (for some browsers)
+    input.addEventListener('change', () => {
+      setTimeout(() => preventAutoSelection(input), 10);
+    });
+  }
+
   // Check if there's a subject parameter in the URL
   const urlParams = new URLSearchParams(window.location.search);
   const subjectFromUrl = urlParams.get('subject');
@@ -548,6 +672,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Auto-populate the search field
     if (input) {
       input.value = subjectFromUrl.trim();
+      preventAutoSelection(input);
     }
     // Automatically submit the search
     console.log('Auto-submitting search from URL parameter:', subjectFromUrl);
@@ -566,6 +691,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     fetchTopTopics().catch(err => console.error("Failed to load top topics:", err));
     fetchTrendingTopics().catch(err => console.error("Failed to load trending topics:", err));
+    fetchCompetitors().catch(err => console.error("Failed to load competitors:", err));
     fetchIdeas().catch(err => console.error("Failed to load ideas:", err));
     fetchNewsFeed().catch(err => console.error("Failed to load news feed:", err));
   }, 0);
