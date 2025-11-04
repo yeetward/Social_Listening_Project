@@ -477,7 +477,8 @@ async function fetchCompetitors(companyId = "69072b397c33c037fd2da784") {
     const data = await response.json();
     console.log('📦 COMPETITORS API - FULL RESPONSE:', JSON.stringify(data, null, 2));
 
-    const competitors = data.competitors || [];
+    // Handle both array response and object with competitors field
+    const competitors = Array.isArray(data) ? data : (data.competitors || []);
 
     // Clear loading and populate
     competitorsList.innerHTML = "";
