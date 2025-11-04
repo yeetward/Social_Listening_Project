@@ -1,10 +1,32 @@
 // path: social-listening-tool/ai_listening_tool/static/ai_listening_tool/js/history.js
 "use strict";
 
+/**
+ * Convert text to title case (capitalize first, last, and major words)
+ */
+function toTitleCase(str) {
+  if (!str) return str;
+  
+  const minorWords = ['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'in', 'of', 'with'];
+  
+  return str.toLowerCase().split(' ').map((word, index, array) => {
+    // Always capitalize first and last word
+    if (index === 0 || index === array.length - 1) {
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }
+    // Capitalize if not a minor word
+    if (!minorWords.includes(word)) {
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }
+    return word;
+  }).join(' ');
+}
+
 // Render one table row
 function row(i) {
   const when = i.ts ? new Date(i.ts).toLocaleString() : "";
-  return `<tr><td>${i.subject || "Unknown"}</td><td>${i.count ?? 0}</td><td class="ta-right">${when}</td></tr>`;
+  const subject = toTitleCase(i.subject || "Unknown");
+  return `<tr><td>${subject}</td><td>${i.count ?? 0}</td><td class="ta-right">${when}</td></tr>`;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

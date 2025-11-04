@@ -253,12 +253,12 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .rm-top-card-fixed-height .rm-action-form .rm-checklist {
       flex: 1;
-      overflow-y: auto;
+      overflow: visible;
     }
 
     .rm-top-card-fixed-height .rm-action-submit {
@@ -402,6 +402,27 @@
         setTimeout(() => reject(new Error('Request timeout - the server is taking too long to respond')), timeout)
       )
     ]);
+  }
+
+  /**
+   * Convert text to title case (capitalize first, last, and major words)
+   */
+  function toTitleCase(str) {
+    if (!str) return str;
+    
+    const minorWords = ['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'in', 'of', 'with'];
+    
+    return str.toLowerCase().split(' ').map((word, index, array) => {
+      // Always capitalize first and last word
+      if (index === 0 || index === array.length - 1) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      // Capitalize if not a minor word
+      if (!minorWords.includes(word)) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      return word;
+    }).join(' ');
   }
 
   // Get search term from URL
@@ -1169,7 +1190,7 @@
 
       // Build the HTML for topics list
       const topicsHTML = topicsToShow.map(topic => {
-        const tagName = topic._id || 'Unknown';
+        const tagName = toTitleCase(topic._id || 'Unknown');
         const count = topic.count || 0;
         return `<li>${tagName} <span style="color: #999; font-size: 12px;">(${count})</span></li>`;
       }).join('');
@@ -1625,7 +1646,8 @@
     <div class="rm-result-items">
       ${pageItems.map(item => {
       // Use normalized fields with proper fallbacks
-      const title = item.title || item.ai_title || item.headline || 'Untitled';
+      const rawTitle = item.title || item.ai_title || item.headline || 'Untitled';
+      const title = toTitleCase(rawTitle);
       const summaryText = item.summary || item.ai_summary || item.text || item.description || 'No description available.';
       const content = processContent(summaryText);
       const source = item.source || item.platform || 'Unknown Source';
@@ -1798,6 +1820,7 @@
     headerSearchForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const headerInput = document.getElementById('headerSearchInput');
+      const submitButton = headerSearchForm.querySelector('button[type="submit"]');
       const newSubject = (headerInput?.value || "").trim();
 
       if (!newSubject) {
@@ -1805,20 +1828,74 @@
         return;
       }
 
-      // Reset to page 1 for new search
-      currentPage = 1;
+      try {
+        // Show loading state
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Searching...';
+        }
 
-      // Update subject in sessionStorage
-      sessionStorage.setItem("rm_subject", newSubject);
+        // Clear old session data
+        sessionStorage.removeItem('rm_history_id');
+        sessionStorage.removeItem('rm_days');
+        sessionStorage.removeItem('rm_platforms');
+        sessionStorage.removeItem('rm_sentiments');
 
-      // Update URL
-      const params = new URLSearchParams(window.location.search);
-      params.set('subject', newSubject);
-      const newURL = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', newURL);
+        // Store new subject
+        sessionStorage.setItem("rm_subject", newSubject);
 
-      // Just re-render with existing results (filters will still apply)
-      renderResults();
+        console.log('🚀 Starting new search for:', newSubject);
+
+        // POST to /api/search/ to create new search
+        const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: newSubject,
+            limit: 100,
+            fetch_limit: 120,
+            persist_pool_limit: 500,
+            days: 7,
+          }),
+        }, 120000); // 2 minutes timeout
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const newHistoryId = data.history_id;
+
+        if (!newHistoryId) {
+          throw new Error("No history_id returned from API");
+        }
+
+        console.log('✅ New search created! history_id:', newHistoryId);
+
+        // Store new history_id
+        sessionStorage.setItem("rm_history_id", newHistoryId);
+        historyId = newHistoryId;
+
+        // Update URL without reload
+        const newURL = `${window.location.pathname}?subject=${encodeURIComponent(newSubject)}&history_id=${newHistoryId}`;
+        window.history.replaceState({}, '', newURL);
+
+        // Reset to page 1
+        currentPage = 1;
+
+        // Start the workflow: poll for status then load results
+        startSearchWorkflow();
+
+      } catch (error) {
+        console.error('❌ Search error:', error);
+        alert(`Failed to start search: ${error.message}`);
+
+        // Reset button
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Search';
+        }
+      }
     });
   }
 
