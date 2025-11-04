@@ -2495,7 +2495,7 @@ def ai_opportunities(request):
     except Exception:
         return Response({"error": "company_id and history_id must be valid ObjectId strings"}, status=400)
 
-    # Optional: get name for nice response payloads
+    # Optional: get name for nicer payloads
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1}) or {}
     company_name = prof.get("name")
 
@@ -2516,7 +2516,42 @@ def ai_opportunities(request):
 
     name = fresh.get("name") or company_name or None
     opp_card = ((fresh.get("cards") or {}).get("opportunities") or {})
-    data = (opp_card.get("opportunities") or [])[:limit]
+
+    # --- Normalize various shapes the runner might write ---
+    # Allowed shapes:
+    # A) dict with "data": [...]
+    # B) dict with "opportunities": [...]
+    # C) dict with "items"/"list": [...]
+    # D) directly a list (cards.opportunities = [...])
+    if isinstance(opp_card, list):
+        items = opp_card
+        updated_at = None
+        next_refresh_at = None
+        schema_hint = "list"
+    elif isinstance(opp_card, dict):
+        items = (
+            opp_card.get("data")
+            or opp_card.get("opportunities")
+            or opp_card.get("items")
+            or opp_card.get("list")
+            or []
+        )
+        updated_at = opp_card.get("updated_at")
+        next_refresh_at = opp_card.get("next_refresh_at")
+        schema_hint = f"dict_keys={list(opp_card.keys())}"
+    else:
+        items = []
+        updated_at = None
+        next_refresh_at = None
+        schema_hint = type(opp_card).__name__
+
+    # Log what we found to help debug schema mismatches
+    try:
+        logger.info("cards.opportunities schema: %s", schema_hint)
+    except Exception:
+        pass
+
+    data = (items or [])[:limit]
 
     # If we have persisted data, return it; otherwise return an ack
     if data:
@@ -2527,8 +2562,8 @@ def ai_opportunities(request):
                 "history_id": history_id,
                 "count": len(data),
                 "opportunities": data,
-                "updated_at": opp_card.get("updated_at"),
-                "next_refresh_at": opp_card.get("next_refresh_at"),
+                "updated_at": updated_at,
+                "next_refresh_at": next_refresh_at,
             },
             status=200,
         )
@@ -2545,6 +2580,7 @@ def ai_opportunities(request):
         },
         status=200,
     )
+
 
 
 
