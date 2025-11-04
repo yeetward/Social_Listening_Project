@@ -55,6 +55,7 @@ def run_full_pipeline(history_id: str, keyword: str, sentiment_filter: str = Non
             "url": doc.get("url"),
             "rank": doc.get("rank"),
             "relevance_score": doc.get("relevance_score"),
+            "engagement_score": doc.get("engagement_score", 0.0),  # Include engagement score
             "ai_title": doc.get("ai_title"),
             "ai_summary": doc.get("ai_summary"),
             "tags": doc.get("tags") or [],

@@ -255,6 +255,7 @@ def run(history_id: str, keyword: str):
             "rank": rank,
             "relevance_score": score,
             "per_algo_scores": per_algo,
+            "engagement_score": per_algo.get("engagement", 0.0),  # Extract engagement score for easy access
             "ai_title": topic,
             "ai_summary": summary,
             "tags": [topic],
