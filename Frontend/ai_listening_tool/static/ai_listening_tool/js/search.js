@@ -19,6 +19,27 @@ function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
 }
 
 /**
+ * Convert text to title case (capitalize first, last, and major words)
+ */
+function toTitleCase(str) {
+  if (!str) return str;
+  
+  const minorWords = ['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'in', 'of', 'with'];
+  
+  return str.toLowerCase().split(' ').map((word, index, array) => {
+    // Always capitalize first and last word
+    if (index === 0 || index === array.length - 1) {
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }
+    // Capitalize if not a minor word
+    if (!minorWords.includes(word)) {
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }
+    return word;
+  }).join(' ');
+}
+
+/**
  * Fetch top topics from the API and populate the pills
  */
 async function fetchTopTopics() {
@@ -52,8 +73,9 @@ async function fetchTopTopics() {
       topicsToShow.forEach(topic => {
         const button = document.createElement("button");
         button.className = "rm-pill";
-        button.setAttribute("data-topic", topic);
-        button.textContent = topic;
+        const titleCased = toTitleCase(topic);
+        button.setAttribute("data-topic", titleCased);
+        button.textContent = titleCased;
         pillsContainer.appendChild(button);
       });
     }
@@ -125,7 +147,7 @@ async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
 
     topics.forEach(topic => {
       const li = document.createElement("li");
-      li.textContent = topic;
+      li.textContent = toTitleCase(topic);
       trendingList.appendChild(li);
     });
 
@@ -318,20 +340,9 @@ async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
         titleLink.href = url;
         titleLink.target = "_blank";
         titleLink.rel = "noopener noreferrer";
-        titleLink.style.textDecoration = "none";
 
         const strong = document.createElement("strong");
         strong.textContent = title;
-        strong.style.cursor = "pointer";
-        strong.style.transition = "color 0.2s ease";
-
-        // Add hover effect - red highlight like top topics pills
-        titleLink.addEventListener("mouseenter", () => {
-          strong.style.color = "#e63946";
-        });
-        titleLink.addEventListener("mouseleave", () => {
-          strong.style.color = "";
-        });
 
         titleLink.appendChild(strong);
         li.appendChild(titleLink);
@@ -457,6 +468,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Pick the visible text input only
   const input = form.querySelector('input[name="subject"]:not([type="hidden"])');
+
+  // Check if there's a subject parameter in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const subjectFromUrl = urlParams.get('subject');
+  
+  if (subjectFromUrl && subjectFromUrl.trim()) {
+    // Auto-populate the search field
+    if (input) {
+      input.value = subjectFromUrl.trim();
+    }
+    // Automatically submit the search
+    console.log('Auto-submitting search from URL parameter:', subjectFromUrl);
+    handleSearch(subjectFromUrl.trim());
+  }
 
   // Intercept form submission to use our API workflow
   form.addEventListener("submit", (e) => {
