@@ -44,7 +44,8 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
             "rank": it.get("rank"),
             "relevance_score": it.get("relevance_score"),
             "per_algo_scores": it.get("per_algo_scores"),  # <-- NEW (optional)
-            "engagement_score": it.get("engagement_score"),  # <-- Engagement score for easy access
+            "engagement_score": it.get("engagement_score"),  # <-- Engagement score for easy access (0-1 metric)
+            "engagement_metrics": it.get("engagement_metrics"),  # <-- Raw engagement data (likes, comments, etc.)
 
             # AI-generated enrichment
             "ai_title": it.get("ai_title"),

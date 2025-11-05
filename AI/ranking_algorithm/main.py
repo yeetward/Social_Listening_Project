@@ -20,6 +20,7 @@ from AI.ranking_algorithm.tf_idf_scorer import score_tfidf_simple
 from AI.ranking_algorithm.bm25_scorer import BM25Scorer, minmax_normalize
 from AI.ranking_algorithm.sbert_scorer import sbert_score_one
 from AI.ranking_algorithm.engagement_scorer import engagement_score
+from AI.ranking_algorithm.word_count_penalty import apply_word_count_penalty
 
 # --- Summarization + Topic Detection ---
 from AI.Topic_detection.Topic_detection import detect_topic_simple, detect_topics
@@ -218,8 +219,20 @@ def run(history_id: str, keyword: str):
 
 
 
+        # Calculate weighted score before word count penalty
         final_score = sum(per_algo.get(name, 0.0) * weights.get(name, 0.0) for name in use_algos)
-        rows.append((final_score, d, per_algo))
+
+        # Apply word count penalty to reduce ranking of very short posts
+        # Posts < 50 words get heavy penalty, 50-100 words gradual penalty, >100 words no penalty
+        penalized_score = apply_word_count_penalty(
+            final_score,
+            d["text"],
+            min_words=50,
+            target_words=100,
+            verbose=False  # Set to True for debugging
+        )
+
+        rows.append((penalized_score, d, per_algo))
 
     rows.sort(key=lambda x: x[0], reverse=True)
 
@@ -262,6 +275,14 @@ def run(history_id: str, keyword: str):
             topic = "General"
 
         sentiment = quick_sentiment(d["text"], method='vader')
+
+        # Count words for metadata
+        from AI.ranking_algorithm.word_count_penalty import count_words
+        word_count = count_words(d["text"])
+
+        # Get raw engagement data (not the score, but the actual metrics)
+        engagement_data = d.get("engagement") or {}
+
         items.append({
             "url": d["url"],
             "raw_id": d["_id"],
@@ -269,6 +290,8 @@ def run(history_id: str, keyword: str):
             "relevance_score": score,
             "per_algo_scores": per_algo,
             "engagement_score": per_algo.get("engagement", 0.0),  # Extract engagement score for easy access
+            "engagement_metrics": engagement_data,  # Store actual engagement data (likes, comments, etc.)
+            "word_count": word_count,  # Track word count for analysis
             "ai_title": topic,
             "ai_summary": summary,
             "tags": tags,  # Now uses proper topic list from advanced detection
