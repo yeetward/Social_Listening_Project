@@ -45,7 +45,9 @@ def _build_opportunities_prompt(
     articles_block = "\n\n".join(article_lines) if article_lines else "No articles available."
 
     return f"""
-You are a strategic business analyst for {company_name}. Analyze these articles and identify OPPORTUNITIES.
+Act as a marketing strategists and cosultant who analyses content based on industry or products/services to ascertain 
+relevance for potential reuse in marketing/content marketing, social media or thought leadership. 
+For {company_name}, analyze these articles and identify OPPORTUNITIES.
 
 Company Profile:
 - Name: {company_name}
