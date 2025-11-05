@@ -1148,6 +1148,8 @@ def get_results(request):
                 "published_ts": d.get("published_ts"),
                 "source": d.get("source"),
                 "status": d.get("status"),
+                "sentiment": d.get("sentiment"),
+                "engagement_metrics": d.get("engagement_metrics"),
             })
 
         return Response({
