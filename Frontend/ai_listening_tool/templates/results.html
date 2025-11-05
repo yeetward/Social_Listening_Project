@@ -425,6 +425,25 @@
     }).join(' ');
   }
 
+  /**
+   * Format platform names for display
+   */
+  function formatPlatformName(platform) {
+    if (!platform) return 'Unknown';
+    
+    const lower = platform.toLowerCase();
+    
+    // Handle specific platform names
+    if (lower.includes('guardian')) return 'Guardian';
+    if (lower.includes('reddit') && lower.includes('rss')) return 'Reddit_ss';
+    if (lower.includes('reddit')) return 'Reddit';
+    if (lower.includes('news') && lower.includes('rss')) return 'News_ss';
+    if (lower === 'news' || lower.includes('news_api') || lower === 'newsapi') return 'News';
+    
+    // Default: capitalize first letter
+    return platform.charAt(0).toUpperCase() + platform.slice(1);
+  }
+
   // Get search term from URL
   const urlParams = new URLSearchParams(window.location.search);
   const subject = (urlParams.get('subject') || sessionStorage.getItem('rm_subject') || '').trim() || 'test';
@@ -691,15 +710,16 @@
     // Get current selection from sessionStorage
     const selectedPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
 
-    // Render checkboxes
+    // Render checkboxes with formatted display names
     let html = '';
     Array.from(platforms).sort().forEach(platform => {
       const checked = selectedPlatforms.includes(platform) ? 'checked' : '';
+      const displayName = formatPlatformName(platform);
       html += `
         <li>
           <label>
             <input type="checkbox" name="platformFilter" value="${platform}" ${checked} data-filter-type="platform">
-            <span>${platform}</span>
+            <span>${displayName}</span>
           </label>
         </li>
       `;
@@ -981,7 +1001,12 @@
       if (statusEl) {
         const count = status.ai_count || 0;
         const target = status.ai_target || 100;
-        statusEl.textContent = `Processing: ${count} of ${target} items analyzed...`;
+        // Only show count if it's greater than 0 to avoid "Processing: 0 of 100"
+        if (count > 0) {
+          statusEl.textContent = `Processing: ${count} of ${target} items analyzed...`;
+        } else {
+          statusEl.textContent = `Analyzing content from multiple sources...`;
+        }
       }
 
       // Check if AI processing is ready
@@ -1215,7 +1240,7 @@
     }
 
     try {
-      const apiUrl = `${API_BASE_URL}/ai/opportunities/?company_id=${companyId}&history_id=${historyId}&limit=4`;
+      const apiUrl = `${API_BASE_URL}/ai/opportunities/?company_id=${companyId}&history_id=${historyId}&limit=6`;
       console.log('🎯 OPPORTUNITIES API: Calling URL:', apiUrl);
 
       const response = await fetchWithTimeout(apiUrl, {}, 30000); // 30 seconds timeout
@@ -1254,9 +1279,9 @@
       console.log('💡 OPPORTUNITIES API - First opportunity:', JSON.stringify(opportunities[0], null, 2));
       console.log('📝 OPPORTUNITIES API - All opportunities:', JSON.stringify(opportunities, null, 2));
 
-      // Clear loading and populate - limit to 4
+      // Clear loading and populate - limit to 6
       opportunitiesList.innerHTML = "";
-      const displayOpportunities = opportunities.slice(0, 4);
+      const displayOpportunities = opportunities.slice(0, 6);
 
       console.log(`✅ OPPORTUNITIES API: Rendering ${displayOpportunities.length} opportunities`);
 
@@ -1650,10 +1675,11 @@
       const title = toTitleCase(rawTitle);
       const summaryText = item.summary || item.ai_summary || item.text || item.description || 'No description available.';
       const content = processContent(summaryText);
-      const source = item.source || item.platform || 'Unknown Source';
+      const rawSource = item.source || item.platform || 'Unknown Source';
+      const source = formatPlatformName(rawSource);
       const date = formatDate(item.published_ts || item.published || item.date);
       const url = item.url || '#';
-      const engagement = formatEngagement(item.engagement, source);
+      const engagement = formatEngagement(item.engagement, rawSource); // Use raw source for Reddit detection
       const relevance = getRelevancePercent(item.score || item.relevance_score);
       const insight = getInsightBadge(item);
       const priority = getPriority(item); // Compute and cache priority for filtering
