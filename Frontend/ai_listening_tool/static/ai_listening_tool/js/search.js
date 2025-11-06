@@ -551,82 +551,25 @@ async function fetchCompetitors(companyId = "69072b397c33c037fd2da784") {
 /**
  * Handle search form submission
  */
-async function handleSearch(subject) {
+function handleSearch(subject) {
   if (!subject || !subject.trim()) {
     const errEl = document.getElementById("err");
     if (errEl) errEl.textContent = "Please enter a search term";
     return;
   }
 
-  // Get button reference outside try block for proper scope
-  const submitBtn = document.querySelector("#searchForm button[type='submit']");
-  const originalText = submitBtn?.textContent || "Search";
+  // Clear any previous session data for fresh search
+  sessionStorage.removeItem('rm_history_id');
+  sessionStorage.removeItem('rm_days');
+  sessionStorage.removeItem('rm_platforms');
+  sessionStorage.removeItem('rm_sentiments');
 
-  try {
-    // Show loading state
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Searching...";
-    }
+  // Store the new subject
+  sessionStorage.setItem("rm_subject", subject.trim());
 
-    // POST to /api/search/ to initiate search
-    // Use extra long timeout since this fetches from multiple sources
-    const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject: subject.trim(),
-        limit: 100,
-        fetch_limit: 120,
-        persist_pool_limit: 500,
-        days: 7,
-      }),
-    }, 120000); // 2 minutes for search initiation
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const historyId = data.history_id;
-
-    if (!historyId) {
-      throw new Error("No history_id returned from API");
-    }
-
-    // Log the counts to diagnose data fetching issues
-    console.log("Search initiated:", {
-      history_id: historyId,
-      counts: data.counts,
-      message: data.message
-    });
-
-    // Warn if no data was fetched
-    if (data.counts && data.counts.fetched_total === 0) {
-      console.warn("⚠️ Warning: No data was fetched from sources. Check your API keys or source configuration.");
-    }
-
-    // Store history_id and subject for the results page
-    sessionStorage.setItem("rm_history_id", historyId);
-    sessionStorage.setItem("rm_subject", subject.trim());
-    sessionStorage.setItem("rm_days", "7");
-    sessionStorage.setItem("rm_priority", "all");
-
-    // Redirect to results page with loading flag (note: app is under /tool/ prefix)
-    // The 'loading=1' parameter tells results page to use existing history_id instead of creating new one
-    window.location.href = `/tool/results/?subject=${encodeURIComponent(subject.trim())}&loading=1`;
-
-  } catch (error) {
-    console.error("Search error:", error);
-    const errEl = document.getElementById("err");
-    if (errEl) errEl.textContent = `Error: ${error.message}`;
-
-    // Reset button
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText;
-    }
-  }
+  // Immediately redirect to results page with fresh flag
+  // The results page will handle the API call and show loading state
+  window.location.href = `/tool/results/?subject=${encodeURIComponent(subject.trim())}&fresh=1`;
 }
 
 /**

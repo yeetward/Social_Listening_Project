@@ -740,7 +740,7 @@
     const sentiments = [
       { label: 'Positive', value: 'positive' },
       { label: 'Negative', value: 'negative' },
-      { label: 'Spike', value: 'spike' }
+      { label: 'Neutral', value: 'neutral' }
     ];
 
     // Get current selection from sessionStorage
@@ -1142,7 +1142,8 @@
       isLoading = false;
       renderResults();
 
-      // Load trending topics and opportunities after results are loaded
+      // Check AI processing status and load trending topics/opportunities
+      checkAIProcessingStatus();
       loadTrendingTopics();
       loadOpportunities();
 
@@ -1179,52 +1180,124 @@
   }
 
   /**
+   * Check AI processing status and show info to user if needed
+   */
+  async function checkAIProcessingStatus() {
+    if (!historyId) return;
+
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/search/status/?history_id=${historyId}`,
+        {},
+        10000
+      );
+
+      if (response.ok) {
+        const status = await response.json();
+        const aiReady = status.ai_ready;
+        const aiCount = status.ai_count || 0;
+        const aiTarget = status.ai_target || 0;
+
+        if (!aiReady && aiCount < aiTarget) {
+          console.log(`ℹ️ AI Processing: ${aiCount}/${aiTarget} items completed`);
+          console.log('   Search-specific trending topics will be available once processing completes.');
+        }
+      }
+    } catch (error) {
+      // Silently fail - this is just informational
+    }
+  }
+
+  /**
    * Load trending topics from the trends API
    */
   async function loadTrendingTopics() {
     const topicsList = document.getElementById('trendingTopicsList');
-    if (!topicsList || !historyId) return;
+    if (!topicsList) {
+      console.warn('⚠️ Trending topics list element not found');
+      return;
+    }
 
+    // Show loading state
+    topicsList.innerHTML = '<li style="color: #999; font-style: italic;">Loading trending topics...</li>';
+
+    // First try: history-specific trends (if historyId exists)
+    if (historyId) {
+      try {
+        console.log('🔥 Fetching trending topics for history_id:', historyId);
+
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/trends/?history_id=${historyId}&days=30`,
+          {},
+          30000  // 30 seconds timeout
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('📊 Trends data received:', data);
+
+        // Extract top_tags from the response
+        const topTags = data.top_tags || [];
+
+        if (topTags.length > 0) {
+          // Display only first 4 topics
+          const displayLimit = 4;
+          const topicsToShow = topTags.slice(0, displayLimit);
+
+          // Build the HTML for topics list
+          const topicsHTML = topicsToShow.map(topic => {
+            const tagName = toTitleCase(topic._id || 'Unknown');
+            const count = topic.count || 0;
+            return `<li>${tagName} <span style="color: #999; font-size: 12px;">(${count})</span></li>`;
+          }).join('');
+
+          topicsList.innerHTML = topicsHTML;
+          console.log('✅ Displayed', topicsToShow.length, 'trending topics from search results');
+          return; // Success, exit function
+        } else {
+          console.warn('⚠️ No tags found in search results. This should not happen - tags are generated immediately.');
+          console.log('   Falling back to general trending topics.');
+        }
+
+      } catch (error) {
+        console.error('❌ Error loading search-specific trending topics:', error);
+        console.log('⚠️ Falling back to general trending topics');
+      }
+    }
+
+    // Fallback: Use general company trending topics (same as homepage)
     try {
-      console.log('🔥 Fetching trending topics for history_id:', historyId);
+      const params = new URLSearchParams({
+        company_id: "69072b397c33c037fd2da784",
+        threshold: "0.5",
+        limit: "4",
+        full: "0"
+      });
 
-      const response = await fetchWithTimeout(
-        `${API_BASE_URL}/trends/?history_id=${historyId}&days=30`,
-        {},
-        30000  // 30 seconds timeout
-      );
+      const response = await fetchWithTimeout(`${API_BASE_URL}/cards/trending/?${params}`, {}, 30000);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log('📊 Trends data received:', data);
+      const topics = await response.json();
 
-      // Extract top_tags from the response
-      const topTags = data.top_tags || [];
+      if (topics && topics.length > 0) {
+        const topicsHTML = topics.slice(0, 4).map(topic => {
+          return `<li>${toTitleCase(topic)}</li>`;
+        }).join('');
 
-      if (topTags.length === 0) {
-        topicsList.innerHTML = '<li style="color: #999; font-style: italic;">No trending topics found</li>';
-        return;
+        topicsList.innerHTML = topicsHTML;
+        console.log('✅ Displayed', topics.length, 'general trending topics');
+      } else {
+        throw new Error('No topics returned from fallback');
       }
 
-      // Display only first 4 topics
-      const displayLimit = 4;
-      const topicsToShow = topTags.slice(0, displayLimit);
-
-      // Build the HTML for topics list
-      const topicsHTML = topicsToShow.map(topic => {
-        const tagName = toTitleCase(topic._id || 'Unknown');
-        const count = topic.count || 0;
-        return `<li>${tagName} <span style="color: #999; font-size: 12px;">(${count})</span></li>`;
-      }).join('');
-
-      topicsList.innerHTML = topicsHTML;
-      console.log('✅ Displayed', topicsToShow.length, 'trending topics');
-
-    } catch (error) {
-      console.error('❌ Error loading trending topics:', error);
+    } catch (fallbackError) {
+      console.error('❌ Error loading fallback trending topics:', fallbackError);
       topicsList.innerHTML = '<li style="color: #dc3545; font-style: italic;">Failed to load topics</li>';
     }
   }
@@ -1234,8 +1307,18 @@
    */
   async function loadOpportunities(companyId = "69072b397c33c037fd2da784") {
     const opportunitiesList = document.getElementById('opportunitiesList');
-    if (!opportunitiesList || !historyId) {
-      console.warn('⚠️ OPPORTUNITIES: Missing list element or history_id');
+    if (!opportunitiesList) {
+      console.warn('⚠️ OPPORTUNITIES: Missing list element');
+      return;
+    }
+
+    // Show loading state
+    opportunitiesList.innerHTML = '<li style="color: #999; font-style: italic;">Analyzing search results for opportunities...</li>';
+
+    // Only try API call if we have a history_id
+    if (!historyId) {
+      console.warn('⚠️ OPPORTUNITIES: No history_id available, showing placeholder');
+      opportunitiesList.innerHTML = '<li style="color: #999; font-style: italic;">Complete a search to see opportunities</li>';
       return;
     }
 
@@ -1243,7 +1326,8 @@
       const apiUrl = `${API_BASE_URL}/ai/opportunities/?company_id=${companyId}&history_id=${historyId}&limit=6`;
       console.log('🎯 OPPORTUNITIES API: Calling URL:', apiUrl);
 
-      const response = await fetchWithTimeout(apiUrl, {}, 30000); // 30 seconds timeout
+      // Increased timeout to 60 seconds as AI processing can take time
+      const response = await fetchWithTimeout(apiUrl, {}, 60000);
 
       console.log('📡 OPPORTUNITIES API: Response status:', response.status, response.statusText);
 
@@ -1266,13 +1350,16 @@
 
       const opportunities = data.opportunities || [];
 
-      if (data.message) {
+      // Check if API returned a message (e.g., "run invoked but no data yet")
+      if (data.message && opportunities.length === 0) {
         console.log('💬 OPPORTUNITIES API - Message:', data.message);
+        opportunitiesList.innerHTML = '<li style="color: #999; font-style: italic;">Processing... Please refresh in a moment</li>';
+        return;
       }
 
       if (opportunities.length === 0) {
         console.warn('⚠️ OPPORTUNITIES API: No opportunities returned');
-        opportunitiesList.innerHTML = '<li style="color: #999; font-style: italic;">No opportunities available yet.</li>';
+        opportunitiesList.innerHTML = '<li style="color: #999; font-style: italic;">No opportunities found for this search</li>';
         return;
       }
 
@@ -1325,21 +1412,17 @@
         stack: error.stack
       });
 
-      // Show fallback content
-      opportunitiesList.innerHTML = `
-        <li><span class="rm-opportunity-bullet">&gt;</span><span>Generate Large Language Models in Healthcare</span></li>
-        <li><span class="rm-opportunity-bullet">&gt;</span><span>Produce campaigns related to Rising Healthcare Costs</span></li>
-        <li><span class="rm-opportunity-bullet">&gt;</span><span>Write press release related to new alternate healthcare plans</span></li>
-        <li><span class="rm-opportunity-bullet">&gt;</span><span>Create social media campaign centered around clinical burnout</span></li>
-      `;
+      // Better error messages based on error type
+      let errorMessage = 'Failed to load opportunities';
+      if (error.message.includes('timeout')) {
+        errorMessage = 'Analysis is taking longer than expected. Please try refreshing the page.';
+      } else if (error.message.includes('500')) {
+        errorMessage = 'Server error while generating opportunities. Please try again later.';
+      } else if (error.message.includes('404')) {
+        errorMessage = 'Company profile not found. Please check configuration.';
+      }
 
-      // Add error note
-      const note = document.createElement("li");
-      note.style.fontSize = "11px";
-      note.style.color = "#999";
-      note.style.fontStyle = "italic";
-      note.textContent = `(Error: ${error.message})`;
-      opportunitiesList.appendChild(note);
+      opportunitiesList.innerHTML = `<li style="color: #dc3545; font-style: italic;">${errorMessage}</li>`;
     }
   }
 
@@ -1400,25 +1483,38 @@
     }
 
     // Normalize engagement: ensure it's a number (only expected for Reddit posts)
-    let engagement = item.engagement;
+    // Backend returns "engagement_metrics" or "engagement"
+    let engagementRaw = item.engagement_metrics || item.engagement;
     const isReddit = item.source && (
       item.source.toLowerCase().includes('reddit_official') ||
       item.source.toLowerCase().includes('reddit_rss') ||
       item.source.toLowerCase().includes('official_reddit')
     );
 
-    if (engagement != null) {
-      if (typeof engagement === 'object') {
-        engagement = engagement.score || engagement.num_comments || 0;
+    // Debug logging for engagement
+    if (isReddit && window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('🔍 Engagement Debug:', {
+        url: item.url,
+        source: item.source,
+        engagement_metrics: item.engagement_metrics,
+        engagement: item.engagement,
+        engagementRaw: engagementRaw,
+        type: typeof engagementRaw
+      });
+    }
+
+    let engagement = null;
+    if (engagementRaw != null) {
+      if (typeof engagementRaw === 'object') {
+        // Extract numeric value from engagement object
+        engagement = engagementRaw.score || engagementRaw.upvotes || engagementRaw.points ||
+                     engagementRaw.num_comments || engagementRaw.comments || 0;
+      } else {
+        engagement = Number(engagementRaw);
       }
-      engagement = Number(engagement);
     } else if (isReddit) {
       // Only warn if this is a Reddit post (engagement is expected)
       console.warn('⚠️ Reddit post missing engagement:', item.url || item.ai_title);
-      engagement = null;
-    } else {
-      // Non-Reddit posts: engagement not expected, set to null
-      engagement = null;
     }
 
     // Log each item for debugging (only in development)
@@ -1432,10 +1528,10 @@
         relevance_score: score,
         url: item.url,
         source: item.source,
-        // These fields are NOT returned by backend currently:
+        // These fields may be returned by backend:
         has_sentiment: !!item.sentiment,
         has_sentiment_score: !!item.sentiment_score,
-        has_engagement: !!item.engagement
+        has_engagement: !!(item.engagement_metrics || item.engagement)
       });
     }
 
@@ -1468,7 +1564,9 @@
 
     let num = 0;
     if (typeof engagement === 'object') {
-      num = engagement.score || engagement.num_comments || 0;
+      // Try multiple fields that might contain engagement count
+      num = engagement.score || engagement.upvotes || engagement.points ||
+            engagement.num_comments || engagement.comments || 0;
     } else {
       num = engagement;
     }
@@ -1508,17 +1606,16 @@
     const insight = item.insight || item.sentiment;
     if (insight) {
       const upper = String(insight).toUpperCase();
-      if (upper.includes('SPIKE') || upper.includes('HIGH')) return { text: 'SPIKE', color: '#e11d2e', type: 'spike' };
       if (upper.includes('POSITIVE') || upper.includes('POS')) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
-      if (upper.includes('NEGATIVE') || upper.includes('NEG')) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
-      if (upper.includes('NEUTRAL')) return { text: 'NEUTRAL', color: '#6b7280', type: 'neutral' };
+      if (upper.includes('NEGATIVE') || upper.includes('NEG')) return { text: 'NEGATIVE', color: '#dc2626', type: 'negative' };
+      if (upper.includes('NEUTRAL') || upper.includes('SPIKE') || upper.includes('HIGH')) return { text: 'NEUTRAL', color: '#6b7280', type: 'neutral' };
     }
 
     // Use sentiment_score if available (0-1 range)
     const sentimentScore = item.sentiment_score;
     if (sentimentScore != null && typeof sentimentScore === 'number') {
       if (sentimentScore >= 0.7) return { text: 'POSITIVE', color: '#0a8a00', type: 'positive' };
-      if (sentimentScore <= 0.3) return { text: 'NEGATIVE', color: '#6b7280', type: 'negative' };
+      if (sentimentScore <= 0.3) return { text: 'NEGATIVE', color: '#dc2626', type: 'negative' };
       return { text: 'NEUTRAL', color: '#6b7280', type: 'neutral' };
     }
 
@@ -1702,7 +1799,7 @@
                 <div class="rm-result-meta-row">
                   <span class="rm-result-meta-label">Insights:</span>
                   <span class="rm-result-insight-badge">
-                    <span class="rm-result-insight-dot" style="background:${insight.type === 'positive' ? '#16a34a' : insight.type === 'spike' ? '#e11d2e' : insight.type === 'negative' ? '#dc2626' : '#6b7280'}"></span>
+                    <span class="rm-result-insight-dot" style="background:${insight.type === 'positive' ? '#16a34a' : insight.type === 'negative' ? '#dc2626' : '#6b7280'}"></span>
                     ${insight.text}
                   </span>
                 </div>
@@ -1843,10 +1940,9 @@
   // Handle header search form submission
   const headerSearchForm = document.getElementById('headerSearchForm');
   if (headerSearchForm) {
-    headerSearchForm.addEventListener('submit', async (e) => {
+    headerSearchForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const headerInput = document.getElementById('headerSearchInput');
-      const submitButton = headerSearchForm.querySelector('button[type="submit"]');
       const newSubject = (headerInput?.value || "").trim();
 
       if (!newSubject) {
@@ -1854,74 +1950,16 @@
         return;
       }
 
-      try {
-        // Show loading state
-        if (submitButton) {
-          submitButton.disabled = true;
-          submitButton.textContent = 'Searching...';
-        }
+      // Clear old session data for fresh search
+      sessionStorage.removeItem('rm_history_id');
+      sessionStorage.removeItem('rm_days');
+      sessionStorage.removeItem('rm_platforms');
+      sessionStorage.removeItem('rm_sentiments');
+      sessionStorage.setItem("rm_subject", newSubject);
 
-        // Clear old session data
-        sessionStorage.removeItem('rm_history_id');
-        sessionStorage.removeItem('rm_days');
-        sessionStorage.removeItem('rm_platforms');
-        sessionStorage.removeItem('rm_sentiments');
-
-        // Store new subject
-        sessionStorage.setItem("rm_subject", newSubject);
-
-        console.log('🚀 Starting new search for:', newSubject);
-
-        // POST to /api/search/ to create new search
-        const response = await fetchWithTimeout(`${API_BASE_URL}/search/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject: newSubject,
-            limit: 100,
-            fetch_limit: 120,
-            persist_pool_limit: 500,
-            days: 7,
-          }),
-        }, 120000); // 2 minutes timeout
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const newHistoryId = data.history_id;
-
-        if (!newHistoryId) {
-          throw new Error("No history_id returned from API");
-        }
-
-        console.log('✅ New search created! history_id:', newHistoryId);
-
-        // Store new history_id
-        sessionStorage.setItem("rm_history_id", newHistoryId);
-        historyId = newHistoryId;
-
-        // Update URL without reload
-        const newURL = `${window.location.pathname}?subject=${encodeURIComponent(newSubject)}&history_id=${newHistoryId}`;
-        window.history.replaceState({}, '', newURL);
-
-        // Reset to page 1
-        currentPage = 1;
-
-        // Start the workflow: poll for status then load results
-        startSearchWorkflow();
-
-      } catch (error) {
-        console.error('❌ Search error:', error);
-        alert(`Failed to start search: ${error.message}`);
-
-        // Reset button
-        if (submitButton) {
-          submitButton.disabled = false;
-          submitButton.textContent = 'Search';
-        }
-      }
+      // Immediately redirect to results page with fresh flag
+      // This allows the search to start immediately on the results page without blocking
+      window.location.href = `/tool/results/?subject=${encodeURIComponent(newSubject)}&fresh=1`;
     });
   }
 

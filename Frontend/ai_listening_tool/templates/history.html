@@ -259,15 +259,19 @@
     tbody.innerHTML = pageItems.map(item => {
       const dateSearched = formatDate(item.created_at);
       const topic = item.subject || 'Untitled';
-      // Always show 0 for engagement
-      const engagement = '0';
+
+      // Calculate total engagement from ai_count (number of results)
+      // Or use engagement_total if it exists
+      let engagement = item.engagement_total || item.ai_count || 0;
+      const engagementFormatted = formatEngagement(engagement);
+
       const historyId = item.history_id;
 
       return `
       <tr class="rm-history-row" data-history-id="${historyId}" data-subject="${topic}" style="cursor: pointer;">
         <td>${dateSearched}</td>
         <td><strong>${topic}</strong></td>
-        <td><span class="rm-engagement-up">▲ ${engagement}</span></td>
+        <td><span class="rm-engagement-up">▲ ${engagementFormatted}</span></td>
       </tr>
     `;
     }).join('');

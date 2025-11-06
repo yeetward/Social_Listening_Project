@@ -1138,6 +1138,9 @@ def get_results(request):
 
         results = []
         for d in docs:
+            # Try to get engagement from either engagement_metrics or engagement field
+            engagement = d.get("engagement_metrics") or d.get("engagement")
+
             results.append({
                 "rank": d.get("rank"),
                 "url": d.get("url"),
@@ -1149,7 +1152,8 @@ def get_results(request):
                 "source": d.get("source"),
                 "status": d.get("status"),
                 "sentiment": d.get("sentiment"),
-                "engagement_metrics": d.get("engagement_metrics"),
+                "engagement_metrics": engagement,
+                "engagement": engagement,  # Also include as 'engagement' for backward compatibility
             })
 
         return Response({

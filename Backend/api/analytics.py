@@ -90,7 +90,8 @@ def trend_top_tags(history_id: ObjectId, days: int = 30, top_k: int = 20):
     now_ms = int(time.time() * 1000)
     from_ms = now_ms - days * 86400 * 1000
     pipeline = [
-        {"$match": {"history_id": history_id, "status": "done", "published_ts": {"$ne": None}}},
+        # 🆕 Changed: Now includes BOTH "queued" and "done" results for immediate tags
+        {"$match": {"history_id": history_id, "status": {"$in": ["queued", "done"]}, "published_ts": {"$ne": None}}},
         {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
         {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
         {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},

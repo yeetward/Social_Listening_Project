@@ -142,9 +142,54 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
 
 # -------------------- AI RESULTS (queue + output) --------------------
 
+def _extract_simple_tags(text: str, max_tags: int = 5) -> list:
+    """
+    Extract simple tags from text using basic keyword extraction.
+    This provides immediate tags before full AI processing.
+    """
+    import re
+    from collections import Counter
+
+    if not text:
+        return []
+
+    # Common stop words to exclude
+    stop_words = {
+        'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for',
+        'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his',
+        'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my',
+        'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if',
+        'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like',
+        'just', 'him', 'know', 'take', 'into', 'year', 'your', 'some', 'could',
+        'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come',
+        'its', 'over', 'also', 'back', 'after', 'use', 'two', 'how', 'our',
+        'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any',
+        'these', 'give', 'most', 'us', 'is', 'are', 'was', 'been', 'has', 'had'
+    }
+
+    # Extract words (2+ characters, alphanumeric)
+    words = re.findall(r'\b[a-zA-Z]{2,}\b', text.lower())
+
+    # Filter stop words and count occurrences
+    filtered = [w for w in words if w not in stop_words]
+
+    if not filtered:
+        return []
+
+    # Get most common words
+    word_counts = Counter(filtered)
+    top_words = [word for word, count in word_counts.most_common(max_tags)]
+
+    # Capitalize for display
+    tags = [word.title() for word in top_words]
+
+    return tags[:max_tags]
+
+
 def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
     """
     Create 'queued' ai_results stubs for this run, one per URL.
+    NOW INCLUDES: Immediate basic tag generation for trending topics.
     Idempotent upserts keyed by (history_id, url).
     Returns number of upserts attempted.
     """
@@ -162,12 +207,40 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
     }
 
     ops = []
+    tags_debug = []  # Track first few for debugging
     for p in rows:
         url = (p.get("url") or "").strip()
         if not url:
             continue
 
+        # Generate simple tags immediately from title + text
+        title = p.get("title") or ""
+        text = p.get("text") or ""
+        combined_text = f"{title} {text}"
+        tags = _extract_simple_tags(combined_text, max_tags=5)
+
+        # Debug: log first few tag generations
+        if len(tags_debug) < 3:
+            tags_debug.append({
+                "url": url[:50],
+                "has_title": bool(title),
+                "has_text": bool(text),
+                "text_length": len(combined_text),
+                "tags": tags,
+                "source": p.get("source")
+            })
+
+        # If no tags extracted, use source as fallback
+        if not tags:
+            source = (p.get("source") or "").strip()
+            if source:
+                tags = [source.replace("_", " ").title()]
+            else:
+                tags = ["General"]  # Ultimate fallback
+
         selector = {"history_id": ObjectId(history_id), "url": url}
+
+        # Split into setOnInsert (only for new docs) and set (always update)
         set_on_insert = {
             "history_id": ObjectId(history_id),
             "url": url,
@@ -177,10 +250,30 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
             "status": "queued",
             "created_at": now,
         }
-        ops.append(UpdateOne(selector, {"$setOnInsert": set_on_insert}, upsert=True))
+
+        # Always set tags, even for existing documents
+        set_fields = {
+            "tags": tags,  # 🆕 Always update tags immediately!
+        }
+
+        ops.append(UpdateOne(
+            selector,
+            {
+                "$setOnInsert": set_on_insert,
+                "$set": set_fields  # This ensures tags are always added
+            },
+            upsert=True
+        ))
 
     if ops:
-        db["ai_results"].bulk_write(ops)
+        result = db["ai_results"].bulk_write(ops)
+        print(f"[INFO] Seeded {len(ops)} ai_results with immediate tags")
+        if tags_debug:
+            print(f"[DEBUG] Sample tag generation:")
+            for sample in tags_debug:
+                print(f"  - URL: {sample['url']}")
+                print(f"    Has title: {sample['has_title']}, Has text: {sample['has_text']}, Text len: {sample['text_length']}")
+                print(f"    Tags: {sample['tags']}, Source: {sample['source']}")
     return len(ops)
 
 

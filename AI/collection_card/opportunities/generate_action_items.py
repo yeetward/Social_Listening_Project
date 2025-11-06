@@ -62,6 +62,7 @@ Identify business opportunities from these articles. Each opportunity should be:
 1. SPECIFIC - mention names, companies, technologies from articles
 2. ACTIONABLE - something {company_name} can realistically pursue
 3. VALUABLE - has clear business impact
+4. RETURN - a minimum of 2 opportunities, maximum of 6 opportunities
 
 OPPORTUNITY TYPES:
 - **Content/Writing opportunities** - Topics to write about, blog posts, newsletters, emails, social media posts
