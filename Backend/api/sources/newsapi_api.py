@@ -1,4 +1,3 @@
-# Backend/api/sources/newsapi_api.py
 import os, math, time, logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
@@ -7,15 +6,9 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------
-# Constants (safe to keep)
-# --------------------------------------------------------------------
 ENDPOINT = getattr(settings, "NEWSAPI_ENDPOINT", "https://newsapi.org/v2/everything")
 MAX_PAGE_SIZE = 100
 
-# --------------------------------------------------------------------
-# Helpers
-# --------------------------------------------------------------------
 def _to_ts(iso_str: Optional[str]) -> Optional[int]:
     if not iso_str:
         return None
@@ -24,9 +17,6 @@ def _to_ts(iso_str: Optional[str]) -> Optional[int]:
     except Exception:
         return None
 
-# --------------------------------------------------------------------
-# Main fetcher
-# --------------------------------------------------------------------
 def fetch(
     query: str,
     limit: int = 120,
@@ -86,7 +76,6 @@ def fetch(
             desc = (a.get("description") or "").strip()
             content = (a.get("content") or "").strip()
 
-            # Clean truncation suffix like "... [+120 chars]"
             if " [+" in content:
                 content = content.split(" [+", 1)[0].rstrip()
 
@@ -110,7 +99,7 @@ def fetch(
         if len(out) >= limit:
             break
 
-        time.sleep(0.2)  # polite pacing
+        time.sleep(0.2)  
 
     logger.info("newsapi fetched %d articles for query='%s'", len(out), query)
     return out

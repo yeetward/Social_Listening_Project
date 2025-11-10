@@ -72,7 +72,7 @@ def _map_newsapi_articles(articles):
             "url": a.get("url") or "",
             "author": a.get("author") or None,
             "source": source_name,
-            "publishedAt": a.get("publishedAt"),  # keep NewsAPI ISO string
+            "publishedAt": a.get("publishedAt"),  
         })
     return mapped
 
@@ -90,10 +90,9 @@ def _fetch_from_newsapi(query: str, api_key: str, page_size: int = 50):
     payload = r.json()
     return _map_newsapi_articles(payload.get("articles") or [])
 
-# ---------------------------------------------------------------------
+
 # SerpAPI (Google Trends) config (for card_trends)
-# ---------------------------------------------------------------------
-SERPAPI_DEFAULT_KEY = "62aef6d6cf4760d45568f2b6483029d361df42eff443ebbffe7063cb594ce6a3"  # demo key (user approved to expose)
+SERPAPI_DEFAULT_KEY = "62aef6d6cf4760d45568f2b6483029d361df42eff443ebbffe7063cb594ce6a3"  
 SERPAPI_ENDPOINT    = "https://serpapi.com/search.json"
 
 URL_RE = re.compile(r'https?://', re.I)
@@ -108,30 +107,17 @@ def _sanitize_topics(seq: list[str], *, max_len: int = 60) -> list[str]:
     for s in (seq or []):
         if not isinstance(s, str):
             continue
-
-        # Normalize spacing
         s = " ".join(s.strip().split())
         if not s:
             continue
-
-        # Remove URL-like strings
         if URL_RE.search(s):
             continue
-
-        # Length guard
         if len(s) < 2 or len(s) > max_len:
             continue
-
-        # Must contain at least one letter (drop pure symbols, numbers)
         if not re.search(r"[A-Za-z]", s):
             continue
-
-        # ✅ NEW RULE: Drop base64/page-token looking junk
-        # e.g. "mAGHz3ica1xTlFpYmlpcEp-SWJ..."
         if " " not in s and len(s) >= 16 and re.match(r"^[A-Za-z0-9_\-]+$", s):
             continue
-
-        # Deduplicate case-insensitively
         key = s.lower()
         if key in seen:
             continue
@@ -172,14 +158,12 @@ def _coerce_topic_strings(obj, acc: set):
             _coerce_topic_strings(it, acc)
         return
     if isinstance(obj, dict):
-        # Prefer common keys first
         for k in ("topic", "topic_title", "title", "query", "name", "keyword"):
             v = obj.get(k)
             if isinstance(v, str):
                 s = " ".join(v.strip().split())
                 if s and not URL_RE.search(s) and re.search(r"[A-Za-z]", s):
                     acc.add(s)
-        # Also traverse down
         for v in obj.values():
             _coerce_topic_strings(v, acc)
 
@@ -195,12 +179,11 @@ def _fetch_trending_topics_serpapi(query: str | None, *, geo: str = "AU", days: 
     topics: set[str] = set()
 
     if (query or "").strip():
-        # Related topics for a specific query
         params = {
             "engine": "google_trends",
             "q": query.strip(),
-            "data_type": "RELATED_TOPICS",         # ask for related topics
-            "date": _serpapi_date_for_days(days),  # e.g., "today 1-m"
+            "data_type": "RELATED_TOPICS",        
+            "date": _serpapi_date_for_days(days), 
             "geo": geo or "AU",
             "api_key": api_key,
         }
@@ -208,15 +191,11 @@ def _fetch_trending_topics_serpapi(query: str | None, *, geo: str = "AU", days: 
             r = requests.get(SERPAPI_ENDPOINT, params=params, timeout=25)
             r.raise_for_status()
             payload = r.json() or {}
-            # Extract aggressively from the payload
             _coerce_topic_strings(payload.get("related_topics"), topics)
-            # Fallback: related queries often present when related topics are thin
             _coerce_topic_strings(payload.get("related_queries"), topics)
         except Exception:
-            # fall through to trending-now as a backup
             pass
 
-    # If no query OR above returned too little, use trending-now for the region
     if not topics:
         params = {
             "engine": "google_trends_trending_now",
@@ -229,29 +208,23 @@ def _fetch_trending_topics_serpapi(query: str | None, *, geo: str = "AU", days: 
             payload = r.json() or {}
             _coerce_topic_strings(payload.get("trending_searches"), topics)
         except Exception:
-            # final fallback: empty
             pass
 
     out = [t for t in topics if t][:limit]
     return out
 
-# -----------------------------------------------------------------------------
-# Optional AI imports
-# -----------------------------------------------------------------------------
+# AI imports
 try:
     from AI.ranking_algorithm.main import run as external_ai_run
 except Exception as e:
     external_ai_run = None
     logger.exception("Failed to import AI.ranking_algorithm.main.run: %s", e)
 
-
-# Company-aware News analyzer (optional)
 try:
     from AI.collection_card.news_feed import analyse_news_relevancy
 except Exception:
     analyse_news_relevancy = None
     logger.warning("AI.collection_card.news_feed.analyse_news_relevancy not importable.")
-
 
 try:
     from AI.collection_card.trending_topics.main_relevancy import run as trending_run
@@ -259,14 +232,11 @@ except Exception as e:
     trending_run = None
     logger.warning("Failed to import trending run(): %s", e)
 
-
-
 try:
     from AI.collection_card.ideas.main_ideas import run as ideas_run
 except Exception as e:
     ideas_run = None
     logger.warning("Failed to import ideas.run(): %s", e)
-
 
 try:
     from AI.collection_card.competitor_analysis.main_competitors import run as competitors_run
@@ -292,16 +262,13 @@ except Exception as e:
     newsfeed_run = None
     logger.warning("Failed to import main_newsfeed.run(): %s", e)
 
-# -----------------------------------------------------------------------------
+
 # Health
-# -----------------------------------------------------------------------------
 def health(request):
     return JsonResponse({"status": "ok", "version": "v1"})
 
 
-# -----------------------------------------------------------------------------
 # Helpers
-# -----------------------------------------------------------------------------
 def _parse_sources_param(val):
     if not val:
         return []
@@ -319,9 +286,7 @@ def _parse_sources_param(val):
             out.append(k)
     return out
 
-# -----------------------------------------------------------------------------
 # Built-in simple AI worker (fallback)
-# -----------------------------------------------------------------------------
 def _process_history_async(history_id: ObjectId, subject: str, batch_size: int = 50):
     db = get_mongo_db()
     mark_history_ai_started(history_id)
@@ -341,10 +306,7 @@ def _process_history_async(history_id: ObjectId, subject: str, batch_size: int =
     except Exception as e:
         logger.exception("AI worker failed for history=%s: %s", history_id, e)
 
-
-# -----------------------------------------------------------------------------
 # External AI kicker (prefers AI.ranking_algorithm.main.run)
-# -----------------------------------------------------------------------------
 def _kick_external_ai(history_id: ObjectId, subject: str):
     db = get_mongo_db()
     try:
@@ -369,9 +331,7 @@ def _kick_external_ai(history_id: ObjectId, subject: str):
         _process_history_async(history_id, subject)
 
 
-# -----------------------------------------------------------------------------
-# Search + ingest
-# -----------------------------------------------------------------------------
+# search/
 @api_view(["POST"])
 def search_posts(request):
     """
@@ -391,34 +351,16 @@ def search_posts(request):
 
     if not subject:
         return Response({"error": "subject is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # # per-source fetch amount (increase pool)
-    # try:
-    #     fetch_limit = int(data.get("fetch_limit") or 120)
-    # except Exception:
-    #     fetch_limit = 120
-    # fetch_limit = max(10, min(fetch_limit, 200))
-
-    # # total to persist into raw_insights
-    # try:
-    #     persist_pool_limit = int(data.get("persist_pool_limit") or 500)
-    # except Exception:
-    #     persist_pool_limit = 500
-    # persist_pool_limit = max(50, min(persist_pool_limit, 2000))
-
-    # per-source fetch amount (reduce network/CPU)
     try:
-        fetch_limit = int(data.get("fetch_limit") or 60)   # was 120
+        fetch_limit = int(data.get("fetch_limit") or 60)  
     except Exception:
         fetch_limit = 60
-    fetch_limit = max(5, min(fetch_limit, 100))            # was 10..200
-
-    # total to persist into raw_insights (reduce DB + AI load)
+    fetch_limit = max(5, min(fetch_limit, 100))           
     try:
-        persist_pool_limit = int(data.get("persist_pool_limit") or 300)  # was 500
+        persist_pool_limit = int(data.get("persist_pool_limit") or 300)  
     except Exception:
         persist_pool_limit = 300
-    persist_pool_limit = max(50, min(persist_pool_limit, 800))           # was 50..2000
+    persist_pool_limit = max(50, min(persist_pool_limit, 800))          
 
     # freshness window
     try:
@@ -522,9 +464,7 @@ def search_posts(request):
     return resp
 
 
-# -----------------------------------------------------------------------------
-# NEW READ ENDPOINTS
-# -----------------------------------------------------------------------------
+# history/
 @api_view(["GET"])
 def list_history(request):
     try:
@@ -555,7 +495,7 @@ def list_history(request):
         logger.exception("list_history error: %s", e)
         return Response({"error": str(e)}, status=500)
 
-
+# search/status/
 @api_view(["GET"])
 def get_search_status(request):
     hid = request.GET.get("history_id")
@@ -579,7 +519,7 @@ def get_search_status(request):
         logger.exception("get_search_status error: %s", e)
         return Response({"error": str(e)}, status=500)
 
-
+# trends/
 @api_view(["GET"])
 def get_trends(request):
     hid = request.GET.get("history_id")
@@ -603,7 +543,7 @@ def get_trends(request):
         logger.exception("get_trends error: %s", e)
         return Response({"error": str(e)}, status=500)
 
-
+# results/
 @api_view(["GET"])
 def get_results(request):
     """
@@ -642,13 +582,11 @@ def get_results(request):
         if status_filter:
             q["status"] = status_filter
 
-        # Pull ALL matching docs; frontend handles pagination
         cursor = db["ai_results"].find(q).sort(sort_key, order_val)
         docs = list(cursor)
 
         results = []
         for d in docs:
-            # Try to get engagement from either engagement_metrics or engagement field
             engagement = d.get("engagement_metrics") or d.get("engagement")
 
             results.append({
@@ -663,7 +601,7 @@ def get_results(request):
                 "status": d.get("status"),
                 "sentiment": d.get("sentiment"),
                 "engagement_metrics": engagement,
-                "engagement": engagement,  # Also include as 'engagement' for backward compatibility
+                "engagement": engagement,  
             })
 
         return Response({
@@ -1092,6 +1030,7 @@ def get_results(request):
     #     logger.exception("card_trends error: %s", e)
     #     return Response({"error": str(e)}, status=500)
 
+# cards/trending/
 @api_view(["GET"])
 def card_trends(request):
     """
@@ -1115,7 +1054,6 @@ def card_trends(request):
     """
     db = get_mongo_db()
 
-    # ----- inputs -----
     company_id   = (request.GET.get("company_id") or "").strip() or None
     company_name = (request.GET.get("company") or "").strip() or None
     force        = str(request.GET.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
@@ -1139,7 +1077,7 @@ def card_trends(request):
     except Exception:
         days = 30
 
-    # ----- resolve company -----
+    # resolve company 
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
@@ -1148,7 +1086,7 @@ def card_trends(request):
     if not company_id:
         return Response({"error": "company_id (or company name) is required"}, status=400)
 
-    # ----- helper: read schema + respond -----
+    # helper: read schema + respond 
     def _read_from_db_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
@@ -1167,7 +1105,7 @@ def card_trends(request):
                 return Response(topics[:limit], status=200)
             return Response((data or [])[:limit], status=200)
 
-    # ----- freshness check -----
+    # freshness check
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = prof.get("cards") or {}
     trending = cards.get("trending") or {}
@@ -1178,7 +1116,7 @@ def card_trends(request):
     if not force and next_refresh_date and today_utc < next_refresh_date and (trending.get("data") or []):
         return _read_from_db_and_respond()
 
-        # ----- build raw topics (SerpAPI first; fallback to global_top_topics) -----
+    # build raw topics (SerpAPI first, fallback to global_top_topics)
     raw_topics: list[str] = []
     if use_serpapi:
         q_for_trends = override_q or company_name or None
@@ -1201,14 +1139,11 @@ def card_trends(request):
             logger.exception("global_top_topics failed: %s", e)
             return _read_from_db_and_respond()
 
-    # >>> NEW: sanitize aggressively <<<
     raw_topics = _sanitize_topics(raw_topics, max_len=60)
     if not raw_topics:
-        # Nothing clean → just return whatever’s there
         
         return _read_from_db_and_respond()
 
-    # ----- call AI runner (authoritative persister) -----
     runner_ok = True
     if trending_run is not None:
         try:
@@ -1222,7 +1157,6 @@ def card_trends(request):
     else:
         runner_ok = False
 
-    # ----- compatibility + safety -----
     fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = fresh.get("cards") or {}
 
@@ -1239,14 +1173,12 @@ def card_trends(request):
         )
         fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.trending": 1}) or {}
 
-    # >>> NEW: if runner failed and nothing got written, persist sanitized topics as strings <<<
     cur = ((fresh.get("cards") or {}).get("trending") or {})
-# NEW: if runner failed AND (force OR no existing data) -> overwrite
     if (not runner_ok) and (force or not (cur.get("data") or [])):
 
         now = datetime.now(timezone.utc)
         block = {
-            "data": raw_topics[:limit],                     # store as list[str]
+            "data": raw_topics[:limit],                   
             "updated_at": _iso_z(now),
             "next_refresh_at": _iso_z(now + timedelta(days=7)),
         }
@@ -1254,24 +1186,18 @@ def card_trends(request):
             {"_id": ObjectId(company_id)},
             {"$set": {"cards.trending": block}}
         )
-        # refresh 'cur' for the next step
         cur = block
 
-    # Ensure next_refresh_at exists
     if not cur.get("next_refresh_at"):
         now = datetime.now(timezone.utc)
         db["company_profiles"].update_one(
             {"_id": ObjectId(company_id)},
             {"$set": {"cards.trending.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
-
-    # ----- final: re-read and return schema -----
     return _read_from_db_and_respond()
 
-# -----------------------------------------------------------------------------
-# Cards: Company-aware News (optional, for parity/testing)
-# -----------------------------------------------------------------------------
 
+# cards/newsfeed/
 @api_view(["GET"])
 def news_feed(request):
     """
@@ -1295,7 +1221,6 @@ def news_feed(request):
     """
     db = get_mongo_db()
 
-    # ----- inputs -----
     company_id   = (request.GET.get("company_id") or "").strip() or None
     company_name = (request.GET.get("company") or "").strip() or None
     force        = str(request.GET.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
@@ -1311,7 +1236,6 @@ def news_feed(request):
     except Exception:
         max_age_days = 7
 
-    # Sources allowlist (when reading raw_insights)
     sources_param = (request.GET.get("sources") or "").strip()
     if sources_param:
         allowed_sources = {s.strip() for s in sources_param.split(",") if s.strip()}
@@ -1321,7 +1245,6 @@ def news_feed(request):
             "abc_au_rss", "cnn_rss", "reuters_rss"
         }
 
-    # Optional external enrichment
     use_newsapi = str(request.GET.get("use_newsapi", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
     query       = (request.GET.get("query") or "").strip()
     try:
@@ -1329,7 +1252,7 @@ def news_feed(request):
     except Exception:
         page_size = 50
 
-    # ----- resolve company -----
+    # resolve company
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
@@ -1340,14 +1263,13 @@ def news_feed(request):
         if prof:
             company_name = prof.get("name")
     if not company_id:
-        # fallback: latest profile
         doc = get_company_profile(name=None)
         if not doc:
             return Response({"error": "company_id (or company name) is required"}, status=400)
         company_id = str(doc["_id"])
         company_name = company_name or doc.get("name")
 
-    # ----- helper: read schema + respond -----
+    # helper: read schema + respond 
     def _read_from_db_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
@@ -1358,7 +1280,7 @@ def news_feed(request):
         data  = (card.get("data") or [])[:limit]
         return Response({"company": name, "company_id": company_id, "count": len(data), "items": data}, status=200)
 
-    # ----- freshness check -----
+    # freshness check 
     prof  = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = prof.get("cards") or {}
     nf    = cards.get("newsfeed") or {}
@@ -1369,11 +1291,9 @@ def news_feed(request):
     if not force and next_refresh_date and today_utc < next_refresh_date and (nf.get("data") or []):
         return _read_from_db_and_respond()
 
-    # ----- build local raw article pool from raw_insights -----
     now_ts   = int(time.time())
     cutoff   = now_ts - max_age_days * 86400
     pool_cap = 100
-    # pool_min = max(3 * limit, 2)  # aim for enough for AI to filter
     pool_min = 50
 
     def _ts_to_iso_z(ts: int | None):
@@ -1409,7 +1329,6 @@ def news_feed(request):
             "publishedAt": _ts_to_iso_z(r.get("published_ts")),
         })
 
-    # ----- optionally augment via NewsAPI if pool seems small -----
     if use_newsapi:
         q = query or company_name or ""
         try:
@@ -1418,7 +1337,6 @@ def news_feed(request):
             logger.warning("NewsAPI fetch failed: %s", e)
             extra = []
 
-        # de-dup by URL
         seen = {a["url"] for a in raw_articles if a.get("url")}
         for a in (extra or []):
             u = (a.get("url") or "").strip()
@@ -1426,12 +1344,9 @@ def news_feed(request):
                 raw_articles.append(a)
                 seen.add(u)
 
-    # trim to desired pool size for AI
     raw_articles = raw_articles[:max(pool_min, limit)]
 
-    # If absolutely nothing, return empty schema-like response
     if not raw_articles:
-        # also ensure there is a next_refresh_at so FE won’t hammer
         now = datetime.now(timezone.utc)
         db["company_profiles"].update_one(
             {"_id": ObjectId(company_id)},
@@ -1440,18 +1355,15 @@ def news_feed(request):
         )
         return Response({"company": company_name, "company_id": company_id, "count": 0, "items": []}, status=200)
 
-    # ----- call AI runner (authoritative persister) -----
     if newsfeed_run is not None:
         try:
             newsfeed_run(company_id=company_id, news_articles=raw_articles)
         except Exception as e:
             logger.warning("newsfeed_run failed; continuing with schema migration/safety. %s", e)
 
-    # ----- compatibility + safety: migrate & ensure next_refresh_at -----
     fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = fresh.get("cards") or {}
 
-    # If AI wrote to 'news_feed', copy to 'newsfeed' (your schema-of-truth)
     if "news_feed" in cards and (not cards.get("newsfeed") or not (cards["newsfeed"].get("data") or [])):
         src = cards["news_feed"] or {}
         block = {
@@ -1465,7 +1377,6 @@ def news_feed(request):
         )
         fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.newsfeed": 1}) or {}
 
-    # Ensure next_refresh_at exists
     cur = ((fresh.get("cards") or {}).get("newsfeed") or {})
     if not cur.get("next_refresh_at"):
         now = datetime.now(timezone.utc)
@@ -1473,15 +1384,10 @@ def news_feed(request):
             {"_id": ObjectId(company_id)},
             {"$set": {"cards.newsfeed.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
-
-
-        # ----- final: re-read schema -----
     return _read_from_db_and_respond()
 
 
-# -----------------------------------------------------------------------------
-# Debug
-# -----------------------------------------------------------------------------
+# debug/mongo/
 @api_view(["GET"])
 def mongo_status(request):
     try:
@@ -1606,6 +1512,7 @@ def get_top_topics(request):
 #     # re-read and return schema value
 #     return _read_schema_and_respond()
 
+# ai/ideas/
 @api_view(["GET"])
 def ai_generate_ideas(request):
     """
@@ -1624,7 +1531,7 @@ def ai_generate_ideas(request):
     """
     db = get_mongo_db()
 
-    # ----- inputs -----
+    # inputs
     company_id   = (request.GET.get("company_id") or "").strip() or None
     company_name = (request.GET.get("company") or "").strip() or None
     force        = str(request.GET.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
@@ -1635,7 +1542,7 @@ def ai_generate_ideas(request):
         limit = 10
     limit = max(1, min(limit, 100))
 
-    # ----- resolve company -----
+    # resolve company 
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
@@ -1645,7 +1552,7 @@ def ai_generate_ideas(request):
     if not company_id:
         return Response({"error": "company_id (or company name) is required"}, status=400)
 
-    # ----- helper: read schema + respond -----
+    # helper: read schema + respond
     def _read_schema_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
@@ -1655,20 +1562,15 @@ def ai_generate_ideas(request):
 
         ideas_card = ((fresh.get("cards") or {}).get("ideas") or {})
 
-        # --- compatibility: accept legacy keys ---
         data = ideas_card.get("data")
         if not data:
-            # legacy shapes we’ve seen in runner code
             data = ideas_card.get("ideas") or ideas_card.get("items") or []
-
-            # optional: migrate to normalized key so next read is clean
             if data:
                 db["company_profiles"].update_one(
                     {"_id": ObjectId(company_id)},
                     {"$set": {"cards.ideas.data": data}},
                 )
-                ideas_card["data"] = data  # keep local var in sync
-
+                ideas_card["data"] = data  
         data = (data or [])[:limit]
 
         return Response(
@@ -1676,8 +1578,6 @@ def ai_generate_ideas(request):
             status=200,
         )
 
-
-    # ----- freshness check (skip if force) -----
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1})
     cards = (prof or {}).get("cards") or {}
     ideas_card = cards.get("ideas") or {}
@@ -1688,8 +1588,6 @@ def ai_generate_ideas(request):
     if not force and next_refresh_date and today_utc < next_refresh_date and (ideas_card.get("data") or []):
         return _read_schema_and_respond()
 
-    # ----- call AI runner (authoritative persister) -----
-    # Only pass company_id, per your requirement.
     if ideas_run is not None:
         try:
             ideas_run(company_id=company_id)
@@ -1697,7 +1595,6 @@ def ai_generate_ideas(request):
             logger.warning("ideas_run failed; returning schema as-is. %s", e)
             return _read_schema_and_respond()
 
-    # ----- safety: ensure next_refresh_at exists (+7d) -----
     fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.ideas": 1}) or {}
     cur = ((fresh.get("cards") or {}).get("ideas") or {})
     if not cur.get("next_refresh_at"):
@@ -1706,11 +1603,10 @@ def ai_generate_ideas(request):
             {"_id": ObjectId(company_id)},
             {"$set": {"cards.ideas.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
-
-    # ----- final: re-read and return -----
     return _read_schema_and_respond()
 
 
+# ai/competitors/
 @api_view(["GET", "POST"])
 def ai_competitors(request):
     """
@@ -1724,25 +1620,21 @@ def ai_competitors(request):
     try:
         db = get_mongo_db()
 
-        # Accept both GET or POST input
         data = request.data if request.method == "POST" else request.GET
         company_id = (data.get("company_id") or "").strip()
 
         if not company_id:
             return Response({"error": "company_id is required"}, status=400)
 
-        # Validate ObjectId format
         try:
             oid = ObjectId(company_id)
         except Exception:
             return Response({"error": "invalid company_id (must be 24-character ObjectId)"}, status=400)
 
-        # Find company document
         doc = db["company_profiles"].find_one({"_id": oid})
         if not doc:
             return Response({"error": "company not found"}, status=404)
 
-        # Return competitors field
         competitors = doc.get("competitors", [])
         return Response(competitors, status=200)
 
@@ -1902,6 +1794,7 @@ def ai_competitors(request):
 #     return _read_schema_and_respond()
 
 
+# ai/backlinks/
 @api_view(["GET"])
 def ai_backlinks(request):
     """
@@ -1926,12 +1819,11 @@ def ai_backlinks(request):
 
     db = get_mongo_db()
 
-    # --- Inputs ---
+    # Inputs 
     company_id   = (request.GET.get("company_id") or "").strip() or None
     company_name = (request.GET.get("company") or "").strip() or None
     force        = str(request.GET.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
 
-    # numeric/bool
     try:
         limit = int(request.GET.get("limit", 50))
     except Exception:
@@ -1951,7 +1843,7 @@ def ai_backlinks(request):
     with_llm = not _to_bool(request.GET.get("no_llm"), default=False)
     verbose  = _to_bool(request.GET.get("verbose"), default=False)
 
-    # --- Resolve company (prefer id; allow name) ---
+    # Resolve company 
     if not company_id and not company_name:
         return Response({"error": "company_id (or company name) is required"}, status=400)
 
@@ -1966,7 +1858,7 @@ def ai_backlinks(request):
         if prof:
             company_name = prof.get("name")
 
-    # --- Helper: read schema + respond ---
+    # Helper: read schema + respond 
     def _read_schema_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
@@ -1978,7 +1870,6 @@ def ai_backlinks(request):
         name = fresh.get("name") or company_name
         backlinks_card = ((fresh.get("cards") or {}).get("backlinks") or {})
 
-        # prefer normalized 'data'; fall back to legacy 'items'
         data = backlinks_card.get("data")
         if not data:
             data = backlinks_card.get("items") or []
@@ -1989,7 +1880,7 @@ def ai_backlinks(request):
             status=200,
         )
 
-    # --- Freshness check ---
+    # Freshness check 
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.backlinks": 1})
     backlinks_card = ((prof or {}).get("cards") or {}).get("backlinks") or {}
     next_refresh_at = backlinks_card.get("next_refresh_at")
@@ -1999,22 +1890,20 @@ def ai_backlinks(request):
     if (not force) and next_refresh_date and today_utc < next_refresh_date and (backlinks_card.get("data") or backlinks_card.get("items") or []):
         return _read_schema_and_respond()
 
-    # --- Refresh path: call AI runner ---
     try:
         results = backlinks_run(
-            company_id=company_id,               # runner expects id
+            company_id=company_id,              
             limit=limit,
             min_relevance=min_relevance,
             with_llm=with_llm,
-            persist=False,                       # we persist below for consistency
+            persist=False,                      
             verbose=verbose,
         ) or []
 
-        # If the runner returned data but didn’t persist → manually persist (normalized as 'data')
         if isinstance(results, list):
             now = datetime.now(timezone.utc)
             new_block = {
-                "data": results[:limit],                 # normalize to 'data'
+                "data": results[:limit],                
                 "updated_at": _iso_z(now),
                 "next_refresh_at": _iso_z(now + timedelta(days=7)),
             }
@@ -2025,7 +1914,6 @@ def ai_backlinks(request):
     except Exception as e:
         logger.warning("backlinks_run failed; continuing with schema as-is. %s", e)
 
-    # --- Compatibility: migrate legacy 'items' -> 'data' if runner stored it that way ---
     fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = fresh.get("cards") or {}
     bl = cards.get("backlinks") or {}
@@ -2041,7 +1929,6 @@ def ai_backlinks(request):
             {"$set": {"cards.backlinks": migrate_block}}
         )
 
-    # --- Safety: ensure next_refresh_at exists ---
     cur = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.backlinks": 1}) or {}
     cur_block = ((cur.get("cards") or {}).get("backlinks") or {})
     if not cur_block.get("next_refresh_at"):
@@ -2050,8 +1937,6 @@ def ai_backlinks(request):
             {"_id": ObjectId(company_id)},
             {"$set": {"cards.backlinks.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
-
-    # --- Final: re-read and return ---
     return _read_schema_and_respond()
 
 
@@ -2172,7 +2057,7 @@ def ai_backlinks(request):
 #     # --- Re-read schema and return source of truth ---
 #     return _read_schema_and_respond()
 
-
+# ai/opportunities
 @api_view(["GET"])
 def ai_opportunities(request):
     """
@@ -2183,7 +2068,6 @@ def ai_opportunities(request):
       2) If the runner persisted a card at company_profiles.cards.opportunities, read it back and return it.
       3) Otherwise return an acknowledgement that the run completed (or was invoked) with empty items.
     """
-    # Ensure the runner is importable
     if opportunities_run is None:
         return Response({"error": "opportunities.run not available"}, status=500)
 
@@ -2197,34 +2081,26 @@ def ai_opportunities(request):
     if not history_id:
         return Response({"error": "history_id is required"}, status=400)
 
-    # basic limit guard (only used when reading back any persisted data)
     try:
         limit = int(request.GET.get("limit", 20))
     except Exception:
         limit = 20
     limit = max(1, min(limit, 200))
 
-    # Validate ObjectId shape early for clearer errors
     try:
         _ = ObjectId(company_id)
         _ = ObjectId(history_id)
     except Exception:
         return Response({"error": "company_id and history_id must be valid ObjectId strings"}, status=400)
 
-    # Optional: get name for nicer payloads
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1}) or {}
     company_name = prof.get("name")
 
-    # ---- Call the AI runner (authoritative business logic) ----
     try:
-        # Your runner signature: run(company_id: str, history_id: str)
         opportunities_run(company_id=company_id, history_id=history_id)
     except Exception as e:
         logger.exception("opportunities_run failed: %s", e)
-        # Even if AI fails, fall through to attempt reading whatever exists
-        # (keeps the endpoint resilient)
 
-    # ---- Read back (if the runner persisted a card) ----
     fresh = db["company_profiles"].find_one(
         {"_id": ObjectId(company_id)},
         {"name": 1, "cards.opportunities": 1}
@@ -2233,12 +2109,6 @@ def ai_opportunities(request):
     name = fresh.get("name") or company_name or None
     opp_card = ((fresh.get("cards") or {}).get("opportunities") or {})
 
-    # --- Normalize various shapes the runner might write ---
-    # Allowed shapes:
-    # A) dict with "data": [...]
-    # B) dict with "opportunities": [...]
-    # C) dict with "items"/"list": [...]
-    # D) directly a list (cards.opportunities = [...])
     if isinstance(opp_card, list):
         items = opp_card
         updated_at = None
@@ -2261,7 +2131,6 @@ def ai_opportunities(request):
         next_refresh_at = None
         schema_hint = type(opp_card).__name__
 
-    # Log what we found to help debug schema mismatches
     try:
         logger.info("cards.opportunities schema: %s", schema_hint)
     except Exception:
@@ -2269,7 +2138,6 @@ def ai_opportunities(request):
 
     data = (items or [])[:limit]
 
-    # If we have persisted data, return it; otherwise return an ack
     if data:
         return Response(
             {
@@ -2284,7 +2152,6 @@ def ai_opportunities(request):
             status=200,
         )
 
-    # No persisted data yet (runner printed/processed but didn’t write)
     return Response(
         {
             "company": name,
@@ -2298,9 +2165,7 @@ def ai_opportunities(request):
     )
 
 
-
-
-# --- Company profiles: create/update one ---
+# company/upsert/
 @api_view(["POST"])
 def upsert_company(request):
     """
@@ -2325,11 +2190,9 @@ def upsert_company(request):
         if not isinstance(comps, list):
             return Response({"error": "competitors must be a list of strings"}, status=400)
 
-        # Re-use your existing helper (creates default cards & next_refresh_at)
         from .persist import upsert_company_profile, get_mongo_db
         upsert_company_profile({"name": name, "description": desc, "competitors": comps})
 
-        # Read back and return
         db = get_mongo_db()
         doc = db["company_profiles"].find_one({"name": name})
         if not doc:
@@ -2349,7 +2212,7 @@ def upsert_company(request):
         return Response({"error": str(e)}, status=500)
 
 
-# --- Company profiles: list/search (frontend paginates UI-side if desired) ---
+# companies/
 @api_view(["GET"])
 def list_companies(request):
     """
@@ -2381,7 +2244,6 @@ def list_companies(request):
 
         filt = {}
         if q:
-            # case-insensitive regex OR on name/description
             filt = {
                 "$or": [
                     {"name": {"$regex": q, "$options": "i"}},
@@ -2418,7 +2280,7 @@ def list_companies(request):
         logger.exception("list_companies error: %s", e)
         return Response({"error": str(e)}, status=500)
 
-
+# comapany/
 @api_view(["GET"])
 def get_company(request):
     """
@@ -2431,12 +2293,10 @@ def get_company(request):
         if not doc:
             return Response({"error": "company profile not found"}, status=404)
 
-        # Sensible default cards in case you fetch an older doc without 'cards'
         def _default_cards():
             from datetime import datetime, timezone, timedelta
             now = datetime.now(timezone.utc)
             next_week = now + timedelta(days=7)
-            # Store as ISO8601 string with Z suffix for consistency in FE
             nx = next_week.isoformat().replace("+00:00", "Z")
             return {
                 "trending":     {"data": [], "updated_at": None, "next_refresh_at": nx},

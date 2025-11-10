@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 def _map(post_data: Dict) -> Optional[Dict]:
     url = post_data.get("url") or f"https://reddit.com{post_data.get('permalink', '')}"
     domain = post_data.get("domain", "")
-    # allow reddit self-posts; otherwise require website content
     if not (domain in ("self.", "reddit.com") or is_website_url(url)):
         logger.debug("Filtered non-website url=%s domain=%s", url, domain)
         return None

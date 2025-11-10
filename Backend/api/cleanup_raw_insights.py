@@ -1,4 +1,3 @@
-# Backend/api/cleanup_raw_insights.py
 from datetime import datetime, timedelta, timezone
 from typing import Set, Dict, List, Tuple
 from bson import ObjectId
@@ -18,7 +17,6 @@ def cleanup_raw_insights(days_threshold: int = 7, dry_run: bool = True) -> None:
 
     NOTE:
       - We never touch ai_results here, only raw_insights.
-      - This respects your design where raw_insights is a global cache.
     """
 
     db = get_mongo_db()

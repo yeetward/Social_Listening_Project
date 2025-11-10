@@ -1,5 +1,3 @@
-# Backend/api/persist.py
-
 from typing import Iterable, Tuple, List, Dict, Optional
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
@@ -10,14 +8,13 @@ from pymongo.server_api import ServerApi
 _mongo_client = None
 _mongo_db = None
 
-# -------------------- core connection --------------------
-
+# core connection
 def get_mongo_db():
     """
     Return a cached MongoDB database handle using settings.MONGODB_URI/DBNAME.
     """
     global _mongo_client, _mongo_db
-    if _mongo_db is not None:  # IMPORTANT: compare with None (pymongo objects are not truthy)
+    if _mongo_db is not None:  
         return _mongo_db
 
     uri = settings.MONGODB_URI
@@ -29,8 +26,7 @@ def get_mongo_db():
     _mongo_db = _mongo_client[dbname]
     return _mongo_db
 
-# -------------------- HISTORY helpers --------------------
-
+# HISTORY helpers 
 def create_history(
     subject: str,
     location: str,
@@ -93,7 +89,7 @@ def mark_history_ai_done(history_id: ObjectId, total_count: Optional[int] = None
         updates["ai_count"] = total_count
     db["history"].update_one({"_id": ObjectId(history_id)}, {"$set": updates})
 
-# -------------------- RAW INSIGHTS --------------------
+# RAW INSIGHTS
 
 def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
     """
@@ -140,7 +136,7 @@ def persist_raw_insights(rows: Iterable[dict]) -> Tuple[int, int]:
 
     return created, updated
 
-# -------------------- AI RESULTS (queue + output) --------------------
+# AI RESULTS (queue + output)
 
 def _extract_simple_tags(text: str, max_tags: int = 5) -> list:
     """
@@ -167,20 +163,16 @@ def _extract_simple_tags(text: str, max_tags: int = 5) -> list:
         'these', 'give', 'most', 'us', 'is', 'are', 'was', 'been', 'has', 'had'
     }
 
-    # Extract words (2+ characters, alphanumeric)
     words = re.findall(r'\b[a-zA-Z]{2,}\b', text.lower())
 
-    # Filter stop words and count occurrences
     filtered = [w for w in words if w not in stop_words]
 
     if not filtered:
         return []
 
-    # Get most common words
     word_counts = Counter(filtered)
     top_words = [word for word, count in word_counts.most_common(max_tags)]
 
-    # Capitalize for display
     tags = [word.title() for word in top_words]
 
     return tags[:max_tags]
@@ -207,19 +199,17 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
     }
 
     ops = []
-    tags_debug = []  # Track first few for debugging
+    tags_debug = []  
     for p in rows:
         url = (p.get("url") or "").strip()
         if not url:
             continue
 
-        # Generate simple tags immediately from title + text
         title = p.get("title") or ""
         text = p.get("text") or ""
         combined_text = f"{title} {text}"
         tags = _extract_simple_tags(combined_text, max_tags=5)
 
-        # Debug: log first few tag generations
         if len(tags_debug) < 3:
             tags_debug.append({
                 "url": url[:50],
@@ -230,17 +220,15 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
                 "source": p.get("source")
             })
 
-        # If no tags extracted, use source as fallback
         if not tags:
             source = (p.get("source") or "").strip()
             if source:
                 tags = [source.replace("_", " ").title()]
             else:
-                tags = ["General"]  # Ultimate fallback
+                tags = ["General"]  
 
         selector = {"history_id": ObjectId(history_id), "url": url}
 
-        # Split into setOnInsert (only for new docs) and set (always update)
         set_on_insert = {
             "history_id": ObjectId(history_id),
             "url": url,
@@ -251,16 +239,15 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
             "created_at": now,
         }
 
-        # Always set tags, even for existing documents
         set_fields = {
-            "tags": tags,  # 🆕 Always update tags immediately!
+            "tags": tags,  
         }
 
         ops.append(UpdateOne(
             selector,
             {
                 "$setOnInsert": set_on_insert,
-                "$set": set_fields  # This ensures tags are always added
+                "$set": set_fields 
             },
             upsert=True
         ))
@@ -275,46 +262,6 @@ def seed_ai_result_stubs(history_id: ObjectId, rows: Iterable[dict]) -> int:
                 print(f"    Has title: {sample['has_title']}, Has text: {sample['has_text']}, Text len: {sample['text_length']}")
                 print(f"    Tags: {sample['tags']}, Source: {sample['source']}")
     return len(ops)
-
-
-# def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
-#     """
-#     Upsert a batch of ai_results for a given history_id.
-#     Each item should include at least: url, rank, ai_title, ai_summary.
-#     """
-#     db = get_mongo_db()
-#     col = db["ai_results"]
-
-#     ops = []
-#     now = datetime.now(timezone.utc)
-#     for it in items:
-#         url = (it.get("url") or "").strip()
-#         if not url:
-#             continue
-
-#         selector = {"history_id": ObjectId(history_id), "url": url}
-#         docset = {
-#             "history_id": ObjectId(history_id),
-#             "url": url,
-#             "raw_id": it.get("raw_id"),
-#             "rank": it.get("rank"),
-#             "relevance_score": it.get("relevance_score"),
-#             "ai_title": it.get("ai_title"),
-#             "ai_summary": it.get("ai_summary"),
-#             "tags": it.get("tags"),
-#             "influencer_mentions": it.get("influencer_mentions"),
-#             "backlinks": it.get("backlinks"),
-#             "source": it.get("source"),
-#             "published_ts": it.get("published_ts"),
-#             "status": it.get("status") or "done",
-#             "finished_at": now,
-#         }
-#         ops.append(UpdateOne(selector, {"$set": docset, "$setOnInsert": {"created_at": now}}, upsert=True))
-
-#     result = col.bulk_write(ops) if ops else None
-#     upserts = getattr(result, "upserted_count", 0) if result else 0
-#     updates = getattr(result, "modified_count", 0) if result else 0
-#     return upserts, updates
 
 def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int, int]:
     """
@@ -348,10 +295,8 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
             "published_ts": it.get("published_ts"),
             "status": it.get("status") or "done",
             "finished_at": now,
-
-            # 🆕 New optional AI fields
             "sentiment": it.get("sentiment"),
-            "engagement_metrics": it.get("engagement_metrics"),  # dict like {"likes": 20, "shares": 5}
+            "engagement_metrics": it.get("engagement_metrics"),  
         }
 
         ops.append(
@@ -367,7 +312,6 @@ def write_ai_results_batch(history_id: ObjectId, items: List[Dict]) -> Tuple[int
     updates = getattr(result, "modified_count", 0) if result else 0
     return upserts, updates
 
-# -------------------- Legacy shim --------------------
 
 def persist_posts(rows: Iterable[dict]) -> Tuple[int, int]:
     """
@@ -375,7 +319,7 @@ def persist_posts(rows: Iterable[dict]) -> Tuple[int, int]:
     """
     return persist_raw_insights(rows)
 
-# ---------------------- Company profile helpers ---------------------------------------
+# Company profile helpers
 
 def _iso_z(dt: datetime) -> str:
     """Convert a datetime to ISO string with Z suffix (UTC)."""
@@ -389,7 +333,6 @@ def _default_card_block(now: datetime) -> dict:
         "updated_at": None,
         "next_refresh_at": _iso_z(now + timedelta(days=7)),
     }
-
 
 def upsert_company_profile(profile: dict):
     """
@@ -418,7 +361,7 @@ def upsert_company_profile(profile: dict):
         "ideas": _default_card_block(now),
         "backlinks": _default_card_block(now),
         "opportunities": _default_card_block(now),
-        "new_competitors": _default_card_block(now), # ← NEW
+        "new_competitors": _default_card_block(now), 
     }
 
     db["company_profiles"].update_one(
@@ -431,19 +374,16 @@ def upsert_company_profile(profile: dict):
             },
             "$setOnInsert": {
                 "created_at": now,
-                "cards": cards,  # only on first insert
+                "cards": cards, 
             },
         },
         upsert=True
     )
 
-
-    # Backfill the new card if the doc already existed (Mongo has no $setIfAbsent)
     db["company_profiles"].update_one(
         {"name": name, "cards.new_competitors": {"$exists": False}},
         {"$set": {"cards.new_competitors": _default_card_block(now)}}
     )
-
 
 def get_company_profile(name: Optional[str] = None) -> Optional[dict]:
     """

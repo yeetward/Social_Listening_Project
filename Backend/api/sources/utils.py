@@ -1,4 +1,3 @@
-# Backend/api/sources/utils.py
 import time
 import re
 import html as htmlmod
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; PaceDiscoveryBot/0.1; +http://localhost)"}
 
-# --- helpers ---------------------------------------------------------------
+# helpers 
 
 def parse_rss(url: str, timeout: int = 10):
     """Fetch URL with requests (so HTTPS certs work) then parse with feedparser."""
@@ -98,7 +97,7 @@ def is_website_url(url: str) -> bool:
 
     return False
 
-# --- mappers ---------------------------------------------------------------
+# mappers 
 
 def map_generic_rss_entry(e, source_key: str, post_prefix: str) -> Dict:
     url = e.get("link") or ""
@@ -132,7 +131,7 @@ def map_generic_rss_entry(e, source_key: str, post_prefix: str) -> Dict:
 def map_reddit_rss_entry(e) -> Dict:
     return map_generic_rss_entry(e, source_key="reddit_rss", post_prefix="reddit_rss")
 
-# --- reddit oauth ----------------------------------------------------------
+# reddit oauth 
 
 def get_reddit_access_token() -> Optional[str]:
     try:
