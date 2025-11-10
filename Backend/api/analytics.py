@@ -1,4 +1,3 @@
-# Backend/api/analytics.py
 import time
 from bson import ObjectId
 from .persist import get_mongo_db
@@ -8,24 +7,14 @@ from datetime import datetime, timezone, timedelta
 
 from .persist import _iso_z, get_mongo_db, get_company_profile
 def global_top_topics(days: int = 30, limit: int = 20):
-    """
-    Return the most common HISTORY subjects (deduped) linked to completed AI results
-    within the last X days.
-
-    De-dup logic:
-      - One vote per (history_id, subject), not per ai_results row.
-      - Subjects are normalized (trim + lowercase) to avoid casing/whitespace dupes.
-    """
     db = get_mongo_db()
 
     now_dt = datetime.now(timezone.utc)
     from_dt = now_dt - timedelta(days=days)
 
     pipeline = [
-        # Only finished AI results
         {"$match": {"status": "done"}},
 
-        # Join ai_results -> history
         {"$lookup": {
             "from": "history",
             "localField": "history_id",
@@ -34,13 +23,11 @@ def global_top_topics(days: int = 30, limit: int = 20):
         }},
         {"$unwind": {"path": "$hist", "preserveNullAndEmptyArrays": False}},
 
-        # Time window on history.created_at and require non-empty subject
         {"$match": {
             "hist.created_at": {"$gte": from_dt},
             "hist.subject": {"$type": "string", "$ne": ""}
         }},
 
-        # Normalize subject to avoid dupes due to case/whitespace
         {"$set": {
             "norm_subject": {
                 "$toLower": {
@@ -49,12 +36,10 @@ def global_top_topics(days: int = 30, limit: int = 20):
             }
         }},
 
-        # De-dup per (history_id, normalized subject)
         {"$group": {
             "_id": {"hid": "$hist._id", "sub": "$norm_subject"}
         }},
 
-        # Count unique histories per normalized subject
         {"$group": {
             "_id": "$_id.sub",
             "count": {"$sum": 1}
@@ -66,7 +51,6 @@ def global_top_topics(days: int = 30, limit: int = 20):
 
     rows = list(db["ai_results"].aggregate(pipeline))
 
-    # Return the normalized subject strings
     return [r["_id"] for r in rows]
 
 
@@ -90,7 +74,6 @@ def trend_top_tags(history_id: ObjectId, days: int = 30, top_k: int = 20):
     now_ms = int(time.time() * 1000)
     from_ms = now_ms - days * 86400 * 1000
     pipeline = [
-        # 🆕 Changed: Now includes BOTH "queued" and "done" results for immediate tags
         {"$match": {"history_id": history_id, "status": {"$in": ["queued", "done"]}, "published_ts": {"$ne": None}}},
         {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
         {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
