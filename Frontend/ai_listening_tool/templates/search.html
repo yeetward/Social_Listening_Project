@@ -42,52 +42,115 @@
 
   <!-- Content Grid -->
   <section class="rm-grid">
-    <article class="rm-card" id="trendingTopicsCard">
+    <article class="rm-card rm-card-fixed-height" id="trendingTopicsCard">
       <h3 class="rm-card-title">Trending Topics</h3>
-      <ul class="rm-list" id="trendingTopicsList" style="padding-left: 20px;">
-        <li class="rm-loading">Loading trending topics...</li>
-      </ul>
+      <div class="rm-card-content">
+        <ul class="rm-list" id="trendingTopicsList" style="padding-left: 20px;">
+          <li class="rm-loading">Loading trending topics...</li>
+        </ul>
+      </div>
     </article>
 
-    <article class="rm-card" id="competitorsCard">
+    <article class="rm-card rm-card-fixed-height" id="competitorsCard">
       <h3 class="rm-card-title">Competitors</h3>
-      <ul class="rm-list" id="competitorsList" style="padding-left: 20px;">
-        <li class="rm-loading">Loading competitors...</li>
-      </ul>
+      <div class="rm-card-content">
+        <ul class="rm-list" id="competitorsList" style="padding-left: 20px;">
+          <li class="rm-loading">Loading competitors...</li>
+        </ul>
+      </div>
     </article>
 
-    <article class="rm-card">
+    <article class="rm-card rm-card-fixed-height">
       <h3 class="rm-card-title">Backlinks</h3>
-      <ul class="rm-list rm-list--links">
-        <li><a href="#">https://yourclinic.com/health-seniors</a></li>
-        <li><a href="#">https://yourclinic.com/best-practices</a></li>
-        <li><a href="#">https://yourclinic.com/clinical-workflows</a></li>
-        <li><a href="#">https://yourclinic.com/research-resources</a></li>
-        <li><a href="#">https://yourclinic.com/case-study</a></li>
-        <li><a href="#">https://yourclinic.com/wearables-integration</a></li>
-      </ul>
+      <div class="rm-card-content">
+        <ul class="rm-list rm-list--links">
+          <li><a href="#">https://yourclinic.com/health-seniors</a></li>
+          <li><a href="#">https://yourclinic.com/best-practices</a></li>
+          <li><a href="#">https://yourclinic.com/clinical-workflows</a></li>
+          <li><a href="#">https://yourclinic.com/research-resources</a></li>
+          <li><a href="#">https://yourclinic.com/case-study</a></li>
+          <li><a href="#">https://yourclinic.com/wearables-integration</a></li>
+        </ul>
+      </div>
     </article>
 
-    <article class="rm-card">
+    <article class="rm-card rm-card-fixed-height">
       <h3 class="rm-card-title">Influencers</h3>
-      <div class="rm-empty">Coming Soon...</div>
+      <div class="rm-card-content">
+        <div class="rm-empty">Coming Soon...</div>
+      </div>
     </article>
 
-    <article class="rm-card" id="newsFeedCard">
+    <article class="rm-card rm-card-fixed-height" id="newsFeedCard">
       <h3 class="rm-card-title">News Feed</h3>
-      <ul class="rm-news" id="newsFeedList">
-        <li class="rm-loading">Loading news feed...</li>
-      </ul>
+      <div class="rm-card-content">
+        <ul class="rm-news" id="newsFeedList">
+          <li class="rm-loading">Loading news feed...</li>
+        </ul>
+      </div>
     </article>
 
-    <article class="rm-card" id="ideasCard">
+    <article class="rm-card rm-card-fixed-height" id="ideasCard">
       <h3 class="rm-card-title">Ideas</h3>
-      <ul class="rm-news" id="ideasList">
-        <li class="rm-loading">Loading ideas...</li>
-      </ul>
+      <div class="rm-card-content">
+        <ul class="rm-news" id="ideasList">
+          <li class="rm-loading">Loading ideas...</li>
+        </ul>
+      </div>
     </article>
   </section>
 </div>
+
+<style>
+  /* Fixed height cards with scrolling for search page */
+  .rm-card-fixed-height {
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .rm-card-fixed-height .rm-card-title {
+    flex-shrink: 0;
+    margin-bottom: 16px;
+  }
+
+  .rm-card-fixed-height .rm-card-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Ensure lists and content don't add extra margins that break the layout */
+  .rm-card-fixed-height .rm-card-content > ul,
+  .rm-card-fixed-height .rm-card-content > div {
+    margin: 0;
+  }
+
+  /* Add padding to scrollable content for better spacing */
+  .rm-card-fixed-height .rm-card-content {
+    padding-right: 4px;
+  }
+
+  /* Style the scrollbar for better appearance (webkit browsers) */
+  .rm-card-fixed-height .rm-card-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .rm-card-fixed-height .rm-card-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .rm-card-fixed-height .rm-card-content::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+  }
+
+  .rm-card-fixed-height .rm-card-content::-webkit-scrollbar-thumb:hover {
+    background: #999;
+  }
+</style>
 {% endblock %}
 
 {% block pagescripts %}

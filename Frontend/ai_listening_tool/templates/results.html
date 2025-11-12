@@ -266,6 +266,33 @@
       margin-top: auto !important;
     }
 
+    /* Style the scrollbar for better appearance (webkit browsers) */
+    .rm-top-card-fixed-height .rm-topics-box::-webkit-scrollbar,
+    .rm-top-card-fixed-height .rm-top-card-list::-webkit-scrollbar,
+    .rm-top-card-fixed-height .rm-opportunities-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .rm-top-card-fixed-height .rm-topics-box::-webkit-scrollbar-track,
+    .rm-top-card-fixed-height .rm-top-card-list::-webkit-scrollbar-track,
+    .rm-top-card-fixed-height .rm-opportunities-list::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    .rm-top-card-fixed-height .rm-topics-box::-webkit-scrollbar-thumb,
+    .rm-top-card-fixed-height .rm-top-card-list::-webkit-scrollbar-thumb,
+    .rm-top-card-fixed-height .rm-opportunities-list::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 3px;
+    }
+
+    .rm-top-card-fixed-height .rm-topics-box::-webkit-scrollbar-thumb:hover,
+    .rm-top-card-fixed-height .rm-top-card-list::-webkit-scrollbar-thumb:hover,
+    .rm-top-card-fixed-height .rm-opportunities-list::-webkit-scrollbar-thumb:hover {
+      background: #999;
+    }
+
     /* Clear all button styling */
     .rm-filter-clear-btn {
       padding: 4px 10px;
@@ -1096,6 +1123,7 @@
 
       console.log('✨ Normalized results count:', normalizedResults.length);
       console.log('✅ Deduplicated results count:', allResults.length);
+      
       if (allResults.length > 0) {
         console.log('📝 First normalized result:', allResults[0]);
 
@@ -1624,7 +1652,69 @@
     return { text: 'NO DATA', color: '#dc2626', type: 'missing' };
   }
 
-  // Compute priority based on relevance score only
+  /**
+   * Filter results by priority - returns specific slices of sorted results
+   * 
+   * From 100 results sorted by relevance score (highest to lowest):
+   * - High: indices 0-32 (top 33 results with highest relevance scores)
+   * - Medium: indices 33-66 (middle 34 results)
+   * - Low: indices 67-99 (bottom 33 results with lowest relevance scores)
+   * 
+   * If multiple priorities are selected, their slices are combined.
+   * If no priority is selected, all results are returned.
+   */
+  function filterResultsByPriority(results, selectedPriorities) {
+    if (!results || results.length === 0) return [];
+    if (selectedPriorities.length === 0) return results; // No filter selected, show all
+    
+    // Sort all results by relevance score (descending - highest first)
+    const sortedResults = [...results].sort((a, b) => {
+      const scoreA = getRelevancePercent(a.score || a.relevance_score) || 0;
+      const scoreB = getRelevancePercent(b.score || b.relevance_score) || 0;
+      return scoreB - scoreA; // Descending order
+    });
+    
+    // Calculate slice indices for 100 results: high=0-32 (33), medium=33-66 (34), low=67-99 (33)
+    const highStart = 0;
+    const highEnd = 33;
+    const mediumStart = 33;
+    const mediumEnd = 67;
+    const lowStart = 67;
+    const lowEnd = 100;
+    
+    let filteredResults = [];
+    
+    // Collect results based on selected priorities
+    if (selectedPriorities.includes('high')) {
+      // Top 33 results with highest relevance scores
+      filteredResults.push(...sortedResults.slice(highStart, highEnd));
+    }
+    
+    if (selectedPriorities.includes('medium')) {
+      // Middle 34 results
+      filteredResults.push(...sortedResults.slice(mediumStart, mediumEnd));
+    }
+    
+    if (selectedPriorities.includes('low')) {
+      // Bottom 33 results with lowest relevance scores
+      filteredResults.push(...sortedResults.slice(lowStart, lowEnd));
+    }
+    
+    console.log('🎯 Priority Filter Applied:', {
+      totalResults: results.length,
+      selectedPriorities: selectedPriorities,
+      filteredCount: filteredResults.length,
+      breakdown: {
+        high: selectedPriorities.includes('high') ? Math.min(33, sortedResults.length) : 0,
+        medium: selectedPriorities.includes('medium') ? Math.min(34, Math.max(0, sortedResults.length - 33)) : 0,
+        low: selectedPriorities.includes('low') ? Math.max(0, sortedResults.length - 67) : 0
+      }
+    });
+    
+    return filteredResults;
+  }
+
+  // Compute priority label for display purposes (not used for filtering anymore)
   function getPriority(item) {
     // Return cached result if available
     if (item.__priorityLabel) return item.__priorityLabel;
@@ -1639,14 +1729,14 @@
       return 'low';
     }
 
-    // Bucket into labels based on relevance score thresholds
+    // Simple labeling for display (not used for filtering)
     let label;
     if (relevancePercent >= 70) {
-      label = 'high';      // 70-100% = High Priority
+      label = 'high';
     } else if (relevancePercent >= 40) {
-      label = 'medium';    // 40-69% = Medium Priority
+      label = 'medium';
     } else {
-      label = 'low';       // 0-39% = Low Priority
+      label = 'low';
     }
 
     // Cache the label
@@ -1691,8 +1781,8 @@
     const selectedPlatforms = JSON.parse(sessionStorage.getItem('rm_platforms') || '[]');
     const selectedSentiments = JSON.parse(sessionStorage.getItem('rm_sentiments') || '[]');
 
+    // Step 1: Apply time, platform, and sentiment filters
     let filtered = allResults.filter(item => {
-      const priority = getPriority(item);
       const platform = item.source || item.platform || 'Unknown';
       const sentiment = (item.sentiment || '').toLowerCase();
 
@@ -1734,12 +1824,14 @@
         }
       }
 
-      const priorityMatch = selectedPriorities.length === 0 || selectedPriorities.includes(priority);
       const platformMatch = selectedPlatforms.length === 0 || selectedPlatforms.includes(platform);
       const sentimentMatch = selectedSentiments.length === 0 || selectedSentiments.includes(sentiment);
 
-      return timeMatch && priorityMatch && platformMatch && sentimentMatch;
+      return timeMatch && platformMatch && sentimentMatch;
     });
+
+    // Step 2: Apply priority filter (slicing based on relevance score ranking)
+    filtered = filterResultsByPriority(filtered, selectedPriorities);
 
     filtered = filtered.slice(0, TOTAL_PAGES * PAGE_SIZE);
 
