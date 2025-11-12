@@ -1,8 +1,9 @@
 from typing import List, Dict, Optional
 import logging
 import requests
-from django.conf import settings
-from .utils import get_reddit_access_token, is_website_url, clean_html_to_text, UA
+
+from config import REDDIT_USER_AGENT
+from .utils import get_reddit_access_token, is_website_url, clean_html_to_text
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def fetch(query: str, limit: int = 20) -> List[Dict]:
     token = get_reddit_access_token()
     if not token:
         return []
-    headers = {"User-Agent": settings.REDDIT_USER_AGENT, "Authorization": f"Bearer {token}"}
+    headers = {"User-Agent": REDDIT_USER_AGENT, "Authorization": f"Bearer {token}"}
     params = {"q": query, "sort": "new", "limit": min(limit * 3, 100), "type": "link", "restrict_sr": "off"}
     try:
         r = requests.get("https://oauth.reddit.com/search", headers=headers, params=params, timeout=15)
@@ -61,5 +62,3 @@ def fetch(query: str, limit: int = 20) -> List[Dict]:
             if len(out) >= limit:
                 break
     return out
-
-

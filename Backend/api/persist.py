@@ -1,29 +1,23 @@
 from typing import Iterable, Tuple, List, Dict, Optional
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
-from django.conf import settings
 from pymongo import MongoClient, UpdateOne
 from pymongo.server_api import ServerApi
+
+from config import MONGODB_URI, MONGODB_DBNAME
 
 _mongo_client = None
 _mongo_db = None
 
-# core connection
 def get_mongo_db():
-    """
-    Return a cached MongoDB database handle using settings.MONGODB_URI/DBNAME.
-    """
+    """Return a cached MongoDB database handle using config.MONGODB_URI/DBNAME."""
     global _mongo_client, _mongo_db
-    if _mongo_db is not None:  
+    if _mongo_db is not None:
         return _mongo_db
-
-    uri = settings.MONGODB_URI
-    dbname = settings.MONGODB_DBNAME
-    if not uri or not dbname:
+    if not MONGODB_URI or not MONGODB_DBNAME:
         raise RuntimeError("Mongo settings missing: MONGODB_URI / MONGODB_DBNAME")
-
-    _mongo_client = MongoClient(uri, server_api=ServerApi("1"))
-    _mongo_db = _mongo_client[dbname]
+    _mongo_client = MongoClient(MONGODB_URI, server_api=ServerApi("1"))
+    _mongo_db = _mongo_client[MONGODB_DBNAME]
     return _mongo_db
 
 # HISTORY helpers 

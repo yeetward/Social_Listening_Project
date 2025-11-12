@@ -37,7 +37,7 @@ pip install -r requirements.txt
 ```bash
 Terminal 1
 
-python manage.py runserver 8001
+python app.py 8001
 ```
 
 ## Quick testing

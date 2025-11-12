@@ -1,12 +1,13 @@
-import os, math, time, logging
+import math, time, logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 import requests
-from django.conf import settings
+
+from config import NEWSAPI_KEY as CFG_NEWSAPI_KEY
 
 logger = logging.getLogger(__name__)
 
-ENDPOINT = getattr(settings, "NEWSAPI_ENDPOINT", "https://newsapi.org/v2/everything")
+ENDPOINT = "https://newsapi.org/v2/everything"
 MAX_PAGE_SIZE = 100
 
 def _to_ts(iso_str: Optional[str]) -> Optional[int]:
@@ -29,10 +30,10 @@ def fetch(
     Adapter for REGISTRY: fetch(query, limit, **kwargs) -> list[dict] shaped like raw_insights rows.
     Pulls articles from NewsAPI and normalizes them for Mongo persistence.
     """
-    api_key = getattr(settings, "NEWSAPI_KEY", None)
+    api_key = CFG_NEWSAPI_KEY
     if not api_key:
-        logger.error("newsapi error: NEWSAPI_KEY not set in Django settings")
-        raise RuntimeError("NEWSAPI_KEY not set in Django settings")
+        logger.error("newsapi error: NEWSAPI_KEY not set in config")
+        raise RuntimeError("NEWSAPI_KEY not set in config")
 
     to_dt = datetime.now(timezone.utc)
     from_dt = to_dt - timedelta(days=days)
@@ -75,7 +76,6 @@ def fetch(
             title = (a.get("title") or "").strip()
             desc = (a.get("description") or "").strip()
             content = (a.get("content") or "").strip()
-
             if " [+" in content:
                 content = content.split(" [+", 1)[0].rstrip()
 
@@ -99,7 +99,7 @@ def fetch(
         if len(out) >= limit:
             break
 
-        time.sleep(0.2)  
+        time.sleep(0.2)
 
     logger.info("newsapi fetched %d articles for query='%s'", len(out), query)
     return out

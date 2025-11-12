@@ -6,13 +6,18 @@ import logging
 from typing import Dict, List, Optional
 import requests
 import feedparser
-from django.conf import settings
+
+from config import (
+    REDDIT_CLIENT_ID,
+    REDDIT_CLIENT_SECRET,
+    REDDIT_USER_AGENT,
+)
 
 logger = logging.getLogger(__name__)
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; PaceDiscoveryBot/0.1; +http://localhost)"}
 
-# helpers 
+# --- helpers ---------------------------------------------------------------
 
 def parse_rss(url: str, timeout: int = 10):
     """Fetch URL with requests (so HTTPS certs work) then parse with feedparser."""
@@ -97,7 +102,7 @@ def is_website_url(url: str) -> bool:
 
     return False
 
-# mappers 
+# --- mappers ---------------------------------------------------------------
 
 def map_generic_rss_entry(e, source_key: str, post_prefix: str) -> Dict:
     url = e.get("link") or ""
@@ -112,8 +117,9 @@ def map_generic_rss_entry(e, source_key: str, post_prefix: str) -> Dict:
         author = src.get("title") or ""
     author = (e.get("author") or author or "").strip()
 
+    import time as _t
     return {
-        "post_id": f"{post_prefix}:{hash(url) if url else int(time.time()*1000)}",
+        "post_id": f"{post_prefix}:{hash(url) if url else int(_t.time()*1000)}",
         "source": source_key,
         "url": url,
         "title": title,
@@ -131,13 +137,13 @@ def map_generic_rss_entry(e, source_key: str, post_prefix: str) -> Dict:
 def map_reddit_rss_entry(e) -> Dict:
     return map_generic_rss_entry(e, source_key="reddit_rss", post_prefix="reddit_rss")
 
-# reddit oauth 
+# --- reddit oauth ----------------------------------------------------------
 
 def get_reddit_access_token() -> Optional[str]:
     try:
-        auth_str = f"{settings.REDDIT_CLIENT_ID}:{settings.REDDIT_CLIENT_SECRET}"
+        auth_str = f"{REDDIT_CLIENT_ID}:{REDDIT_CLIENT_SECRET}"
         encoded_auth = base64.b64encode(auth_str.encode()).decode()
-        headers = {"User-Agent": settings.REDDIT_USER_AGENT, "Authorization": f"Basic {encoded_auth}"}
+        headers = {"User-Agent": REDDIT_USER_AGENT, "Authorization": f"Basic {encoded_auth}"}
         data = {"grant_type": "client_credentials"}
         r = requests.post("https://www.reddit.com/api/v1/access_token", headers=headers, data=data, timeout=10)
         r.raise_for_status()

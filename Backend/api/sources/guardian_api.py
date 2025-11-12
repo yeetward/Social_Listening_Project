@@ -1,11 +1,12 @@
 from typing import List, Dict
 from datetime import datetime, timezone as dt_tz
 import requests
-from django.conf import settings
+
+from config import GUARDIAN_API_KEY
 from .utils import UA, clean_html_to_text
 
 def fetch(query: str, limit: int = 20) -> List[Dict]:
-    api_key = getattr(settings, "GUARDIAN_API_KEY", "") or ""
+    api_key = GUARDIAN_API_KEY or ""
     if not api_key:
         return []
 
