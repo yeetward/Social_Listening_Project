@@ -4,7 +4,7 @@ import json
 from typing import List, Dict, Any, Set
 from datetime import datetime, timezone
 
-from AI.collection_card.company_cards import upsert_company_card
+from AI.collection_card import company_cards
 from AI.collection_card.new_competitors.fetch_context import (
     get_company_by_id,
     fetch_company_mentions_docs,
@@ -92,7 +92,7 @@ def run(
             "meta": meta,
         }
         if persist:
-            upsert_company_card(company_id, "new_competitors", payload)
+            company_cards.upsert_company_card(company_id, "new_competitors", payload)
         # Build unified empty result
         result = {
             "existing_competitors": [{"name": n} for n in sorted(existing)],
@@ -124,11 +124,11 @@ def run(
             "meta": meta,
         }
         if persist:
-            upsert_company_card(company_id, "new_competitors", payload)
+            company_cards.upsert_company_card(company_id, "new_competitors", payload)
 
         result = {
-            "existing_competitors": [{"name": n} for n in sorted(existing)],
-            "new_competitors": [],
+            # "existing_competitors": [{"name": n} for n in sorted(existing)],
+            # "new_competitors": [],
             "combined": sorted(existing),
         }
         return result
@@ -167,12 +167,12 @@ def run(
     # Persist to card if requested
     if persist:
         payload = {
-            "items": filtered,  # store the structured new items
+            "items": combined,  # store the structured new items
             "updated_at": datetime.now(timezone.utc),
             "next_refresh_at": None,
             "meta": meta,
         }
-        upsert_company_card(company_id, "new_competitors", payload)
+        company_cards.upsert_company_card(company_id, "new_competitors", payload)
         if verbose:
             print(f" Stored {len(filtered)} new competitors in company card.")
 
