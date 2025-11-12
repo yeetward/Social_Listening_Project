@@ -222,11 +222,13 @@ except Exception as e:
     logger.warning("Failed to import competitors_run(): %s", e)
 
 
+# at top, where you import runners
 try:
-    from AI.collection_card.backlinks.main_backlinks import run as backlinks_run
+    from AI.collection_card.engaged_links.main_engaged import run as engaged_links_run
 except Exception as e:
-    backlinks_run = None
-    logger.warning("Failed to import backlinks.run(): %s", e)
+    engaged_links_run = None
+    logger.warning("Failed to import engaged_links.run(): %s", e)
+
 
 try:
     from AI.collection_card.opportunities.main_opportunities import run as opportunities_run
@@ -1085,113 +1087,134 @@ def ai_competitors():
 
 @api_bp.route("/ai/backlinks/", methods=["GET"])
 def ai_backlinks():
-    if backlinks_run is None:
-        return _j({"error": "backlinks.run not available"}, 500)
+    """
+    Compatibility endpoint: returns the company's most engaged links.
+    Source of truth: company_profiles.cards.engaged_links
+
+    Query params:
+      - company_id=<id> or company=<name>
+      - limit=<N>               -> maps to runner top_n (default 20)
+      - limit_docs=<N>          -> runner limit_docs (default 400)
+      - min_relevance=<float>   -> runner min_relevance (default 0.10)
+      - days_back=<int>         -> runner days_back (default 200)
+      - force=1                 -> bypass freshness
+      - verbose=1
+    """
+    if engaged_links_run is None:
+        return _j({"error": "engaged_links.run not available"}, 500)
+
     db = get_mongo_db()
-    company_id   = (request.args.get("company_id") or "").strip() or None
-    company_name = (request.args.get("company") or "").strip() or None
-    force        = str(request.args.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+    q = request.args
 
-    try:
-        limit = int(request.args.get("limit", 50))
-    except Exception:
-        limit = 50
-    limit = max(1, min(limit, 200))
-    try:
-        min_relevance = float(request.args.get("min_relevance", 0.30))
-    except Exception:
-        min_relevance = 0.30
+    company_id   = (q.get("company_id") or "").strip() or None
+    company_name = (q.get("company")    or "").strip() or None
+    force        = str(q.get("force", "0")).strip().lower() in ("1","true","yes","y","on")
 
-    def _to_bool(v, default=False):
-        if v is None:
-            return default
-        return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
+    def _int(name, default):
+        try: return int(q.get(name, default))
+        except Exception: return default
 
-    with_llm = not _to_bool(request.args.get("no_llm"), default=False)
-    verbose  = _to_bool(request.args.get("verbose"), default=False)
+    def _float(name, default):
+        try: return float(q.get(name, default))
+        except Exception: return default
 
-    if not company_id and not company_name:
-        return _j({"error": "company_id (or company name) is required"}, 400)
+    def _bool(name, default=False):
+        v = q.get(name, None)
+        if v is None: return default
+        return str(v).strip().lower() in ("1","true","yes","y","on")
+
+    # Map query knobs to runner
+    top_n         = _int("limit", 20)           # public param 'limit' → runner top_n
+    limit_docs    = _int("limit_docs", 400)
+    min_relevance = _float("min_relevance", 0.10)
+    days_back     = _int("days_back", 200)
+    verbose       = _bool("verbose", False)
+
+    # ---- resolve company ----
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
             return _j({"error": f"Company '{company_name}' not found"}, 404)
         company_id = str(doc["_id"])
+
+    if not company_id:
+        return _j({"error": "company_id (or company name) is required"}, 400)
+
+    try:
+        _ = ObjectId(company_id)
+    except Exception:
+        return _j({"error": "invalid company_id (must be 24-character ObjectId)"}, 400)
+
     if company_id and not company_name:
         prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
         if prof:
             company_name = prof.get("name")
 
+    # ---- helper: read schema + respond ----
     def _read_schema_and_respond():
         fresh = db["company_profiles"].find_one(
-            {"_id": ObjectId(company_id)}, {"name": 1, "cards.backlinks": 1}
+            {"_id": ObjectId(company_id)}, {"name": 1, "cards.engaged_links": 1}
         )
         if not fresh:
             return _j({"error": "company profile not found"}, 404)
         name = fresh.get("name") or company_name
-        backlinks_card = ((fresh.get("cards") or {}).get("backlinks") or {})
-        data = backlinks_card.get("data")
+        card = ((fresh.get("cards") or {}).get("engaged_links") or {})
+        data = card.get("data")
         if not data:
-            data = backlinks_card.get("items") or []
-        data = (data or [])[:limit]
-        return _j({"company": name, "company_id": company_id, "count": len(data), "backlinks": data}, 200)
+            data = card.get("items") or []           # legacy compatibility
+        out = (data or [])[:top_n]
+        return _j({"company": name, "company_id": company_id, "count": len(out), "engaged_links": out}, 200)
 
-    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.backlinks": 1})
-    backlinks_card = ((prof or {}).get("cards") or {}).get("backlinks") or {}
-    next_refresh_at = backlinks_card.get("next_refresh_at")
+    # ---- freshness check ----
+    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
+    card = ((prof.get("cards") or {}).get("engaged_links") or {})
+    next_refresh_at   = card.get("next_refresh_at")
     next_refresh_date = _parse_iso_to_date(next_refresh_at)
-    today_utc = datetime.now(timezone.utc).date()
-    if (not force) and next_refresh_date and today_utc < next_refresh_date and (backlinks_card.get("data") or backlinks_card.get("items") or []):
+    today_utc         = datetime.now(timezone.utc).date()
+    if (not force) and next_refresh_date and today_utc < next_refresh_date and (card.get("data") or card.get("items")):
         return _read_schema_and_respond()
 
+    # ---- run builder (best-effort) ----
     try:
-        results = backlinks_run(
+        engaged_links_run(
             company_id=company_id,
-            limit=limit,
+            top_n=top_n,
+            limit_docs=limit_docs,
             min_relevance=min_relevance,
-            with_llm=with_llm,
-            persist=False,
+            days_back=days_back,
+            persist=True,
             verbose=verbose,
-        ) or []
-
-        if isinstance(results, list):
-            now = datetime.now(timezone.utc)
-            new_block = {
-                "data": results[:limit],
-                "updated_at": _iso_z(now),
-                "next_refresh_at": _iso_z(now + timedelta(days=7)),
-            }
-            db["company_profiles"].update_one(
-                {"_id": ObjectId(company_id)},
-                {"$set": {"cards.backlinks": new_block}}
-            )
+        )
     except Exception as e:
-        logger.warning("backlinks_run failed; continuing with schema as-is. %s", e)
+        logger.warning("engaged_links_run failed; continuing with schema as-is. %s", e)
 
-    fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
-    cards = fresh.get("cards") or {}
-    bl = cards.get("backlinks") or {}
-    if bl.get("items") and not bl.get("data"):
+    # ---- migrate legacy 'items' -> 'data' if needed ----
+    fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
+    card  = ((fresh.get("cards") or {}).get("engaged_links") or {})
+    if card.get("items") and not card.get("data"):
         now = datetime.now(timezone.utc)
         migrate_block = {
-            "data": bl.get("items")[:limit],
-            "updated_at": bl.get("updated_at") or _iso_z(now),
-            "next_refresh_at": bl.get("next_refresh_at") or _iso_z(now + timedelta(days=7)),
+            "data": card.get("items")[:top_n],
+            "updated_at": card.get("updated_at") or _iso_z(now),
+            "next_refresh_at": card.get("next_refresh_at") or _iso_z(now + timedelta(days=7)),
         }
         db["company_profiles"].update_one(
             {"_id": ObjectId(company_id)},
-            {"$set": {"cards.backlinks": migrate_block}}
+            {"$set": {"cards.engaged_links": migrate_block}}
         )
 
-    cur = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.backlinks": 1}) or {}
-    cur_block = ((cur.get("cards") or {}).get("backlinks") or {})
+    # ---- ensure next_refresh_at exists ----
+    cur = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
+    cur_block = ((cur.get("cards") or {}).get("engaged_links") or {})
     if not cur_block.get("next_refresh_at"):
         now = datetime.now(timezone.utc)
         db["company_profiles"].update_one(
             {"_id": ObjectId(company_id)},
-            {"$set": {"cards.backlinks.next_refresh_at": _iso_z(now + timedelta(days=7))}}
+            {"$set": {"cards.engaged_links.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
+
     return _read_schema_and_respond()
+
 
 @api_bp.route("/ai/opportunities/", methods=["GET"])
 def ai_opportunities():
