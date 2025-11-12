@@ -54,48 +54,48 @@ def global_top_topics(days: int = 30, limit: int = 20):
     return [r["_id"] for r in rows]
 
 
-def trend_timeseries_by_day(history_id: ObjectId, days: int = 30):
-    db = get_mongo_db()
-    now_ms = int(time.time() * 1000)
-    from_ms = now_ms - days * 86400 * 1000
-    pipeline = [
-        {"$match": {"history_id": history_id, "status": "done", "published_ts": {"$ne": None}}},
-        {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
-        {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
-        {"$group": {"_id": {"$dateTrunc": {"date": "$pub_dt", "unit": "day"}},
-                    "count": {"$sum": 1},
-                    "avg_relevance": {"$avg": "$relevance_score"}}},
-        {"$sort": {"_id": 1}}
-    ]
-    return list(db["ai_results"].aggregate(pipeline))
+# def trend_timeseries_by_day(history_id: ObjectId, days: int = 30):
+#     db = get_mongo_db()
+#     now_ms = int(time.time() * 1000)
+#     from_ms = now_ms - days * 86400 * 1000
+#     pipeline = [
+#         {"$match": {"history_id": history_id, "status": "done", "published_ts": {"$ne": None}}},
+#         {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
+#         {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
+#         {"$group": {"_id": {"$dateTrunc": {"date": "$pub_dt", "unit": "day"}},
+#                     "count": {"$sum": 1},
+#                     "avg_relevance": {"$avg": "$relevance_score"}}},
+#         {"$sort": {"_id": 1}}
+#     ]
+#     return list(db["ai_results"].aggregate(pipeline))
 
-def trend_top_tags(history_id: ObjectId, days: int = 30, top_k: int = 20):
-    db = get_mongo_db()
-    now_ms = int(time.time() * 1000)
-    from_ms = now_ms - days * 86400 * 1000
-    pipeline = [
-        {"$match": {"history_id": history_id, "status": {"$in": ["queued", "done"]}, "published_ts": {"$ne": None}}},
-        {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
-        {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
-        {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},
-        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": top_k},
-    ]
-    return list(db["ai_results"].aggregate(pipeline))
+# def trend_top_tags(history_id: ObjectId, days: int = 30, top_k: int = 20):
+#     db = get_mongo_db()
+#     now_ms = int(time.time() * 1000)
+#     from_ms = now_ms - days * 86400 * 1000
+#     pipeline = [
+#         {"$match": {"history_id": history_id, "status": {"$in": ["queued", "done"]}, "published_ts": {"$ne": None}}},
+#         {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
+#         {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
+#         {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},
+#         {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+#         {"$sort": {"count": -1}},
+#         {"$limit": top_k},
+#     ]
+#     return list(db["ai_results"].aggregate(pipeline))
 
-def trend_by_source(history_id: ObjectId, days: int = 30):
-    db = get_mongo_db()
-    now_ms = int(time.time() * 1000)
-    from_ms = now_ms - days * 86400 * 1000
-    pipeline = [
-        {"$match": {"history_id": history_id, "status": "done", "published_ts": {"$ne": None}}},
-        {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
-        {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
-        {"$group": {"_id": "$source", "count": {"$sum": 1}, "avg_relevance": {"$avg": "$relevance_score"}}},
-        {"$sort": {"count": -1}},
-    ]
-    return list(db["ai_results"].aggregate(pipeline))
+# def trend_by_source(history_id: ObjectId, days: int = 30):
+#     db = get_mongo_db()
+#     now_ms = int(time.time() * 1000)
+#     from_ms = now_ms - days * 86400 * 1000
+#     pipeline = [
+#         {"$match": {"history_id": history_id, "status": "done", "published_ts": {"$ne": None}}},
+#         {"$addFields": {"pub_dt": {"$toDate": {"$multiply": ["$published_ts", 1000]}}}},
+#         {"$match": {"pub_dt": {"$gte": {"$toDate": from_ms}}}},
+#         {"$group": {"_id": "$source", "count": {"$sum": 1}, "avg_relevance": {"$avg": "$relevance_score"}}},
+#         {"$sort": {"count": -1}},
+#     ]
+#     return list(db["ai_results"].aggregate(pipeline))
 
 def _as_list(val):
     """
@@ -128,3 +128,132 @@ def _coerce_topics_list(payload) -> list[str]:
         return [str(x).strip() for x in payload["topics"] if isinstance(x, str)]
     return []
 
+
+
+
+
+
+
+
+
+
+
+
+def _from_dt(days: int):
+    return datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))
+
+def trend_top_tags(history_id: ObjectId, days: int = 30, top_k: int = 20):
+    db = get_mongo_db()
+    from_dt = _from_dt(days)
+    pipeline = [
+        {"$match": {
+            "history_id": history_id,
+            "status": {"$in": ["queued", "done"]},   # include queued so it isn't empty early
+            "tags": {"$type": "array", "$ne": []}
+        }},
+        # bring in history.created_at ONLY to build a fallback date window
+        {"$lookup": {
+            "from": "history",
+            "localField": "history_id",
+            "foreignField": "_id",
+            "as": "hist"
+        }},
+        {"$addFields": {"hist": {"$first": "$hist"}}},
+        # pub_dt = published_ts -> toDate; else fallback to history.created_at
+        {"$addFields": {
+            "pub_dt": {
+                "$ifNull": [
+                    {"$toDate": {"$multiply": ["$published_ts", 1000]}},
+                    "$hist.created_at"
+                ]
+            }
+        }},
+        {"$match": {"pub_dt": {"$gte": from_dt}}},
+        {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},
+        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": int(top_k)}
+    ]
+    return list(db["ai_results"].aggregate(pipeline))
+
+def trend_timeseries_by_day(history_id: ObjectId, days: int = 30, tag: str | None = None):
+    db = get_mongo_db()
+    from_dt = _from_dt(days)
+    pipeline = [
+        {"$match": {
+            "history_id": history_id,
+            "status": {"$in": ["queued", "done"]}
+        }},
+        {"$lookup": {
+            "from": "history",
+            "localField": "history_id",
+            "foreignField": "_id",
+            "as": "hist"
+        }},
+        {"$addFields": {"hist": {"$first": "$hist"}}},
+        {"$addFields": {
+            "pub_dt": {
+                "$ifNull": [
+                    {"$toDate": {"$multiply": ["$published_ts", 1000]}},
+                    "$hist.created_at"
+                ]
+            },
+            "tags": {"$ifNull": ["$tags", []]}
+        }},
+        {"$match": {"pub_dt": {"$gte": from_dt}}},
+    ]
+    if tag:
+        pipeline += [
+            {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},
+            {"$match": {"tags": tag}}
+        ]
+    pipeline += [
+        {"$group": {
+            "_id": {"$dateTrunc": {"date": "$pub_dt", "unit": "day"}},
+            "count": {"$sum": 1},
+            "avg_relevance": {"$avg": "$relevance_score"}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    return list(db["ai_results"].aggregate(pipeline))
+
+def trend_by_source(history_id: ObjectId, days: int = 30, tag: str | None = None):
+    db = get_mongo_db()
+    from_dt = _from_dt(days)
+    pipeline = [
+        {"$match": {
+            "history_id": history_id,
+            "status": {"$in": ["queued", "done"]}
+        }},
+        {"$lookup": {
+            "from": "history",
+            "localField": "history_id",
+            "foreignField": "_id",
+            "as": "hist"
+        }},
+        {"$addFields": {"hist": {"$first": "$hist"}}},
+        {"$addFields": {
+            "pub_dt": {
+                "$ifNull": [
+                    {"$toDate": {"$multiply": ["$published_ts", 1000]}},
+                    "$hist.created_at"
+                ]
+            },
+            "tags": {"$ifNull": ["$tags", []]}
+        }},
+        {"$match": {"pub_dt": {"$gte": from_dt}}},
+    ]
+    if tag:
+        pipeline += [
+            {"$unwind": {"path": "$tags", "preserveNullAndEmptyArrays": False}},
+            {"$match": {"tags": tag}}
+        ]
+    pipeline += [
+        {"$group": {
+            "_id": "$source",
+            "count": {"$sum": 1},
+            "avg_relevance": {"$avg": "$relevance_score"}
+        }},
+        {"$sort": {"count": -1}}
+    ]
+    return list(db["ai_results"].aggregate(pipeline))

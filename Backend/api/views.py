@@ -14,7 +14,9 @@ from .analytics import (
     _parse_iso_to_date,
     _coerce_topics_list,  
     global_top_topics,
-    _as_list,            
+    _as_list
+    
+
 )
 
 from .sources import REGISTRY as FETCHERS
@@ -214,10 +216,11 @@ except Exception as e:
     logger.warning("Failed to import ideas.run(): %s", e)
 
 try:
-    from AI.collection_card.competitor_analysis.main_competitors import run as competitors_run
+    from AI.collection_card.new_competitors.main_new_competitors import run as competitors_run
 except Exception as e:
-    competitor_run = None
-    logger.warning("Failed to import competitor_fusion_demo.run(): %s", e)
+    competitors_run = None   # ← fix (was competitor_run = None)
+    logger.warning("Failed to import competitors_run(): %s", e)
+
 
 try:
     from AI.collection_card.backlinks.main_backlinks import run as backlinks_run
@@ -464,9 +467,14 @@ def get_search_status():
 
 @api_bp.route("/trends/", methods=["GET"])
 def get_trends():
+    """
+    GET /api/trends/?history_id=<id>&days=30
+    Returns a simple list of top tags (not the whole object).
+    """
     hid = request.args.get("history_id")
     if not hid:
         return _j({"error": "history_id is required"}, 400)
+
     try:
         days = int(request.args.get("days", 30))
     except Exception:
@@ -474,16 +482,15 @@ def get_trends():
 
     try:
         oid = ObjectId(hid)
-        return _j({
-            "history_id": hid,
-            "window_days": days,
-            "timeseries": trend_timeseries_by_day(oid, days),
-            "top_tags": trend_top_tags(oid, days, top_k=20),
-            "by_source": trend_by_source(oid, days),
-        }, 200)
+        tags = trend_top_tags(oid, days, top_k=20)
+        # Flatten to just the tag list
+        tag_list = [t["_id"] for t in tags if "_id" in t]
+        return _j(tag_list, 200)
     except Exception as e:
         logger.exception("get_trends error: %s", e)
         return _j({"error": str(e)}, 500)
+
+
 
 @api_bp.route("/results/", methods=["GET"])
 def get_results():
@@ -921,24 +928,160 @@ def ai_generate_ideas():
 
 @api_bp.route("/ai/competitors/", methods=["GET", "POST"])
 def ai_competitors():
-    try:
-        db = get_mongo_db()
-        data = request.get_json(silent=True) if request.method == "POST" else request.args
-        company_id = (data.get("company_id") or "").strip()
-        if not company_id:
-            return _j({"error": "company_id is required"}, 400)
+    """
+    GET /api/ai/competitors/?company_id=<id>&top_n=10&min_score=0.25&limit_articles=80&min_relevance=0.30&force=0&verbose=0
+      Optional:
+        - &company=<name> (resolve to id)
+        - &limit_articles (documents pool cap for the AI)
+        - &min_relevance  (filter for document relevancy before scoring)
+        - &top_n          (how many competitors to keep)
+        - &min_score      (AI score cutoff)
+        - &force=1        (bypass freshness and recompute)
+        - &verbose=1
+
+    Source of truth: company_profiles.cards.competitors
+    - If today(UTC) < next_refresh_at.date() and data exists -> return schema (unless force=1)
+    - Else:
+        * run competitors_run(company_id=..., knobs...)
+        * re-read schema and return
+        * (compat) if AI wrote to cards.new_competitors.items, migrate -> cards.competitors.data
+        * (safety) ensure next_refresh_at exists (now + 7d)
+    """
+    db = get_mongo_db()
+
+    # ---- read inputs (query first; accept POST JSON fallback for "company") ----
+    q = request.args
+    body = (request.get_json(silent=True) or {}) if request.method == "POST" else {}
+
+    company_id   = (q.get("company_id") or "").strip() or None
+    company_name = (q.get("company")    or "").strip() or None
+    force        = str(q.get("force", "0")).strip().lower() in ("1", "true", "yes", "y", "on")
+
+    def _int(name, default):
         try:
-            oid = ObjectId(company_id)
+            return int(q.get(name, default))
         except Exception:
-            return _j({"error": "invalid company_id (must be 24-character ObjectId)"}, 400)
-        doc = db["company_profiles"].find_one({"_id": oid})
+            return default
+
+    def _float(name, default):
+        try:
+            return float(q.get(name, default))
+        except Exception:
+            return default
+
+    def _bool(name, default=False):
+        v = q.get(name, None)
+        if v is None:
+            return default
+        return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
+
+    limit_articles = _int("limit_articles", 80)
+    min_relevance  = _float("min_relevance", 0.30)
+    top_n          = _int("top_n", 10)
+    min_score      = _float("min_score", 0.25)
+    verbose        = _bool("verbose", False)
+
+    # Back-compat: POST body may provide company name
+    if not company_id and not company_name and request.method == "POST":
+        company_name = (body.get("company") or "").strip() or None
+
+    # ---- resolve company ----
+    if not company_id and company_name:
+        doc = get_company_profile(name=company_name)
         if not doc:
-            return _j({"error": "company not found"}, 404)
-        competitors = doc.get("competitors", [])
-        return _j(competitors, 200)
+            return _j({"error": f"Company '{company_name}' not found"}, 404)
+        company_id = str(doc["_id"])
+
+    if not company_id:
+        return _j({"error": "company_id (or company name) is required"}, 400)
+
+    try:
+        _ = ObjectId(company_id)
+    except Exception:
+        return _j({"error": "invalid company_id (must be 24-character ObjectId)"}, 400)
+
+    if company_id and not company_name:
+        prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"name": 1})
+        if prof:
+            company_name = prof.get("name")
+
+    # ---- helper: read schema + respond ----
+    def _read_schema_and_respond():
+        fresh = db["company_profiles"].find_one(
+            {"_id": ObjectId(company_id)},
+            {"name": 1, "cards.competitors": 1, "cards.new_competitors": 1}
+        )
+        if not fresh:
+            return _j({"error": "company profile not found"}, 404)
+
+        name  = fresh.get("name") or company_name
+        cards = fresh.get("cards") or {}
+        comp  = (cards.get("competitors") or {})
+
+        # Prefer normalized 'data'; fall back to legacy 'items' (or new_competitors.items)
+        data = comp.get("data") or comp.get("items")
+        if not data:
+            data = (cards.get("new_competitors") or {}).get("items") or []
+
+        out = (data or [])[:top_n]
+        return _j({"company": name, "company_id": company_id, "count": len(out), "competitors": out}, 200)
+
+    # ---- freshness check ----
+    prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
+    cards = prof.get("cards") or {}
+    comp  = cards.get("competitors") or {}
+    next_refresh_at   = comp.get("next_refresh_at")
+    next_refresh_date = _parse_iso_to_date(next_refresh_at)
+    today_utc         = datetime.now(timezone.utc).date()
+
+    if (not force) and next_refresh_date and today_utc < next_refresh_date and (comp.get("data") or comp.get("items")):
+        return _read_schema_and_respond()
+
+    # ---- call AI runner (best-effort) ----
+    try:
+        if competitors_run is not None:
+            competitors_run(
+                company_id=company_id,
+                limit_docs=limit_articles,      # match parameter name
+                min_relevance=min_relevance,
+                days_back=180,                  # default window
+                top_n=top_n,
+                persist=True,                   # matches your run()
+                verbose=verbose,
+            )
     except Exception as e:
-        logger.exception("ai_competitors error: %s", e)
-        return _j({"error": str(e)}, 500)
+        logger.warning("competitors_run failed; continuing with schema as-is. %s", e)
+
+    # ---- migrate legacy: cards.new_competitors.items -> cards.competitors.data ----
+    fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
+    cards = fresh.get("cards") or {}
+    newc  = cards.get("new_competitors") or {}
+    items = newc.get("items") or []
+
+    if items:
+        now = datetime.now(timezone.utc)
+        block = {
+            "data": items[:top_n],
+            "updated_at": _iso_z(now),
+            "next_refresh_at": _iso_z(now + timedelta(days=7)),
+        }
+        db["company_profiles"].update_one(
+            {"_id": ObjectId(company_id)},
+            {"$set": {"cards.competitors": block}}
+        )
+
+    # ---- safety: ensure next_refresh_at on competitors ----
+    cur = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.competitors": 1}) or {}
+    cur_block = ((cur.get("cards") or {}).get("competitors") or {})
+    if not cur_block.get("next_refresh_at"):
+        now = datetime.now(timezone.utc)
+        db["company_profiles"].update_one(
+            {"_id": ObjectId(company_id)},
+            {"$set": {"cards.competitors.next_refresh_at": _iso_z(now + timedelta(days=7))}}
+        )
+
+    # ---- final readback ----
+    return _read_schema_and_respond()
 
 @api_bp.route("/ai/backlinks/", methods=["GET"])
 def ai_backlinks():
