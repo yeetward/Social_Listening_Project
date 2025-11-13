@@ -7,21 +7,28 @@ import os
 
 MONGO_URI = os.getenv(
     "MONGO_URI",
-    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
 )
 client = MongoClient(MONGO_URI)
 db = client["pace_database"]
 
 # Keep this in one place so FE/BE stay consistent
 ALLOWED_CARD_NAMES: set[str] = {
-    "competitors", "backlinks", "ideas", "opportunities", "trending", "newsfeed"
+    "new_competitors",
+    "engaged_links",
+    "ideas",
+    "opportunities",
+    "trending",
+    "newsfeed",
 }
+
 
 def _normalize_card_name(card_name: str) -> Optional[str]:
     if not card_name:
         return None
     name = card_name.strip().lower()
     return name if name in ALLOWED_CARD_NAMES else None
+
 
 def get_company_card(company_id: str, card_name: str) -> Optional[Dict[str, Any]]:
     """
@@ -44,7 +51,10 @@ def get_company_card(company_id: str, card_name: str) -> Optional[Dict[str, Any]
     cards = doc.get("cards") or {}
     return cards.get(name)
 
-def upsert_company_card(company_id: str, card_name: str, payload: Dict[str, Any]) -> bool:
+
+def upsert_company_card(
+    company_id: str, card_name: str, payload: Dict[str, Any]
+) -> bool:
     """
     Write/replace a card payload at company_profiles.cards[card_name].
     Returns True on success, False otherwise.
@@ -59,15 +69,17 @@ def upsert_company_card(company_id: str, card_name: str, payload: Dict[str, Any]
         return False
 
     res = db.company_profiles.update_one(
-        {"_id": oid},
-        {"$set": {f"cards.{name}": payload}}
+        {"_id": oid}, {"$set": {f"cards.{name}": payload}}
     )
     return bool(res.matched_count)
 
-def bulk_upsert_company_cards(company_id: str, card_items: Iterable[tuple[str, Dict[str, Any]]]) -> bool:
+
+def bulk_upsert_company_cards(
+    company_id: str, card_items: Iterable[tuple[str, Dict[str, Any]]]
+) -> bool:
     """
     Bulk upsert multiple cards in one round trip:
-      card_items = [("competitors", {...}), ("backlinks", {...}), ...]
+      card_items = [("new_competitors", {...}), ("engaged_links", {...}), ...]
     """
     try:
         oid = ObjectId(company_id)
