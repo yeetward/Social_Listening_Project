@@ -1265,28 +1265,28 @@
         }
 
         const data = await response.json();
-        console.log('📊 Trends data received:', data);
+        console.log('📊 Trends API response:', data);
 
-        // Extract top_tags from the response
-        const topTags = data.top_tags || [];
+        // API returns a flat array of tag strings
+        const tags = Array.isArray(data) ? data : [];
 
-        if (topTags.length > 0) {
+        if (tags.length > 0) {
           // Display only first 4 topics
           const displayLimit = 4;
-          const topicsToShow = topTags.slice(0, displayLimit);
+          const topicsToShow = tags.slice(0, displayLimit);
 
           // Build the HTML for topics list
-          const topicsHTML = topicsToShow.map(topic => {
-            const tagName = toTitleCase(topic._id || 'Unknown');
-            const count = topic.count || 0;
-            return `<li>${tagName} <span style="color: #999; font-size: 12px;">(${count})</span></li>`;
+          const topicsHTML = topicsToShow.map(tag => {
+            const tagName = toTitleCase(tag || 'Unknown');
+            return `<li>${tagName}</li>`;
           }).join('');
 
           topicsList.innerHTML = topicsHTML;
           console.log('✅ Displayed', topicsToShow.length, 'trending topics from search results');
           return; // Success, exit function
         } else {
-          console.warn('⚠️ No tags found in search results. This should not happen - tags are generated immediately.');
+          console.warn('⚠️ No tags found in search results.');
+          console.log('   Response data:', data);
           console.log('   Falling back to general trending topics.');
         }
 
