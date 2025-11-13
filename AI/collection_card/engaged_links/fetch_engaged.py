@@ -220,26 +220,26 @@ def collect_company_engagement(
         enriched.append(
             {
                 "url": url,
-                "title": d.get("ai_title") or d.get("title") or "",
-                "summary": d.get("ai_summary") or d.get("summary") or "",
-                "source": d.get("source") or "",
-                "published_ts": int(d.get("published_ts") or 0),
-                "relevance": float(
-                    d.get("relevance", d.get("relevance_score", 0.0)) or 0.0
-                ),
-                "engagement": eng,
-                "engagement_score": score,
-                "is_reddit": _is_reddit(d),
+                # "title": d.get("ai_title") or d.get("title") or "",
+                # "summary": d.get("ai_summary") or d.get("summary") or "",
+                # "source": d.get("source") or "",
+                # "published_ts": int(d.get("published_ts") or 0),
+                # "relevance": float(
+                # d.get("relevance", d.get("relevance_score", 0.0)) or 0.0
+                # ),
+                # "engagement": eng,
+                # "engagement_score": score,
+                # "is_reddit": _is_reddit(d),
             }
         )
 
     # Hard preference: Reddit before others at same score; then by score desc; then by recency
     enriched.sort(
         key=lambda r: (
-            0 if r["is_reddit"] else 1,  # Reddit first
+            0 if r["relevance"] else 1,  # Reddit first
             -r["engagement_score"],  # higher engagement
             -(r["published_ts"] or 0),  # newer
-            -r["relevance"],  # more relevant
+            -r["is_reddit"],  # more relevant
         )
     )
 
