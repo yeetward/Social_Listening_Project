@@ -1161,18 +1161,25 @@ def ai_backlinks():
         name = fresh.get("name") or company_name
         card = ((fresh.get("cards") or {}).get("engaged_links") or {})
 
-        data = card.get("data")
-        if not data:
-            data = card.get("items") or []
+        # prefer modern fields
+        data = card.get("data") or card.get("items")
 
-        # NEW: legacy `urls: [str]` support
+        # legacy 'urls' field support
         if not data:
             urls = card.get("urls") or []
-            # normalize to objects to match frontend expectations
-            data = [{"url": u} for u in urls if isinstance(u, str) and u.strip()]
+            # if urls are strings, use them directly
+            if all(isinstance(u, str) for u in urls):
+                data = urls
+            else:
+                data = [u.get("url") for u in urls if isinstance(u, dict) and u.get("url")]
 
         out = (data or [])[:top_n]
-        return _j({"company": name, "company_id": company_id, "count": len(out), "engaged_links": out}, 200)
+        return _j({
+            "company": name,
+            "company_id": company_id,
+            "count": len(out),
+            "engaged_links": out    # <-- now a flat list of URLs, not wrapped objects
+        }, 200)
 
 
     # ---- freshness check ----
