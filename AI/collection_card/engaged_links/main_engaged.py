@@ -13,8 +13,12 @@ def _save_to_company_card(
 ) -> bool:
     """Helper function to save engaged links data to MongoDB"""
     try:
+        # keep full items server-side if you still want them for debugging/analysis
+        urls = [i.get("url", "").strip() for i in items if i.get("url")]
+
         payload = {
-            "items": items,
+            # "items": items,           # optional: remove if you NEVER need details
+            "urls": urls,  # <- use this on the frontend
             "updated_at": datetime.now(timezone.utc),
             "next_refresh_at": None,
             "meta": meta,

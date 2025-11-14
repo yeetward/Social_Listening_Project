@@ -104,38 +104,6 @@ def _infer_proxy_engagement(doc: Dict[str, Any]) -> Dict[str, Any]:
     return eng
 
 
-# def engagement_score(doc: Dict[str, Any]) -> float:
-#     """
-#     Composite score with graceful fallbacks.
-#       score = 1*likes + 2*comments + 3*shares + 1.5*upvotes + 0.5*log10(views+1)
-#     If no native engagement, use _infer_proxy_engagement.
-#     """
-#     eng = _pick_engagement_block(doc)
-#     if not eng:
-#         eng = _infer_proxy_engagement(doc)
-
-#     def _to_float(x, default: float = 0.0) -> float:
-#         try:
-#             return float(x)
-#         except Exception:
-#             return default
-
-#     likes = _to_float(eng.get("likes", eng.get("reactions", 0)))
-#     comments = _to_float(eng.get("comments", eng.get("replies", 0)))
-#     shares = _to_float(eng.get("shares", eng.get("retweets", 0)))
-#     upvotes = _to_float(eng.get("upvotes", eng.get("score", 0)))
-#     views = _to_float(eng.get("views", eng.get("impressions", 0)))
-
-#     try:
-#         import math
-
-#         view_term = 0.5 * math.log10(views + 1.0)
-#     except Exception:
-#         view_term = 0.0
-
-#     return float(likes + 2.0 * comments + 3.0 * shares + 1.5 * upvotes + view_term)
-
-
 def engagement_score(doc: Dict[str, Any]) -> float:
     """
     Composite engagement with Reddit priority.
@@ -236,10 +204,10 @@ def collect_company_engagement(
     # Hard preference: Reddit before others at same score; then by score desc; then by recency
     enriched.sort(
         key=lambda r: (
-            0 if r["is_reddit"] else 1,  # Reddit first
+            0 if r["relevance"] else 1,  # Reddit first
             -r["engagement_score"],  # higher engagement
             -(r["published_ts"] or 0),  # newer
-            -r["relevance"],  # more relevant
+            -r["is_reddit"],  # more relevant
         )
     )
 

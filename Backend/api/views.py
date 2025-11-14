@@ -1157,13 +1157,30 @@ def ai_backlinks():
         )
         if not fresh:
             return _j({"error": "company profile not found"}, 404)
+
         name = fresh.get("name") or company_name
         card = ((fresh.get("cards") or {}).get("engaged_links") or {})
-        data = card.get("data")
+
+        # prefer modern fields
+        data = card.get("data") or card.get("items")
+
+        # legacy 'urls' field support
         if not data:
-            data = card.get("items") or []           # legacy compatibility
+            urls = card.get("urls") or []
+            # if urls are strings, use them directly
+            if all(isinstance(u, str) for u in urls):
+                data = urls
+            else:
+                data = [u.get("url") for u in urls if isinstance(u, dict) and u.get("url")]
+
         out = (data or [])[:top_n]
-        return _j({"company": name, "company_id": company_id, "count": len(out), "engaged_links": out}, 200)
+        return _j({
+            "company": name,
+            "company_id": company_id,
+            "count": len(out),
+            "engaged_links": out    # <-- now a flat list of URLs, not wrapped objects
+        }, 200)
+
 
     # ---- freshness check ----
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
