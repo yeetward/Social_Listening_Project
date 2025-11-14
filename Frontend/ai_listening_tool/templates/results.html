@@ -415,12 +415,43 @@
 
 {% block pagescripts %}
 <script>
-  // API Configuration
+  /**
+   * ====================================
+   * RESULTS PAGE - Search Results Display Script
+   * ====================================
+   * 
+   * This script handles the results page functionality including:
+   * - Initiating new searches or loading existing search results
+   * - Polling search status until AI processing completes
+   * - Displaying and filtering search results with pagination
+   * - Loading trending topics and opportunities for the search
+   * - Managing filter state (time, platform, sentiment, priority)
+   * 
+   * API Endpoints Used:
+   * - POST /api/search/                 - Initiates a new search
+   * - GET  /api/search/status/          - Polls search processing status
+   * - GET  /api/results/                - Fetches completed search results
+   * - GET  /api/trends/                 - Fetches trending tags for a search
+   * - GET  /api/cards/trending/         - Fetches general trending topics (fallback)
+   * - GET  /api/ai/opportunities/       - Fetches AI-generated opportunities
+   */
+
+  // ====================================
+  // CONFIGURATION
+  // ====================================
   const API_BASE_URL = window.RM_TOOL_CONFIG?.API_BASE || "http://127.0.0.1:8000/api";
   const API_TIMEOUT = 60000; // 60 seconds timeout for API calls
 
+  // ====================================
+  // UTILITY FUNCTIONS
+  // ====================================
+
   /**
-   * Fetch with timeout wrapper
+   * Fetch with timeout wrapper to prevent hanging requests
+   * @param {string} url - The URL to fetch
+   * @param {object} options - Fetch options
+   * @param {number} timeout - Timeout in milliseconds
+   * @returns {Promise} - Fetch promise with timeout
    */
   function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
     return Promise.race([
@@ -433,12 +464,14 @@
 
   /**
    * Convert text to title case (capitalize first, last, and major words)
+   * @param {string} str - The string to convert
+   * @returns {string} - Title-cased string
    */
   function toTitleCase(str) {
     if (!str) return str;
-    
+
     const minorWords = ['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 'in', 'of', 'with'];
-    
+
     return str.toLowerCase().split(' ').map((word, index, array) => {
       // Always capitalize first and last word
       if (index === 0 || index === array.length - 1) {
@@ -453,25 +486,31 @@
   }
 
   /**
-   * Format platform names for display
+   * Format platform/source names for consistent display
+   * @param {string} platform - The raw platform name
+   * @returns {string} - Formatted platform name
    */
   function formatPlatformName(platform) {
     if (!platform) return 'Unknown';
-    
+
     const lower = platform.toLowerCase();
-    
+
     // Handle specific platform names
     if (lower.includes('guardian')) return 'Guardian';
     if (lower.includes('reddit') && lower.includes('rss')) return 'Reddit_ss';
     if (lower.includes('reddit')) return 'Reddit';
     if (lower.includes('news') && lower.includes('rss')) return 'News_ss';
     if (lower === 'news' || lower.includes('news_api') || lower === 'newsapi') return 'News';
-    
+
     // Default: capitalize first letter
     return platform.charAt(0).toUpperCase() + platform.slice(1);
   }
 
-  // Get search term from URL
+  // ====================================
+  // STATE MANAGEMENT
+  // ====================================
+
+  // Get search term from URL or session storage
   const urlParams = new URLSearchParams(window.location.search);
   const subject = (urlParams.get('subject') || sessionStorage.getItem('rm_subject') || '').trim() || 'test';
 
@@ -538,12 +577,19 @@
     startSearchWorkflow();
   }
 
-  // --- Filter checkbox containers ---
+  // ====================================
+  // FILTER MANAGEMENT
+  // ====================================
+
+  // Filter checkbox containers
   const timeFilterCheckboxes = document.getElementById('timeFilterCheckboxes');
   const platformFilterCheckboxes = document.getElementById('platformFilterCheckboxes');
   const sentimentFilterCheckboxes = document.getElementById('sentimentFilterCheckboxes');
 
-  // Initialize filters from URL
+  /**
+   * Initialize filter checkboxes from URL parameters
+   * Allows sharing filtered result URLs
+   */
   function initializeFiltersFromURL() {
     const params = new URLSearchParams(window.location.search);
 
@@ -593,7 +639,10 @@
     }
   }
 
-  // Update URL with current filter state
+  /**
+   * Update browser URL with current filter state (without reloading page)
+   * Allows sharing filtered results via URL
+   */
   function updateURL() {
     const params = new URLSearchParams(window.location.search);
 
@@ -637,7 +686,9 @@
     window.history.replaceState({}, '', newURL);
   }
 
-  // Update filter count and clear button
+  /**
+   * Update the filter count badge and show/hide clear button
+   */
   function updateFilterCount() {
     const filterCountEl = document.getElementById('filterCount');
     const clearAllBtn = document.getElementById('clearAllFiltersBtn');
@@ -665,7 +716,10 @@
     }
   }
 
-  // Populate time filter checkboxes based on available data
+  /**
+   * Populate time filter checkboxes dynamically based on available data age
+   * Only shows relevant time ranges based on oldest result
+   */
   function populateTimeFilterCheckboxes() {
     if (!allResults || allResults.length === 0 || !timeFilterCheckboxes) return;
 
@@ -724,7 +778,9 @@
     });
   }
 
-  // Populate platform checkboxes with unique platforms from results
+  /**
+   * Populate platform filter checkboxes with unique sources from results
+   */
   function populatePlatformCheckboxes() {
     if (!allResults || !platformFilterCheckboxes) return;
 
@@ -760,7 +816,9 @@
     });
   }
 
-  // Populate sentiment checkboxes
+  /**
+   * Populate sentiment filter checkboxes (positive, negative, neutral)
+   */
   function populateSentimentCheckboxes() {
     if (!sentimentFilterCheckboxes) return;
 
@@ -883,8 +941,14 @@
   }
 
 
+  // ====================================
+  // SEARCH WORKFLOW
+  // ====================================
+
   /**
-   * Initiate a brand new search (POST to /api/search/)
+   * Initiate a brand new search by POSTing to /api/search/
+   * Shows loading state and starts polling once search is created
+   * @param {string} searchSubject - The search query
    */
   async function initiateNewSearch(searchSubject) {
     const container = document.getElementById('results-container');
@@ -973,7 +1037,8 @@
   }
 
   /**
-   * Start the search workflow: poll for status, then load results
+   * Start the search workflow by polling for status, then loading results
+   * Used when loading existing searches or after initiating new search
    */
   async function startSearchWorkflow() {
     const container = document.getElementById('results-container');
@@ -1010,7 +1075,8 @@
   }
 
   /**
-   * Poll the search status endpoint every 2 seconds until ai_ready is true
+   * Poll the search status endpoint every 2 seconds until AI processing completes
+   * Updates progress message during polling
    */
   async function pollSearchStatus() {
     try {
@@ -1071,6 +1137,7 @@
 
   /**
    * Load the final results once AI processing is complete
+   * Fetches all results and populates filters
    */
   async function loadResults() {
     const container = document.getElementById('results-container');
@@ -1123,7 +1190,7 @@
 
       console.log('✨ Normalized results count:', normalizedResults.length);
       console.log('✅ Deduplicated results count:', allResults.length);
-      
+
       if (allResults.length > 0) {
         console.log('📝 First normalized result:', allResults[0]);
 
@@ -1236,8 +1303,13 @@
     }
   }
 
+  // ====================================
+  // CARD DATA LOADING
+  // ====================================
+
   /**
    * Load trending topics from the trends API
+   * Tries search-specific trends first, falls back to general trends
    */
   async function loadTrendingTopics() {
     const topicsList = document.getElementById('trendingTopicsList');
@@ -1331,7 +1403,8 @@
   }
 
   /**
-   * Load opportunities from the AI API
+   * Load AI-generated opportunities from the API
+   * @param {string} companyId - The company ID to fetch opportunities for
    */
   async function loadOpportunities(companyId = "69072b397c33c037fd2da784") {
     const opportunitiesList = document.getElementById('opportunitiesList');
@@ -1454,7 +1527,17 @@
     }
   }
 
-  // Helper functions
+  // ====================================
+  // RESULT PROCESSING & DISPLAY
+  // ====================================
+
+  /**
+   * Normalize and clean up a result item from the API
+   * Handles missing fields, placeholder values, and format inconsistencies
+   * @param {object} item - The raw result item from API
+   * @param {string} subj - The search subject for context
+   * @returns {object} - Normalized result item
+   */
   function normalizeItem(item, subj) {
     // API returns ONLY: rank, url, ai_title, ai_summary, tags, relevance_score, published_ts, source, status
     // Backend does NOT return: original_ai_title, original_ai_summary, sentiment, sentiment_score, engagement, insight
@@ -1536,7 +1619,7 @@
       if (typeof engagementRaw === 'object') {
         // Extract numeric value from engagement object
         engagement = engagementRaw.score || engagementRaw.upvotes || engagementRaw.points ||
-                     engagementRaw.num_comments || engagementRaw.comments || 0;
+          engagementRaw.num_comments || engagementRaw.comments || 0;
       } else {
         engagement = Number(engagementRaw);
       }
@@ -1578,6 +1661,12 @@
       hasPlaceholder: isPlaceholderTitle || isPlaceholderSummary
     };
   }
+  /**
+   * Format engagement count for display (only for Reddit sources)
+   * @param {number|object} engagement - The engagement value or object
+   * @param {string} source - The source name to check if it's Reddit
+   * @returns {string} - Formatted engagement string or 'N/A'
+   */
   function formatEngagement(engagement, source) {
     // Only show engagement for Reddit sources
     const isReddit = source && (
@@ -1594,7 +1683,7 @@
     if (typeof engagement === 'object') {
       // Try multiple fields that might contain engagement count
       num = engagement.score || engagement.upvotes || engagement.points ||
-            engagement.num_comments || engagement.comments || 0;
+        engagement.num_comments || engagement.comments || 0;
     } else {
       num = engagement;
     }
@@ -1605,6 +1694,11 @@
     return num.toString();
   }
 
+  /**
+   * Format Unix timestamp to readable date string
+   * @param {number} timestamp - Unix timestamp (seconds or milliseconds)
+   * @returns {string} - Formatted date string
+   */
   function formatDate(timestamp) {
     if (!timestamp) return '';
     try {
@@ -1619,6 +1713,11 @@
     }
   }
 
+  /**
+   * Convert relevance score to percentage (0-100)
+   * @param {number} score - Raw score (0-1 or 0-100)
+   * @returns {number|null} - Percentage or null if invalid
+   */
   function getRelevancePercent(score) {
     if (score == null) {
       return null; // Return null to indicate missing data
@@ -1629,6 +1728,11 @@
     return Math.min(100, Math.max(0, Math.round(num)));
   }
 
+  /**
+   * Get insight/sentiment badge display data
+   * @param {object} item - The result item
+   * @returns {object} - Badge data with text, color, and type
+   */
   function getInsightBadge(item) {
     // Check explicit insight field first
     const insight = item.insight || item.sentiment;
@@ -1666,14 +1770,14 @@
   function filterResultsByPriority(results, selectedPriorities) {
     if (!results || results.length === 0) return [];
     if (selectedPriorities.length === 0) return results; // No filter selected, show all
-    
+
     // Sort all results by relevance score (descending - highest first)
     const sortedResults = [...results].sort((a, b) => {
       const scoreA = getRelevancePercent(a.score || a.relevance_score) || 0;
       const scoreB = getRelevancePercent(b.score || b.relevance_score) || 0;
       return scoreB - scoreA; // Descending order
     });
-    
+
     // Calculate slice indices for 100 results: high=0-32 (33), medium=33-66 (34), low=67-99 (33)
     const highStart = 0;
     const highEnd = 33;
@@ -1681,25 +1785,25 @@
     const mediumEnd = 67;
     const lowStart = 67;
     const lowEnd = 100;
-    
+
     let filteredResults = [];
-    
+
     // Collect results based on selected priorities
     if (selectedPriorities.includes('high')) {
       // Top 33 results with highest relevance scores
       filteredResults.push(...sortedResults.slice(highStart, highEnd));
     }
-    
+
     if (selectedPriorities.includes('medium')) {
       // Middle 34 results
       filteredResults.push(...sortedResults.slice(mediumStart, mediumEnd));
     }
-    
+
     if (selectedPriorities.includes('low')) {
       // Bottom 33 results with lowest relevance scores
       filteredResults.push(...sortedResults.slice(lowStart, lowEnd));
     }
-    
+
     console.log('🎯 Priority Filter Applied:', {
       totalResults: results.length,
       selectedPriorities: selectedPriorities,
@@ -1710,7 +1814,7 @@
         low: selectedPriorities.includes('low') ? Math.max(0, sortedResults.length - 67) : 0
       }
     });
-    
+
     return filteredResults;
   }
 
@@ -1745,6 +1849,11 @@
     return label;
   }
 
+  /**
+   * Process content text and extract bullet points if present
+   * @param {string} summary - The content text
+   * @returns {object} - Object with text and bullets array
+   */
   function processContent(summary) {
     if (!summary) return { text: 'No description available.', bullets: [] };
 
@@ -1762,6 +1871,10 @@
     return { text: summary, bullets: [] };
   }
 
+  /**
+   * Render the results list with current filters and pagination
+   * Main rendering function called whenever filters change
+   */
   function renderResults() {
     const container = document.getElementById('results-container');
 
@@ -1935,6 +2048,11 @@
     }
   }
 
+  /**
+   * Render pagination controls
+   * @param {number} totalPages - Total number of pages
+   * @returns {string} - HTML string for pagination
+   */
   function renderPager(totalPages) {
     // Force exactly 10 pages max
     const pages = Math.min(totalPages, TOTAL_PAGES);

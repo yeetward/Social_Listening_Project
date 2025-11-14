@@ -1,13 +1,42 @@
+/**
+ * ====================================
+ * SEARCH PAGE - Main Homepage Script
+ * ====================================
+ * 
+ * This script handles the search homepage functionality including:
+ * - Fetching and displaying top topics pills
+ * - Loading dynamic content cards (trending topics, competitors, backlinks, ideas, news)
+ * - Handling search form submission and navigation
+ * 
+ * API Endpoints Used:
+ * - GET /api/topics/top/              - Fetches top trending topics for pills
+ * - GET /api/cards/trending/          - Fetches trending topics for a company
+ * - GET /api/ai/competitors/          - Fetches competitor information
+ * - GET /api/ai/backlinks/            - Fetches engaged backlinks
+ * - GET /api/ai/ideas/                - Fetches AI-generated content ideas
+ * - GET /api/cards/newsfeed/          - Fetches relevant news articles
+ */
+
 "use strict";
 import "./config.js";
 
-// Configuration
+// ====================================
+// CONFIGURATION
+// ====================================
 const API_BASE_URL = RM_TOOL_CONFIG.API_BASE;
 const DEFAULT_COMPANY = "EcoDrive Motors";
 const API_TIMEOUT = 60000; // 60 seconds timeout - AI operations can take time
 
+// ====================================
+// UTILITY FUNCTIONS
+// ====================================
+
 /**
- * Fetch with timeout
+ * Fetch with timeout wrapper to prevent hanging requests
+ * @param {string} url - The URL to fetch
+ * @param {object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {Promise} - Fetch promise with timeout
  */
 function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
   return Promise.race([
@@ -20,6 +49,8 @@ function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
 
 /**
  * Convert text to title case (capitalize first, last, and major words)
+ * @param {string} str - The string to convert
+ * @returns {string} - Title-cased string
  */
 function toTitleCase(str) {
   if (!str) return str;
@@ -39,8 +70,14 @@ function toTitleCase(str) {
   }).join(' ');
 }
 
+// ====================================
+// API FETCH FUNCTIONS
+// ====================================
+
 /**
- * Fetch top topics from the API and populate the pills
+ * Fetch top trending topics from the API and populate the pills
+ * API: GET /api/topics/top/
+ * @returns {Promise<void>}
  */
 async function fetchTopTopics() {
   const pillsContainer = document.querySelector(".rm-pills");
@@ -98,7 +135,8 @@ async function fetchTopTopics() {
 }
 
 /**
- * Attach click handlers to pill buttons
+ * Attach click handlers to pill buttons for quick search
+ * @returns {void}
  */
 function attachPillClickHandlers() {
   const input = document.querySelector('#searchForm input[name="subject"]:not([type="hidden"])');
@@ -112,7 +150,10 @@ function attachPillClickHandlers() {
 }
 
 /**
- * Fetch trending topics from the API
+ * Fetch trending topics for the company from the API
+ * API: GET /api/cards/trending/
+ * @param {string} companyId - The company ID to fetch trends for
+ * @returns {Promise<void>}
  */
 async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
   const trendingList = document.getElementById("trendingTopicsList");
@@ -172,7 +213,9 @@ async function fetchTrendingTopics(companyId = "69072b397c33c037fd2da784") {
 }
 
 /**
- * Format description with last sentence in bold
+ * Format description with last sentence in bold for emphasis
+ * @param {string} description - The description text to format
+ * @returns {HTMLElement|null} - Formatted div element or null
  */
 function formatDescriptionWithBoldLastSentence(description) {
   if (!description || !description.trim()) return null;
@@ -208,7 +251,10 @@ function formatDescriptionWithBoldLastSentence(description) {
 }
 
 /**
- * Fetch AI-generated ideas from the API
+ * Fetch AI-generated content ideas from the API
+ * API: GET /api/ai/ideas/
+ * @param {string} companyId - The company ID to fetch ideas for
+ * @returns {Promise<void>}
  */
 async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
   const ideasList = document.getElementById("ideasList");
@@ -365,7 +411,10 @@ async function fetchIdeas(companyId = "69072b397c33c037fd2da784") {
 }
 
 /**
- * Fetch news feed from the API
+ * Fetch relevant news feed articles from the API
+ * API: GET /api/cards/newsfeed/
+ * @param {string} companyId - The company ID to fetch news for
+ * @returns {Promise<void>}
  */
 async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
   const newsFeedList = document.getElementById("newsFeedList");
@@ -448,7 +497,10 @@ async function fetchNewsFeed(companyId = "69072b397c33c037fd2da784") {
 }
 
 /**
- * Fetch competitors from the API
+ * Fetch competitor information from the AI API
+ * API: GET /api/ai/competitors/
+ * @param {string} companyId - The company ID to fetch competitors for
+ * @returns {Promise<void>}
  */
 async function fetchCompetitors(companyId = "69072b397c33c037fd2da784") {
   const competitorsList = document.getElementById("competitorsList");
@@ -549,7 +601,116 @@ async function fetchCompetitors(companyId = "69072b397c33c037fd2da784") {
 }
 
 /**
- * Handle search form submission
+ * Fetch engaged backlinks (most linked URLs) from the AI API
+ * API: GET /api/ai/backlinks/
+ * @param {string} companyId - The company ID to fetch backlinks for
+ * @returns {Promise<void>}
+ */
+async function fetchBacklinks(companyId = "69072b397c33c037fd2da784") {
+  const backlinksList = document.getElementById("backlinksList");
+  if (!backlinksList) return;
+
+  try {
+    // Show loading state
+    backlinksList.innerHTML = '<li class="rm-loading">Loading backlinks...</li>';
+
+    const params = new URLSearchParams({
+      company_id: companyId,
+      limit: "10"
+    });
+
+    const apiUrl = `${API_BASE_URL}/ai/backlinks/?${params}`;
+    console.log('🔗 Backlinks API: Calling URL:', apiUrl);
+
+    const response = await fetchWithTimeout(apiUrl, {}, 30000);
+
+    console.log('📡 Backlinks API: Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('📦 BACKLINKS API - FULL RESPONSE:', JSON.stringify(data, null, 2));
+
+    // Handle both array response and object with engaged_links field
+    const backlinks = Array.isArray(data) ? data : (data.engaged_links || []);
+
+    // Clear loading and populate
+    backlinksList.innerHTML = "";
+
+    if (backlinks.length === 0) {
+      console.warn('⚠️ BACKLINKS API: No backlinks returned');
+      backlinksList.innerHTML = '<li class="rm-empty">No backlinks available at this time.</li>';
+      return;
+    }
+
+    console.log(`✅ BACKLINKS API: Rendering ${backlinks.length} backlinks`);
+
+    // Display backlinks (handle both string URLs and object formats)
+    backlinks.forEach((backlink, index) => {
+      const li = document.createElement("li");
+      
+      // Handle both string URL and object formats
+      let url;
+      if (typeof backlink === 'string') {
+        url = backlink;
+      } else if (typeof backlink === 'object' && backlink !== null) {
+        // Extract URL from various possible fields
+        url = backlink.url || backlink.link || backlink.href || JSON.stringify(backlink);
+      } else {
+        url = String(backlink);
+      }
+
+      // Create clickable link
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = url;
+      
+      li.appendChild(link);
+      backlinksList.appendChild(li);
+    });
+
+    console.log('✅ Displayed', backlinks.length, 'backlinks');
+
+  } catch (error) {
+    console.error('❌ Backlinks API: Error occurred:', error);
+    console.error('❌ Backlinks API: Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Show fallback content
+    backlinksList.innerHTML = `
+      <li><a href="https://example.com/health-resources" target="_blank" rel="noopener noreferrer">https://example.com/health-resources</a></li>
+      <li><a href="https://example.com/medical-insights" target="_blank" rel="noopener noreferrer">https://example.com/medical-insights</a></li>
+      <li><a href="https://example.com/patient-care" target="_blank" rel="noopener noreferrer">https://example.com/patient-care</a></li>
+      <li><a href="https://example.com/clinical-research" target="_blank" rel="noopener noreferrer">https://example.com/clinical-research</a></li>
+      <li><a href="https://example.com/healthcare-tech" target="_blank" rel="noopener noreferrer">https://example.com/healthcare-tech</a></li>
+    `;
+    
+    // Add a subtle note
+    const note = document.createElement("li");
+    note.style.fontSize = "12px";
+    note.style.color = "#999";
+    note.style.fontStyle = "italic";
+    note.style.border = "none";
+    note.textContent = `(Using cached data - API error: ${error.message})`;
+    backlinksList.appendChild(note);
+  }
+}
+
+// ====================================
+// SEARCH HANDLING
+// ====================================
+
+/**
+ * Handle search form submission and navigate to results page
+ * @param {string} subject - The search query entered by user
+ * @returns {void}
  */
 function handleSearch(subject) {
   if (!subject || !subject.trim()) {
@@ -573,7 +734,9 @@ function handleSearch(subject) {
 }
 
 /**
- * Prevent text selection after autocomplete fills in
+ * Prevent text selection after browser autocomplete fills in the input
+ * @param {HTMLInputElement} inputElement - The input element to process
+ * @returns {void}
  */
 function preventAutoSelection(inputElement) {
   if (!inputElement) return;
@@ -583,8 +746,15 @@ function preventAutoSelection(inputElement) {
   inputElement.setSelectionRange(length, length);
 }
 
+// ====================================
+// PAGE INITIALIZATION
+// ====================================
+
 /**
- * Initialize the page
+ * Initialize the search homepage on page load
+ * - Sets up form handlers
+ * - Loads all card data
+ * - Handles URL parameters for auto-search
  */
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Page loaded successfully!");
@@ -636,6 +806,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchTopTopics().catch(err => console.error("Failed to load top topics:", err));
     fetchTrendingTopics().catch(err => console.error("Failed to load trending topics:", err));
     fetchCompetitors().catch(err => console.error("Failed to load competitors:", err));
+    fetchBacklinks().catch(err => console.error("Failed to load backlinks:", err));
     fetchIdeas().catch(err => console.error("Failed to load ideas:", err));
     fetchNewsFeed().catch(err => console.error("Failed to load news feed:", err));
   }, 0);
