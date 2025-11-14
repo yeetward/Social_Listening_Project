@@ -47,11 +47,11 @@ python app.py 8000
 Terminal 2
 
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/health/" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/health/" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s http://127.0.0.1:8001/api/health/ | jq .
+curl -s http://127.0.0.1:8000/api/health/ | jq .
 ```
 
 ## `/api/search/`
@@ -59,13 +59,13 @@ curl -s http://127.0.0.1:8001/api/health/ | jq .
 Terminal 2
 
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/search/" -Method POST `
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/search/" -Method POST `
 -Body '{"subject":"Artificial Intelligence"}' -ContentType "application/json" |
 ConvertTo-Json -Depth 10
 
 
 # macOS / Linux
-curl -s -X POST "http://127.0.0.1:8001/api/search/" \
+curl -s -X POST "http://127.0.0.1:8000/api/search/" \
   -H "Content-Type: application/json" \
   -d '{"subject":"Artificial Intelligence"}' | jq .
 ```
@@ -75,12 +75,12 @@ curl -s -X POST "http://127.0.0.1:8001/api/search/" \
 Terminal 2
 
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/debug/mongo/" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/debug/mongo/" -Method GET |
   ConvertTo-Json -Depth 10
 
 
 # macOS / Linux
-curl -s http://127.0.0.1:8001/api/debug/mongo/ | jq .
+curl -s http://127.0.0.1:8000/api/debug/mongo/ | jq .
 ```
 
 ## `/api/history/`
@@ -88,11 +88,11 @@ curl -s http://127.0.0.1:8001/api/debug/mongo/ | jq .
 Terminal 2
 
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/history/?limit=20" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/history/?limit=20" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/history/?limit=20" | jq .
+curl -s "http://127.0.0.1:8000/api/history/?limit=20" | jq .
 ```
 
 ## `/api/search/status/`
@@ -100,53 +100,53 @@ curl -s "http://127.0.0.1:8001/api/history/?limit=20" | jq .
 Terminal 2
 
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/search/status/?history_id=<HISTORY_ID>" -Method GET | ConvertTo-Json -Depth 10
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/search/status/?history_id=<HISTORY_ID>" -Method GET | ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/search/status/?history_id=<HISTORY_ID>" | jq .
+curl -s "http://127.0.0.1:8000/api/search/status/?history_id=<HISTORY_ID>" | jq .
 ```
 
 ## `/api/results/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/results/?history_id=<HISTORY_ID>&status=done&page=1&page_size=10" -Method GET | ConvertTo-Json -Depth 10
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/results/?history_id=<HISTORY_ID>&status=done&page=1&page_size=10" -Method GET | ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/results/?history_id=<HISTORY_ID>&status=done&page=1&page_size=10" | jq .
+curl -s "http://127.0.0.1:8000/api/results/?history_id=<HISTORY_ID>&status=done&page=1&page_size=10" | jq .
 ```
 
 ## `/api/trends/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/trends/?history_id=<HISTORY_ID>&days=30" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/trends/?history_id=<HISTORY_ID>&days=30" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/trends/?history_id=<HISTORY_ID>&days=30" | jq .
+curl -s "http://127.0.0.1:8000/api/trends/?history_id=<HISTORY_ID>&days=30" | jq .
 ```
 
 ## `/api/topics/top/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/topics/top/?days=30&limit=15" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/topics/top/?days=30&limit=15" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/topics/top/?days=30&limit=15" | jq .
+curl -s "http://127.0.0.1:8000/api/topics/top/?days=30&limit=15" | jq .
 ```
 
 ## `/api/company/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/company/?name=EcoDrive%20Motors" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/company/?name=EcoDrive%20Motors" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/company/?name=EcoDrive%20Motors" | jq .
+curl -s "http://127.0.0.1:8000/api/company/?name=EcoDrive%20Motors" | jq .
 ```
 
 # Cards
@@ -154,33 +154,33 @@ curl -s "http://127.0.0.1:8001/api/company/?name=EcoDrive%20Motors" | jq .
 ```bash
 Terminal 2
 # Windows 
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" | jq .
+curl -s "http://127.0.0.1:8000/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" | jq .
 ```
 
 ## `/api/cards/newsfeed/`
 ```bash
 Terminal 2
 # Windows 
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" | jq .
+curl -s "http://127.0.0.1:8000/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" | jq .
 ```
 
 ## `/api/ai/ideas/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" | jq .
+curl -s "http://127.0.0.1:8000/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" | jq .
 ```
 
 ## `/api/ai/competitors/`
@@ -196,12 +196,12 @@ $body = @{
   min_score  = 0.25
   verbose    = $false
 } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/competitors/" -Method POST `
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/competitors/" -Method POST `
   -ContentType "application/json" -Body $body |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s -X POST "http://127.0.0.1:8001/api/ai/competitors/" \
+curl -s -X POST "http://127.0.0.1:8000/api/ai/competitors/" \
   -H "Content-Type: application/json" \
   -d '{
     "text":"We build EV fast chargers for fleets and retail.",
@@ -218,30 +218,54 @@ curl -s -X POST "http://127.0.0.1:8001/api/ai/competitors/" \
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" | jq .
+curl -s "http://127.0.0.1:8000/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" | jq .
 ```
 
-## `/api/ai/opportunities/`
+## `/api/company/upsert/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4" -Method GET |
-  ConvertTo-Json -Depth 10
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/company/upsert/" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $body | ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8001/api/ai/opportunities/?company=EcoDrive%20Motors&industry=Electric%20Vehicles&limit=20&min_relevance=0.4" | jq .
+curl -s -X POST "http://127.0.0.1:8000/api/company/upsert/" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"EcoDrive Motors","description":"EV charging","competitors":["VoltX","ChargeCo"]}' | jq .
+```
+
+## `/api/companies/`
+```bash
+Terminal 2
+# Windows
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/companies/?page=1&page_size=20&q=EV&sort=name&order=asc" `
+  -Method GET | ConvertTo-Json -Depth 10
+
+# macOS / Linux
+curl -s -X POST "http://127.0.0.1:8000/api/ai/competitors/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text":"We build EV fast chargers for fleets.",
+    "seed_brand":"EcoDrive Motors",
+    "industry":["EV","Charging","Energy"],
+    "location":["Australia","NSW"],
+    "top_n":5,
+    "min_score":0.25
+  }' | jq .
 ```
 
 ## Notes
-- Ensure your MongoDB cluster and API keys are valid before running the server.
+- Ensure your MongoDB cluster and API keys are valid before running the server. Specifically in config.py.
 
-- The default port 8001 can be changed if needed (e.g. runserver 8080).
+- The default port 8000 can be changed if needed.
 
-- All environment variables must be set before launching the Django server.
+- All environment variables must be set before launching the flask server.
 
 
 ## API Endpoints
@@ -263,90 +287,8 @@ curl -s "http://127.0.0.1:8001/api/ai/opportunities/?company=EcoDrive%20Motors&i
 | `/api/ai/competitors/`      | POST   | Identify competitor brands from a given text or context using AI |
 | `/api/ai/backlinks/`        | GET    | Retrieve backlinks and sources related to a company       |
 | `/api/ai/opportunities/`    | GET    | Generate business opportunities related to a company and industry |
-
+| `/api/company/upsert/`    | POST    | Create or update (upsert) a company profile |
+| `/api/companies/`    | GET    | List companies |
 
 ---
 
-# MongoDB Collections
-
-## 1. raw_insights
-Stores raw articles/posts before AI processing.
-
-```bash
-{
-  "_id": ObjectId("671970009af52b4e9b0e0c9d"),
-  "url": "https://techcrunch.com/ai-startups/",
-  "title": "AI Startups Are Transforming Healthcare",
-  "text": "This article discusses how new AI-driven startups are improving diagnostics and treatment speeds.",
-  "source": "TechCrunch",
-  "published_ts": 1730000000,
-  "fetched_at": ISODate("2025-10-22T04:25:00Z"),
-  "summary": "AI startups driving innovation in healthcare diagnostics."   
-}
-```
-
-## 2. ai_results
-Stores AI ranked results and summaries for each history entry.
-
-```bash
-
-{
-  "_id": ObjectId("671972159af52b4e9b0e0da2"),
-  "history_id": ObjectId("67196fd69af52b4e9b0e0c1c"),
-  "raw_id": ObjectId("671970009af52b4e9b0e0c9d"),  
-  "url": "https://techcrunch.com/ai-startups/",
-  "source": "TechCrunch",
-  "published_ts": 1730000000,
-
-  // AI-generated fields:
-  "ai_title": "AI Startups Are Transforming Healthcare",
-  "ai_summary": "This article explores how AI-driven startups are revolutionizing healthcare innovation.",
-  "relevance_score": 0.92,
-  "rank": 1,
-
-  // Optional analytics fields:
-  "tags": ["AI", "Healthcare", "Startups"],
-  "influencer_mentions": ["John Doe"],
-  "backlinks": ["https://anotherblog.com/post/123"],
-
-  // Queue state
-  "status": "done",                 
-  "created_at": ISODate("2025-10-22T04:26:00Z"),
-  "finished_at": ISODate("2025-10-22T04:30:00Z")
-}
-```
-
-### 3. history
-Tracks user searches and AI progress.
-
-```bash
-{
- {
-  "_id": ObjectId("67196fd69af52b4e9b0e0c1c"),
-  "subject": "AI in Healthcare",
-  "location": "",
-  "industry": "",
-  "sources_used": ["reddit_rss", "techcrunch_rss", "news_rss"],
-
-  "params": {
-    "days": 7,
-    "fetch_limit": 120,
-    "persist_pool_limit": 500
-  },
-
-  // AI tracking
-  "ai_target": 100,           // expected total
-  "ai_count": 87,             // number processed so far
-  "ai_ready": true,
-  "created_at": ISODate("2025-10-22T04:20:00Z"),
-  "finished_at": ISODate("2025-10-22T04:35:00Z")
-}
-```
-
-## MongoDB Indexes
-```bash
-db.raw_insights.createIndex({ url: 1 }, { unique: true })
-db.raw_insights.createIndex({ published_ts: -1 })
-db.ai_results.createIndex({ history_id: 1, rank: 1 })
-db.history.createIndex({ created_at: -1 })
-```
