@@ -1,11 +1,13 @@
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import gpt
 import json
 
 import json
 from math import ceil
+
 
 def news_relevancy_rag(context: dict, news_articles: list[dict], batch_size: int = 25):
     company = context["name"]
@@ -74,7 +76,9 @@ Format:
 
         try:
             # Run GPT/Groq call for this batch
-            analysis = gpt.load_model(prompt, max_tokens=3000, temperature=0.2, stream=False)
+            analysis = gpt.load_model(
+                prompt, max_tokens=3000, temperature=0.2, stream=False
+            )
             result = json.loads(analysis)
 
             if not isinstance(result, list):
@@ -90,12 +94,11 @@ Format:
                     all_results.append(article)
 
         except json.JSONDecodeError as e:
-            print(f"⚠️ JSON decoding failed for batch {batch_index + 1}: {e}")
+            print(f"JSON decoding failed for batch {batch_index + 1}: {e}")
             print(f"Raw response: {analysis}")
         except Exception as e:
-            print(f"❌ Error during batch {batch_index + 1}: {e}")
+            print(f"Error during batch {batch_index + 1}: {e}")
 
     # Sort all results by relevance
     all_results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
     return all_results
-    
