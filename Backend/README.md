@@ -40,6 +40,14 @@ Terminal 1
 python app.py 8000
 ```
 
+## Notes
+- Ensure your MongoDB cluster and API keys are valid before running the server. Specifically in config.py.
+
+- The default port 8000 can be changed if needed.
+
+- All environment variables must be set before launching the flask server.
+
+
 ## Quick testing
 
 ## `/api/health/`
@@ -142,11 +150,11 @@ curl -s "http://127.0.0.1:8000/api/topics/top/?days=30&limit=15" | jq .
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/company/?name=EcoDrive%20Motors" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/company/?name=Tesla" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8000/api/company/?name=EcoDrive%20Motors" | jq .
+curl -s "http://127.0.0.1:8000/api/company/?name=Tesla" | jq .
 ```
 
 # Cards
@@ -154,33 +162,33 @@ curl -s "http://127.0.0.1:8000/api/company/?name=EcoDrive%20Motors" | jq .
 ```bash
 Terminal 2
 # Windows 
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/cards/trending/?company_id=69072b397c33c037fd2da784&threshold=0.5&limit=10&full=1" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8000/api/cards/trending/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full=1" | jq .
+curl -s "http://127.0.0.1:8000/api/cards/trending/?company_id=69072b397c33c037fd2da784&threshold=0.5&limit=10&full=1" | jq .
 ```
 
 ## `/api/cards/newsfeed/`
 ```bash
 Terminal 2
 # Windows 
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/cards/newsfeed/?company_id=69072b397c33c037fd2da784&threshold=0.5&limit=10&full_analysis=1" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8000/api/cards/newsfeed/?company_id=68feebb67c33c037fd2d62f7&threshold=0.5&limit=10&full_analysis=1" | jq .
+curl -s "http://127.0.0.1:8000/api/cards/newsfeed/?company_id=69072b397c33c037fd2da784&threshold=0.5&limit=10&full_analysis=1" | jq .
 ```
 
 ## `/api/ai/ideas/`
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/ideas/?company=Tesla=all&limit=10" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8000/api/ai/ideas/?company=EcoDrive%20Motors&type=all&limit=10" | jq .
+curl -s "http://127.0.0.1:8000/api/ai/ideas/?company=Tesla=all&limit=10" | jq .
 ```
 
 ## `/api/ai/competitors/`
@@ -218,11 +226,11 @@ curl -s -X POST "http://127.0.0.1:8000/api/ai/competitors/" \
 ```bash
 Terminal 2
 # Windows
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" -Method GET |
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ai/backlinks/?company=Tesla&limit=50&no_llm=0&return_stored=0" -Method GET |
   ConvertTo-Json -Depth 10
 
 # macOS / Linux
-curl -s "http://127.0.0.1:8000/api/ai/backlinks/?company=EcoDrive%20Motors&limit=50&no_llm=0&return_stored=0" | jq .
+curl -s "http://127.0.0.1:8000/api/ai/backlinks/?company=Tesla&limit=50&no_llm=0&return_stored=0" | jq .
 ```
 
 ## `/api/company/upsert/`
@@ -259,13 +267,6 @@ curl -s -X POST "http://127.0.0.1:8000/api/ai/competitors/" \
     "min_score":0.25
   }' | jq .
 ```
-
-## Notes
-- Ensure your MongoDB cluster and API keys are valid before running the server. Specifically in config.py.
-
-- The default port 8000 can be changed if needed.
-
-- All environment variables must be set before launching the flask server.
 
 
 ## API Endpoints
