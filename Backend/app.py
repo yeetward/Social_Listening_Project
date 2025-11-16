@@ -12,7 +12,7 @@ def create_app():
 if __name__ == "__main__":
     app = create_app()
 
-    # Allow custom port argument, default to 8001
+    # Allow custom port argument, default to 8000
     port = 8000
     if len(sys.argv) > 1 and sys.argv[1].isdigit():
         port = int(sys.argv[1])

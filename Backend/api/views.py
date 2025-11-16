@@ -15,8 +15,6 @@ from .analytics import (
     _coerce_topics_list,  
     global_top_topics,
     _as_list
-    
-
 )
 
 from .sources import REGISTRY as FETCHERS
@@ -33,7 +31,6 @@ from .persist import (
     _iso_z,
 )
 
-# External config/constants that were in Django settings
 from config import NEWSAPI_KEY as NEWSAPI_DEFAULT_KEY
 from config import SERPAPI_KEY as SERPAPI_DEFAULT_KEY
 
@@ -485,7 +482,6 @@ def get_trends():
     try:
         oid = ObjectId(hid)
         tags = trend_top_tags(oid, days, top_k=20)
-        # Flatten to just the tag list
         tag_list = [t["_id"] for t in tags if "_id" in t]
         return _j(tag_list, 200)
     except Exception as e:
@@ -930,28 +926,8 @@ def ai_generate_ideas():
 
 @api_bp.route("/ai/competitors/", methods=["GET", "POST"])
 def ai_competitors():
-    """
-    GET /api/ai/competitors/?company_id=<id>&top_n=10&min_score=0.25&limit_articles=80&min_relevance=0.30&force=0&verbose=0
-      Optional:
-        - &company=<name> (resolve to id)
-        - &limit_articles (documents pool cap for the AI)
-        - &min_relevance  (filter for document relevancy before scoring)
-        - &top_n          (how many competitors to keep)
-        - &min_score      (AI score cutoff)
-        - &force=1        (bypass freshness and recompute)
-        - &verbose=1
-
-    Source of truth: company_profiles.cards.competitors
-    - If today(UTC) < next_refresh_at.date() and data exists -> return schema (unless force=1)
-    - Else:
-        * run competitors_run(company_id=..., knobs...)
-        * re-read schema and return
-        * (compat) if AI wrote to cards.new_competitors.items, migrate -> cards.competitors.data
-        * (safety) ensure next_refresh_at exists (now + 7d)
-    """
     db = get_mongo_db()
 
-    # ---- read inputs (query first; accept POST JSON fallback for "company") ----
     q = request.args
     body = (request.get_json(silent=True) or {}) if request.method == "POST" else {}
 
@@ -983,11 +959,9 @@ def ai_competitors():
     min_score      = _float("min_score", 0.25)
     verbose        = _bool("verbose", False)
 
-    # Back-compat: POST body may provide company name
     if not company_id and not company_name and request.method == "POST":
         company_name = (body.get("company") or "").strip() or None
 
-    # ---- resolve company ----
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
@@ -1007,7 +981,6 @@ def ai_competitors():
         if prof:
             company_name = prof.get("name")
 
-    # ---- helper: read schema + respond ----
     def _read_schema_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)},
@@ -1020,7 +993,6 @@ def ai_competitors():
         cards = fresh.get("cards") or {}
         comp  = (cards.get("competitors") or {})
 
-        # Prefer normalized 'data'; fall back to legacy 'items' (or new_competitors.items)
         data = comp.get("data") or comp.get("items")
         if not data:
             data = (cards.get("new_competitors") or {}).get("items") or []
@@ -1028,7 +1000,6 @@ def ai_competitors():
         out = (data or [])[:top_n]
         return _j({"company": name, "company_id": company_id, "count": len(out), "competitors": out}, 200)
 
-    # ---- freshness check ----
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = prof.get("cards") or {}
     comp  = cards.get("competitors") or {}
@@ -1039,22 +1010,20 @@ def ai_competitors():
     if (not force) and next_refresh_date and today_utc < next_refresh_date and (comp.get("data") or comp.get("items")):
         return _read_schema_and_respond()
 
-    # ---- call AI runner (best-effort) ----
     try:
         if competitors_run is not None:
             competitors_run(
                 company_id=company_id,
-                limit_docs=limit_articles,      # match parameter name
+                limit_docs=limit_articles,      
                 min_relevance=min_relevance,
-                days_back=180,                  # default window
+                days_back=180,                 
                 top_n=top_n,
-                persist=True,                   # matches your run()
+                persist=True,                   
                 verbose=verbose,
             )
     except Exception as e:
         logger.warning("competitors_run failed; continuing with schema as-is. %s", e)
 
-    # ---- migrate legacy: cards.new_competitors.items -> cards.competitors.data ----
     fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards": 1}) or {}
     cards = fresh.get("cards") or {}
     newc  = cards.get("new_competitors") or {}
@@ -1072,7 +1041,6 @@ def ai_competitors():
             {"$set": {"cards.competitors": block}}
         )
 
-    # ---- safety: ensure next_refresh_at on competitors ----
     cur = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.competitors": 1}) or {}
     cur_block = ((cur.get("cards") or {}).get("competitors") or {})
     if not cur_block.get("next_refresh_at"):
@@ -1082,24 +1050,10 @@ def ai_competitors():
             {"$set": {"cards.competitors.next_refresh_at": _iso_z(now + timedelta(days=7))}}
         )
 
-    # ---- final readback ----
     return _read_schema_and_respond()
 
 @api_bp.route("/ai/backlinks/", methods=["GET"])
 def ai_backlinks():
-    """
-    Compatibility endpoint: returns the company's most engaged links.
-    Source of truth: company_profiles.cards.engaged_links
-
-    Query params:
-      - company_id=<id> or company=<name>
-      - limit=<N>               -> maps to runner top_n (default 20)
-      - limit_docs=<N>          -> runner limit_docs (default 400)
-      - min_relevance=<float>   -> runner min_relevance (default 0.10)
-      - days_back=<int>         -> runner days_back (default 200)
-      - force=1                 -> bypass freshness
-      - verbose=1
-    """
     if engaged_links_run is None:
         return _j({"error": "engaged_links.run not available"}, 500)
 
@@ -1123,14 +1077,12 @@ def ai_backlinks():
         if v is None: return default
         return str(v).strip().lower() in ("1","true","yes","y","on")
 
-    # Map query knobs to runner
-    top_n         = _int("limit", 20)           # public param 'limit' → runner top_n
+    top_n         = _int("limit", 20)        
     limit_docs    = _int("limit_docs", 400)
     min_relevance = _float("min_relevance", 0.10)
     days_back     = _int("days_back", 200)
     verbose       = _bool("verbose", False)
 
-    # ---- resolve company ----
     if not company_id and company_name:
         doc = get_company_profile(name=company_name)
         if not doc:
@@ -1150,7 +1102,6 @@ def ai_backlinks():
         if prof:
             company_name = prof.get("name")
 
-    # ---- helper: read schema + respond ----
     def _read_schema_and_respond():
         fresh = db["company_profiles"].find_one(
             {"_id": ObjectId(company_id)}, {"name": 1, "cards.engaged_links": 1}
@@ -1161,13 +1112,11 @@ def ai_backlinks():
         name = fresh.get("name") or company_name
         card = ((fresh.get("cards") or {}).get("engaged_links") or {})
 
-        # prefer modern fields
+
         data = card.get("data") or card.get("items")
 
-        # legacy 'urls' field support
         if not data:
             urls = card.get("urls") or []
-            # if urls are strings, use them directly
             if all(isinstance(u, str) for u in urls):
                 data = urls
             else:
@@ -1178,11 +1127,10 @@ def ai_backlinks():
             "company": name,
             "company_id": company_id,
             "count": len(out),
-            "engaged_links": out    # <-- now a flat list of URLs, not wrapped objects
+            "engaged_links": out   
         }, 200)
 
 
-    # ---- freshness check ----
     prof = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
     card = ((prof.get("cards") or {}).get("engaged_links") or {})
     next_refresh_at   = card.get("next_refresh_at")
@@ -1191,7 +1139,6 @@ def ai_backlinks():
     if (not force) and next_refresh_date and today_utc < next_refresh_date and (card.get("data") or card.get("items")):
         return _read_schema_and_respond()
 
-    # ---- run builder (best-effort) ----
     try:
         engaged_links_run(
             company_id=company_id,
@@ -1205,7 +1152,6 @@ def ai_backlinks():
     except Exception as e:
         logger.warning("engaged_links_run failed; continuing with schema as-is. %s", e)
 
-    # ---- migrate legacy 'items' -> 'data' if needed ----
     fresh = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
     card  = ((fresh.get("cards") or {}).get("engaged_links") or {})
     if card.get("items") and not card.get("data"):
@@ -1220,7 +1166,6 @@ def ai_backlinks():
             {"$set": {"cards.engaged_links": migrate_block}}
         )
 
-    # ---- ensure next_refresh_at exists ----
     cur = db["company_profiles"].find_one({"_id": ObjectId(company_id)}, {"cards.engaged_links": 1}) or {}
     cur_block = ((cur.get("cards") or {}).get("engaged_links") or {})
     if not cur_block.get("next_refresh_at"):
