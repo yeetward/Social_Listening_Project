@@ -2,24 +2,25 @@
 # Install with: python -m pip install -r AI/requirements.txt
 
 # Core ML / NLP libraries
-transformers
-sentence-transformers
-torch
-spacy
-nltk
+transformers==4.57.1
+sentence-transformers  # Note: Install and pin version after testing
+torch==2.9.0
+spacy  # Note: Install and pin version after testing
+nltk  # Note: Install and pin version after testing
 
 # Vector/embedding / similarity / ML
-numpy
-scikit-learn
-rank-bm25
+numpy==2.2.5
+scikit-learn==1.7.2
+rank-bm25  # Note: Install and pin version after testing
 
 # HTTP / DB / API
-requests
-pymongo
-groq
+requests==2.31.0
+pymongo==4.15.1
+groq  # Note: Install and pin version after testing
 
 # Notes:
-# - The file purposefully does not pin versions. Pin versions after testing in your environment.
+# - Versions are pinned based on the current development environment (as of 2025-11-18).
+# - Some packages are not yet installed and need to be installed and version-pinned after testing.
 # - After installing `spacy`, download the English model used in the code:
 #     python -m spacy download en_core_web_sm
 # - `sentence-transformers` requires a working `torch` installation; if your machine supports CUDA, install a CUDA-enabled torch build.
