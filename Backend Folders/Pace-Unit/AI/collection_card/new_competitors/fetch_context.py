@@ -2,15 +2,20 @@ from __future__ import annotations
 from typing import List, Dict, Any, Tuple, Set
 from bson import ObjectId
 from pymongo import MongoClient
+from dotenv import load_dotenv
+from pathlib import Path
 import os, re, time
+
+# Load environment variables from AI.env
+env_path = Path(__file__).parent.parent.parent / "AI.env"
+load_dotenv(env_path)
 
 from AI.collection_card.fetch_articles import get_company_articles
 from AI.collection_card.new_competitors.domain import keywords_for
 
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
-)
+MONGO_URI = os.getenv("MONGO_URI")
+if not MONGO_URI:
+    raise ValueError("MONGO_URI not found in AI.env")
 client = MongoClient(MONGO_URI)
 db = client["pace_database"]
 

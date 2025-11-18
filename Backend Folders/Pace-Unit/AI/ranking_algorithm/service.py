@@ -2,17 +2,22 @@
 from __future__ import annotations
 from typing import Dict, Any, List
 from pymongo import MongoClient
+from dotenv import load_dotenv
+from pathlib import Path
 import os
+
+# Load environment variables from AI.env
+env_path = Path(__file__).parent.parent / "AI.env"
+load_dotenv(env_path)
 
 # Reuse your existing modules
 from AI.ranking_algorithm.seed_ai_results import main as seed_ai_results
 from AI.ranking_algorithm.main import run as run_pipeline
 from AI.ranking_algorithm.check_history import clauses as build_history_clauses
 
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-)
+MONGO_URI = os.getenv("MONGO_URI")
+if not MONGO_URI:
+    raise ValueError("MONGO_URI not found in AI.env")
 db = MongoClient(MONGO_URI)["pace_database"]
 
 def run_full_pipeline(history_id: str, keyword: str, sentiment_filter: str = None) -> Dict[str, Any]:

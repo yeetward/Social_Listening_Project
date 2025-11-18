@@ -4,16 +4,21 @@ Backfill sentiment analysis for existing ai_results documents that don't have it
 """
 from pymongo import MongoClient
 from bson import ObjectId
+from dotenv import load_dotenv
+from pathlib import Path
 import os
 import sys
+
+# Load environment variables from AI.env
+env_path = Path(__file__).parent.parent / "AI.env"
+load_dotenv(env_path)
 
 # Import sentiment analyzer
 from AI.sentiment_analysis.sentiment_analyzer import quick_sentiment
 
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-)
+MONGO_URI = os.getenv("MONGO_URI")
+if not MONGO_URI:
+    raise ValueError("MONGO_URI not found in AI.env")
 client = MongoClient(MONGO_URI)
 db = client["pace_database"]
 

@@ -5,6 +5,12 @@ import os
 import time
 import random
 from openai import RateLimitError
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables from AI.env
+env_path = Path(__file__).parent.parent / "AI.env"
+load_dotenv(env_path)
 
 def safe_api_call(fn, *args, **kwargs):
     """
@@ -36,7 +42,9 @@ def load_model(prompt, max_tokens=256, temperature=1.0, stream=True):
     """
     
     # Initialize Groq client
-    api_key = os.getenv("GROQ_API_KEY","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")  # Replace with your key
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not found in AI.env")
     client = Groq(api_key=api_key)
     
     # Model selection (equivalent to your 120B model)

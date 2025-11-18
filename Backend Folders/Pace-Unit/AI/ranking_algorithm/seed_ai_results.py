@@ -1,9 +1,18 @@
 # AI/ranking_algorithm/seed_ai_results.py
 from pymongo import MongoClient, UpdateOne
 from bson import ObjectId
+from dotenv import load_dotenv
+from pathlib import Path
+import os
 import sys
 
-MONGO_URI = "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+# Load environment variables from AI.env
+env_path = Path(__file__).parent.parent / "AI.env"
+load_dotenv(env_path)
+
+MONGO_URI = os.getenv("MONGO_URI")
+if not MONGO_URI:
+    raise ValueError("MONGO_URI not found in AI.env")
 db = MongoClient(MONGO_URI)["pace_database"]
 
 # Change this if your raw text is elsewhere

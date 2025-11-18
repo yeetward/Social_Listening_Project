@@ -17,6 +17,7 @@ rank-bm25  # Note: Install and pin version after testing
 requests==2.31.0
 pymongo==4.15.1
 groq  # Note: Install and pin version after testing
+python-dotenv  # Note: Install and pin version after testing
 
 # Notes:
 # - Versions are pinned based on the current development environment (as of 2025-11-18).

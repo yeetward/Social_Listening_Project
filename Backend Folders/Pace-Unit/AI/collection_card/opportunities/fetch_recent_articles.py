@@ -6,12 +6,17 @@ Fetch articles for a specific history_id from ai_results collection.
 from pymongo import MongoClient
 from typing import List, Dict, Any
 from bson import ObjectId
+from dotenv import load_dotenv
+from pathlib import Path
 import os
 
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://ai_worker_user:YUiDJwjMqqBKEI70@cluster0.dqugl74.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-)
+# Load environment variables from AI.env
+env_path = Path(__file__).parent.parent.parent / "AI.env"
+load_dotenv(env_path)
+
+MONGO_URI = os.getenv("MONGO_URI")
+if not MONGO_URI:
+    raise ValueError("MONGO_URI not found in AI.env")
 client = MongoClient(MONGO_URI)
 db = client["pace_database"]
 
